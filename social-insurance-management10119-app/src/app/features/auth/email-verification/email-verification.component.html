@@ -1,0 +1,48 @@
+<div class="email-verification-container">
+  <div class="email-verification-card">
+    <h1>メール認証</h1>
+    
+    <div *ngIf="isChecking" class="checking">
+      <p>認証状態を確認中...</p>
+    </div>
+
+    <div *ngIf="!isChecking && !isEmailVerified" class="not-verified">
+      <div class="icon">📧</div>
+      <p class="message">
+        <strong>{{ email }}</strong> に認証メールを送信しました。
+      </p>
+      <p class="instruction">
+        メール内のリンクをクリックして、メールアドレスを認証してください。
+      </p>
+      
+      <div class="actions">
+        <button 
+          class="btn-primary" 
+          (click)="checkEmailVerification()"
+        >
+          認証状態を確認
+        </button>
+        
+        <button 
+          class="btn-secondary" 
+          (click)="resendVerificationEmail()"
+          [disabled]="!canResend"
+        >
+          <span *ngIf="canResend">認証メールを再送信</span>
+          <span *ngIf="!canResend">再送信可能まで {{ resendCooldown }}秒</span>
+        </button>
+      </div>
+
+      <div class="links">
+        <a (click)="logout()" class="logout-link">別のアカウントでログイン</a>
+      </div>
+    </div>
+
+    <div *ngIf="!isChecking && isEmailVerified" class="verified">
+      <div class="icon success">✓</div>
+      <p class="message success">メール認証が完了しました！</p>
+      <p class="instruction">初回セットアップ画面に移動します...</p>
+    </div>
+  </div>
+</div>
+

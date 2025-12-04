@@ -1,0 +1,41 @@
+<div class="dashboard-container">
+  <h1>ダッシュボード</h1>
+  
+  <div class="welcome-section">
+    <p>ようこそ、{{ currentUser?.displayName || currentUser?.email }}さん</p>
+    <p class="role">ロール: {{ currentUser?.role === 'owner' ? 'オーナー' : currentUser?.role === 'admin' ? '管理者' : '社員' }}</p>
+  </div>
+
+  <!-- セットアップガイド -->
+  <mat-card *ngIf="showSetupGuide" class="setup-guide-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>checklist</mat-icon>
+        セットアップガイド
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="setup-description">初回セットアップを完了するために、以下の項目を順番に設定してください。</p>
+      
+      <mat-list>
+        <mat-list-item *ngFor="let task of setupTasks" [class.completed-task]="task.completed">
+          <mat-checkbox [checked]="task.completed" [disabled]="true"></mat-checkbox>
+          <span class="task-label" [class.completed]="task.completed">{{ task.label }}</span>
+        </mat-list-item>
+      </mat-list>
+
+      <div class="button-group">
+        <button mat-raised-button color="primary" (click)="navigateToSetup()">
+          <mat-icon>arrow_forward</mat-icon>
+          セットアップウィザードを開始
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- 通常のダッシュボードコンテンツ（後で実装） -->
+  <div *ngIf="!showSetupGuide" class="dashboard-content">
+    <p>ダッシュボードコンテンツは後で実装します</p>
+  </div>
+</div>
+

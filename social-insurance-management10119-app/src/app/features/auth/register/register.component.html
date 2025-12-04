@@ -1,0 +1,99 @@
+<div class="register-container">
+  <div class="register-card">
+    <h1>新規登録</h1>
+    <p class="subtitle">初回アカウント作成（組織オーナー用）</p>
+    
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="displayName">会社名</label>
+        <input
+          type="text"
+          id="displayName"
+          formControlName="displayName"
+          [class.error]="displayName?.invalid && displayName?.touched"
+          placeholder="株式会社サンプル"
+        />
+        <div class="error-message" *ngIf="displayName?.invalid && displayName?.touched">
+          <span *ngIf="displayName?.errors?.['required']">会社名を入力してください</span>
+          <span *ngIf="displayName?.errors?.['minlength']">会社名は2文字以上で入力してください</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">メールアドレス</label>
+        <input
+          type="email"
+          id="email"
+          formControlName="email"
+          [class.error]="email?.invalid && email?.touched"
+          placeholder="example@example.com"
+        />
+        <div class="error-message" *ngIf="email?.invalid && email?.touched">
+          <span *ngIf="email?.errors?.['required']">メールアドレスを入力してください</span>
+          <span *ngIf="email?.errors?.['email']">メールアドレスの形式が正しくありません</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">パスワード</label>
+        <input
+          type="password"
+          id="password"
+          formControlName="password"
+          [class.error]="password?.invalid && password?.touched"
+          placeholder="6文字以上"
+        />
+        <div class="error-message" *ngIf="password?.invalid && password?.touched">
+          <span *ngIf="password?.errors?.['required']">パスワードを入力してください</span>
+          <span *ngIf="password?.errors?.['minlength']">パスワードは6文字以上で入力してください</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">パスワード（確認）</label>
+        <input
+          type="password"
+          id="confirmPassword"
+          formControlName="confirmPassword"
+          [class.error]="confirmPassword?.invalid && confirmPassword?.touched"
+          placeholder="パスワードを再入力"
+        />
+        <div class="error-message" *ngIf="confirmPassword?.invalid && confirmPassword?.touched">
+          <span *ngIf="confirmPassword?.errors?.['required']">パスワード（確認）を入力してください</span>
+          <span *ngIf="registerForm.errors?.['passwordMismatch'] && confirmPassword?.touched">パスワードが一致しません</span>
+        </div>
+      </div>
+
+      <div class="form-group checkbox-group">
+        <label>
+          <input
+            type="checkbox"
+            formControlName="agreeToTerms"
+          />
+          <span>利用規約・プライバシーポリシーに同意する</span>
+        </label>
+        <div class="error-message" *ngIf="agreeToTerms?.invalid && agreeToTerms?.touched">
+          利用規約への同意が必要です
+        </div>
+      </div>
+
+      <div class="error-message" *ngIf="errorMessage">
+        {{ errorMessage }}
+      </div>
+
+      <button
+        type="submit"
+        class="btn-primary"
+        [disabled]="registerForm.invalid || isLoading"
+      >
+        <span *ngIf="!isLoading">登録</span>
+        <span *ngIf="isLoading">登録中...</span>
+      </button>
+    </form>
+
+    <div class="links">
+      <a routerLink="/login">既にアカウントをお持ちの方はこちら</a>
+    </div>
+  </div>
+</div>
+

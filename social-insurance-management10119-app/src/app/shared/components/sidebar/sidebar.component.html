@@ -1,0 +1,27 @@
+<div class="sidebar">
+  <div class="sidebar-content">
+    <!-- 管理者のみモード切替ボタン -->
+    <ng-container *ngIf="currentUser && (currentUser.role === 'owner' || currentUser.role === 'admin')">
+      <div class="mode-toggle">
+        <button mat-raised-button [color]="isAdminMode ? 'primary' : 'accent'" (click)="toggleAdminMode()" class="mode-button">
+          <mat-icon>{{ isAdminMode ? 'admin_panel_settings' : 'person' }}</mat-icon>
+          <span>{{ isAdminMode ? '管理者モード' : '社員モード' }}</span>
+        </button>
+      </div>
+      <mat-divider></mat-divider>
+    </ng-container>
+    
+    <!-- メニューリスト -->
+    <mat-nav-list>
+      <ng-container *ngFor="let item of getMenuItems()">
+        <ng-container *ngIf="canAccessMenuItem(item)">
+          <a mat-list-item [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{exact: item.route === '/dashboard'}">
+            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+            <span matListItemTitle>{{ item.label }}</span>
+          </a>
+        </ng-container>
+      </ng-container>
+    </mat-nav-list>
+  </div>
+</div>
+

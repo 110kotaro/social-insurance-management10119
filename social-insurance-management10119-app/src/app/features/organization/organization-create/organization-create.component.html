@@ -1,0 +1,79 @@
+<div class="organization-create-container">
+  <div class="create-card">
+    <h1>組織（企業）の作成</h1>
+    <p class="subtitle">組織の基本情報を入力してください</p>
+    
+    <form [formGroup]="organizationForm" (ngSubmit)="onSubmit()">
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>会社名</mat-label>
+          <input matInput formControlName="name" placeholder="株式会社サンプル" required>
+          <mat-error *ngIf="organizationForm.get('name')?.hasError('required')">
+            会社名を入力してください
+          </mat-error>
+          <mat-error *ngIf="organizationForm.get('name')?.hasError('minlength')">
+            会社名は2文字以上で入力してください
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>法人番号（任意）</mat-label>
+          <input matInput formControlName="corporateNumber" placeholder="1234567890123">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>事業所番号（任意）</mat-label>
+          <input matInput formControlName="officeNumber" placeholder="12345678">
+        </mat-form-field>
+      </div>
+
+      <h3>所在地（任意）</h3>
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>都道府県</mat-label>
+          <input matInput formControlName="prefecture" placeholder="東京都">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>市区町村</mat-label>
+          <input matInput formControlName="city" placeholder="千代田区">
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>番地・建物名</mat-label>
+          <input matInput formControlName="street" placeholder="1-1-1">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>建物名・部屋番号</mat-label>
+          <input matInput formControlName="building" placeholder="サンプルビル 5F">
+        </mat-form-field>
+      </div>
+
+      <div class="info-message">
+        <p>※詳細情報は後から「組織設定画面」で追加できます</p>
+      </div>
+
+      <div class="error-message" *ngIf="errorMessage">
+        {{ errorMessage }}
+      </div>
+
+      <div class="button-group">
+        <button
+          type="submit"
+          mat-raised-button
+          color="primary"
+          [disabled]="organizationForm.invalid || isLoading"
+        >
+          <span *ngIf="!isLoading">作成して次へ</span>
+          <span *ngIf="isLoading">作成中...</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+

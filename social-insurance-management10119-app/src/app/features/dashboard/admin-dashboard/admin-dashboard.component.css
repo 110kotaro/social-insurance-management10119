@@ -1,0 +1,83 @@
+.dashboard-container {
+  padding: 24px;
+}
+
+h1 {
+  margin: 0 0 24px 0;
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.welcome-section {
+  margin-bottom: 24px;
+}
+
+.welcome-section p {
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.role {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.setup-guide-card {
+  margin-bottom: 24px;
+}
+
+mat-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.setup-description {
+  margin: 16px 0;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+mat-list {
+  padding-top: 0;
+}
+
+mat-list-item {
+  height: auto;
+  padding: 8px 0;
+}
+
+.task-label {
+  margin-left: 8px;
+  font-size: 14px;
+}
+
+.task-label.completed {
+  color: rgba(0, 0, 0, 0.5);
+  text-decoration: line-through;
+}
+
+.completed-task {
+  opacity: 0.7;
+}
+
+.button-group {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.dashboard-content {
+  padding: 24px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+

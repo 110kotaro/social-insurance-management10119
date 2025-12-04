@@ -1,0 +1,1081 @@
+<div class="setup-wizard-container">
+  <div class="wizard-card">
+    <h1>初回セットアップ</h1>
+    <p class="subtitle">組織情報を設定してください</p>
+
+    <mat-stepper [linear]="true" #stepper="matStepper">
+      <!-- ステップ1: 組織情報の確認・編集 -->
+      <mat-step [stepControl]="organizationForm">
+        <ng-template matStepLabel>組織情報の確認・編集</ng-template>
+        
+        <form [formGroup]="organizationForm">
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>組織名（会社名）</mat-label>
+              <input matInput formControlName="name" placeholder="株式会社サンプル" required>
+              <mat-error *ngIf="organizationForm.get('name')?.hasError('required')">
+                組織名を入力してください
+              </mat-error>
+              <mat-error *ngIf="organizationForm.get('name')?.hasError('minlength')">
+                組織名は2文字以上で入力してください
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>法人番号</mat-label>
+              <input matInput formControlName="corporateNumber" placeholder="1234567890123" required>
+              <mat-error *ngIf="organizationForm.get('corporateNumber')?.hasError('required')">
+                法人番号を入力してください
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>事業所番号</mat-label>
+              <input matInput formControlName="officeNumber" placeholder="12345678" required>
+              <mat-error *ngIf="organizationForm.get('officeNumber')?.hasError('required')">
+                事業所番号を入力してください
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>業種</mat-label>
+              <input matInput formControlName="industry" placeholder="IT・ソフトウェア">
+            </mat-form-field>
+          </div>
+
+          <h3>住所</h3>
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>都道府県</mat-label>
+              <input matInput formControlName="prefecture" placeholder="東京都" required>
+              <mat-error *ngIf="organizationForm.get('prefecture')?.hasError('required')">
+                都道府県を入力してください
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>市区町村</mat-label>
+              <input matInput formControlName="city" placeholder="千代田区" required>
+              <mat-error *ngIf="organizationForm.get('city')?.hasError('required')">
+                市区町村を入力してください
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>番地・建物名</mat-label>
+              <input matInput formControlName="street" placeholder="1-1-1" required>
+              <mat-error *ngIf="organizationForm.get('street')?.hasError('required')">
+                番地・建物名を入力してください
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>建物名・部屋番号</mat-label>
+              <input matInput formControlName="building" placeholder="サンプルビル 5F">
+            </mat-form-field>
+          </div>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>電話番号</mat-label>
+              <input matInput formControlName="phoneNumber" placeholder="03-1234-5678">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>メールアドレス</mat-label>
+              <input matInput type="email" formControlName="email" placeholder="info@example.com">
+              <mat-error *ngIf="organizationForm.get('email')?.hasError('email')">
+                メールアドレスの形式が正しくありません
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <div class="error-message" *ngIf="errorMessage">
+            {{ errorMessage }}
+          </div>
+
+          <div class="button-group">
+            <button mat-raised-button color="primary" (click)="onStep1Submit()" [disabled]="organizationForm.invalid || isLoading">
+              <span *ngIf="!isLoading">次へ</span>
+              <span *ngIf="isLoading">保存中...</span>
+            </button>
+          </div>
+        </form>
+      </mat-step>
+
+      <!-- ステップ2: 部署作成 -->
+      <mat-step>
+        <ng-template matStepLabel>部署作成</ng-template>
+        
+        <div class="step-content">
+          <p class="step-description">組織の部署を追加してください。少なくとも1つの部署が必要です。</p>
+          
+          <form [formGroup]="departmentsForm" class="add-department-form">
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>部署名</mat-label>
+                <input matInput formControlName="name" placeholder="営業部" required>
+                <mat-error *ngIf="departmentsForm.get('name')?.hasError('required')">
+                  部署名を入力してください
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>部署コード</mat-label>
+                <input matInput formControlName="code" placeholder="SALES">
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>上位部署（親部署、任意）</mat-label>
+                <mat-select formControlName="parentDepartmentId">
+                  <mat-option [value]="null">なし</mat-option>
+                  <mat-option *ngFor="let dept of departments; let i = index" [value]="i">
+                    {{ dept.name }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>メールアドレス（任意）</mat-label>
+                <input matInput type="email" formControlName="email" placeholder="sales@example.com">
+                <mat-error *ngIf="departmentsForm.get('email')?.hasError('email')">
+                  メールアドレスの形式が正しくありません
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <div class="button-group">
+              <button mat-raised-button type="button" color="primary" (click)="addDepartment()" [disabled]="departmentsForm.invalid">
+                <mat-icon>add</mat-icon>
+                部署を追加
+              </button>
+            </div>
+          </form>
+
+          <!-- 追加された部署一覧 -->
+          <div class="departments-list" *ngIf="departments.length > 0">
+            <h3>追加された部署</h3>
+            <mat-list>
+              <mat-list-item *ngFor="let dept of departments; let i = index">
+                <div class="department-item">
+                  <div class="department-info">
+                    <span class="department-name">{{ dept.name }}</span>
+                    <span class="department-code" *ngIf="dept.code">（{{ dept.code }}）</span>
+                    <span class="department-email" *ngIf="dept.email">{{ dept.email }}</span>
+                  </div>
+                  <button mat-icon-button color="warn" (click)="removeDepartment(i)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </mat-list-item>
+            </mat-list>
+          </div>
+
+          <div class="error-message" *ngIf="errorMessage">
+            {{ errorMessage }}
+          </div>
+
+          <div class="button-group">
+            <button mat-button matStepperPrevious>戻る</button>
+            <button mat-raised-button color="primary" (click)="onStep2Submit()" [disabled]="departments.length === 0 || isLoading">
+              <span *ngIf="!isLoading">次へ</span>
+              <span *ngIf="isLoading">保存中...</span>
+            </button>
+          </div>
+        </div>
+      </mat-step>
+
+      <!-- ステップ3: 保険設定 -->
+      <mat-step [stepControl]="insuranceForm">
+        <ng-template matStepLabel>保険設定</ng-template>
+        
+        <div class="step-content">
+          <p class="step-description">健康保険、厚生年金、介護保険、雇用保険の設定を行ってください。</p>
+          
+          <form [formGroup]="insuranceForm">
+            <!-- 健康保険 -->
+            <h3>健康保険</h3>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>保険の種類</mat-label>
+                <input matInput value="協会けんぽ" readonly>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>事業所番号</mat-label>
+                <input matInput formControlName="healthInsuranceOfficeNumber" placeholder="12345678" required>
+                <mat-error *ngIf="insuranceForm.get('healthInsuranceOfficeNumber')?.hasError('required')">
+                  事業所番号を入力してください
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>端数処理方式</mat-label>
+                <mat-select formControlName="healthInsuranceRoundingMethod" required>
+                  <mat-option value="round">四捨五入</mat-option>
+                  <mat-option value="ceil">切り上げ</mat-option>
+                  <mat-option value="floor">切り捨て</mat-option>
+                </mat-select>
+                <mat-error *ngIf="insuranceForm.get('healthInsuranceRoundingMethod')?.hasError('required')">
+                  端数処理方式を選択してください
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>保険証の形式（任意）</mat-label>
+                <mat-select formControlName="healthInsuranceCardFormat">
+                  <mat-option value="none">指定なし</mat-option>
+                  <mat-option value="card">カード型</mat-option>
+                  <mat-option value="paper">紙型</mat-option>
+                  <mat-option value="ic">IC型</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <!-- 厚生年金 -->
+            <h3>厚生年金</h3>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>事業所番号</mat-label>
+                <input matInput formControlName="pensionInsuranceOfficeNumber" placeholder="12345678" required>
+                <mat-error *ngIf="insuranceForm.get('pensionInsuranceOfficeNumber')?.hasError('required')">
+                  事業所番号を入力してください
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>厚生年金適用事業所区分</mat-label>
+                <mat-select formControlName="pensionInsuranceBusinessCategory" required>
+                  <mat-option value="general">一般の事業所</mat-option>
+                  <mat-option value="specific">特定適用事業所</mat-option>
+                  <mat-option value="seaman">船員保険の適用事業所</mat-option>
+                </mat-select>
+                <mat-error *ngIf="insuranceForm.get('pensionInsuranceBusinessCategory')?.hasError('required')">
+                  厚生年金適用事業所区分を選択してください
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>端数処理方式</mat-label>
+                <mat-select formControlName="pensionInsuranceRoundingMethod" required>
+                  <mat-option value="round">四捨五入</mat-option>
+                  <mat-option value="ceil">切り上げ</mat-option>
+                  <mat-option value="floor">切り捨て</mat-option>
+                </mat-select>
+                <mat-error *ngIf="insuranceForm.get('pensionInsuranceRoundingMethod')?.hasError('required')">
+                  端数処理方式を選択してください
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- 介護保険 -->
+            <h3>介護保険</h3>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>対象事業所</mat-label>
+                <mat-select formControlName="careInsuranceTargetOffice" required>
+                  <mat-option [value]="null">未選択</mat-option>
+                  <mat-option [value]="true">対象事業所である</mat-option>
+                  <mat-option [value]="false">対象事業所でない</mat-option>
+                </mat-select>
+                <mat-error *ngIf="insuranceForm.get('careInsuranceTargetOffice')?.hasError('required')">
+                  対象事業所を選択してください
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- 雇用保険 -->
+            <h3>雇用保険</h3>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>事業所番号</mat-label>
+                <input matInput formControlName="employmentInsuranceOfficeNumber" placeholder="12345678" required>
+                <mat-error *ngIf="insuranceForm.get('employmentInsuranceOfficeNumber')?.hasError('required')">
+                  事業所番号を入力してください
+                </mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>労働保険番号</mat-label>
+                <input matInput formControlName="employmentInsuranceLaborNumber" placeholder="12345678901" required>
+                <mat-error *ngIf="insuranceForm.get('employmentInsuranceLaborNumber')?.hasError('required')">
+                  労働保険番号を入力してください
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <div class="error-message" *ngIf="errorMessage">
+              {{ errorMessage }}
+            </div>
+
+            <div class="button-group">
+              <button mat-button matStepperPrevious>戻る</button>
+              <button mat-raised-button color="primary" (click)="onStep3Submit()" [disabled]="insuranceForm.invalid || isLoading">
+                <span *ngIf="!isLoading">次へ</span>
+                <span *ngIf="isLoading">保存中...</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </mat-step>
+
+      <!-- ステップ4: 料率・標準報酬等級テーブル -->
+      <mat-step>
+        <ng-template matStepLabel>料率・標準報酬等級設定</ng-template>
+        <div class="step-content">
+          <p class="step-description">健康・介護保険料率、厚生年金料率、標準報酬等級表を設定してください。CSVファイルからインポートするか、手動で入力できます。</p>
+          
+          <form [formGroup]="rateTableForm">
+            <!-- 適用期間設定（テーブル全体） -->
+            <div class="effective-date-section">
+              <div class="effective-date-row">
+                <mat-form-field appearance="outline" class="effective-date-field">
+                  <mat-label>適用開始日</mat-label>
+                  <input 
+                    type="date" 
+                    [value]="formatDateForInput(tableEffectiveFrom)"
+                    (change)="onTableEffectiveFromChange($event)"
+                    matInput>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="effective-date-field">
+                  <mat-label>適用終了日（未設定の場合は現在有効）</mat-label>
+                  <input 
+                    type="date" 
+                    [value]="tableEffectiveTo ? formatDateForInput(tableEffectiveTo) : ''"
+                    (change)="onTableEffectiveToChange($event)"
+                    matInput>
+                </mat-form-field>
+              </div>
+            </div>
+
+            <!-- CSV/Excelインポート -->
+            <div class="form-row">
+              <div class="file-upload-field full-width">
+                <label>CSV/Excelファイルを選択（インポート）</label>
+                <input 
+                  type="file" 
+                  accept=".csv,.xlsx,.xls"
+                  (change)="onFileSelected($event)"
+                  #csvFileInput>
+                <span class="hint">CSV形式またはExcel形式（.xlsx, .xls）のファイルをインポートできます。適用開始日・終了日は上記の入力欄で手動設定してください。</span>
+              </div>
+            </div>
+
+            <div *ngIf="csvFile" class="file-info">
+              <p>選択されたファイル: {{ csvFile.name }}</p>
+              <p *ngIf="importedCount > 0">読み込み件数: {{ importedCount }}件</p>
+              <p *ngIf="rateTables.length > 0">有効件数: {{ rateTables.length }}件</p>
+            </div>
+
+            <!-- エラー表示 -->
+            <div *ngIf="importErrors.length > 0" class="error-list">
+              <h4>エラー一覧</h4>
+              <ul>
+                <li *ngFor="let error of importErrors">{{ error }}</li>
+              </ul>
+            </div>
+
+            <!-- 成功メッセージ表示 -->
+            <div class="success-message" *ngIf="successMessage">
+              {{ successMessage }}
+            </div>
+            <div class="error-message" *ngIf="errorMessage">
+              {{ errorMessage }}
+            </div>
+
+            <!-- テーブル表示 -->
+            <div class="table-container">
+              <div class="table-header">
+                <h3>料率・標準報酬等級テーブル</h3>
+                <button mat-raised-button color="primary" (click)="addNewRow()" [disabled]="editingRow !== null">
+                  <mat-icon>add</mat-icon>
+                  データ行の新規追加
+                </button>
+              </div>
+
+              <table class="rate-table">
+                <!-- 複数行ヘッダー -->
+                <thead>
+                  <!-- 1行目: グループラベル -->
+                  <tr class="header-row-1">
+                    <th rowspan="3" colspan="2" class="rowspan-header">等級</th>
+                    <th rowspan="4" class="rowspan-header">標準報酬月額<br>規定値</th>
+                    <th rowspan="4" class="rowspan-header">報酬月額<br>最小</th>
+                    <th rowspan="4" class="rowspan-header">報酬月額<br>最大</th>
+                    <th colspan="4" class="group-header">全国健康保険協会管掌健康保険料</th>
+                    <th colspan="2" class="group-header">厚生年金保険料</th>
+                    <th rowspan="2" class="rowspan-header">操作</th>
+                  </tr>
+                  <!-- 2行目: サブグループラベル -->
+                  <tr class="header-row-2">
+                    <th colspan="2" class="subgroup-header">介護保険第2号被保険者に該当しない場合</th>
+                    <th colspan="2" class="subgroup-header">介護保険第2号被保険者に該当する場合</th>
+                    <th colspan="2" class="subgroup-header">一般、坑内員・船員</th>
+                  </tr>
+                  <!-- 3行目: 料率入力フィールド -->
+                  <tr class="header-row-3">
+                    <!-- 健康保険料（介護非該当）: 料率 -->
+                    <th colspan="2" class="rate-header">
+                      <div class="rate-header-content">
+                        <label>料率</label>
+                        <ng-container *ngIf="!isEditingHeaderRates">
+                          <span class="rate-value">{{ headerRates.healthWithoutCare }}%</span>
+                        </ng-container>
+                        <ng-container *ngIf="isEditingHeaderRates">
+                          <input type="number" [(ngModel)]="editingHeaderRates.healthWithoutCare" [ngModelOptions]="{standalone: true}" step="0.01" min="0" max="100" placeholder="料率" class="rate-input">
+                        </ng-container>
+                      </div>
+                    </th>
+                    <!-- 健康保険料（介護該当）: 料率 -->
+                    <th colspan="2" class="rate-header">
+                      <div class="rate-header-content">
+                        <label>料率</label>
+                        <ng-container *ngIf="!isEditingHeaderRates">
+                          <span class="rate-value">{{ headerRates.healthWithCare }}%</span>
+                        </ng-container>
+                        <ng-container *ngIf="isEditingHeaderRates">
+                          <input type="number" [(ngModel)]="editingHeaderRates.healthWithCare" [ngModelOptions]="{standalone: true}" step="0.01" min="0" max="100" placeholder="料率" class="rate-input">
+                        </ng-container>
+                      </div>
+                    </th>
+                    <!-- 厚生年金保険料: 料率 -->
+                    <th colspan="2" class="rate-header">
+                      <div class="rate-header-content">
+                        <label>料率</label>
+                        <ng-container *ngIf="!isEditingHeaderRates">
+                          <span class="rate-value">{{ headerRates.pension }}%</span>
+                        </ng-container>
+                        <ng-container *ngIf="isEditingHeaderRates">
+                          <input type="number" [(ngModel)]="editingHeaderRates.pension" [ngModelOptions]="{standalone: true}" step="0.01" min="0" max="100" placeholder="料率" class="rate-input">
+                        </ng-container>
+                      </div>
+                    </th>
+                    <!-- 3行目の操作列（アイコンのみ） -->
+                    <th class="rate-header-actions">
+                      <ng-container *ngIf="!isEditingHeaderRates">
+                        <button mat-icon-button color="primary" (click)="editHeaderRates()" [disabled]="editingRow !== null || isEditingHeaderRates" title="料率を編集">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                      </ng-container>
+                      <ng-container *ngIf="isEditingHeaderRates">
+                        <button mat-icon-button color="primary" (click)="saveHeaderRates()" [disabled]="isLoading" title="保存">
+                          <mat-icon>check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="cancelHeaderRatesEdit()" [disabled]="isLoading" title="キャンセル">
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </ng-container>
+                    </th>
+                  </tr>
+                  <!-- 4行目: 等級サブヘッダーと全額・折半額ラベル -->
+                  <tr class="header-row-4">
+                    <!-- 等級のサブヘッダー（2列） -->
+                    <th class="subgroup-header">健保・介護</th>
+                    <th class="subgroup-header">厚生年金</th>
+                    <!-- 健康保険料（介護非該当）: 全額、折半額 -->
+                    <th class="amount-header">全額</th>
+                    <th class="amount-header">折半額</th>
+                    <!-- 健康保険料（介護該当）: 全額、折半額 -->
+                    <th class="amount-header">全額</th>
+                    <th class="amount-header">折半額</th>
+                    <!-- 厚生年金保険料: 全額、折半額 -->
+                    <th class="amount-header">全額</th>
+                    <th class="amount-header">折半額</th>
+                    <!-- 4行目の操作列 -->
+                    <th class="rowspan-header">操作</th>
+                  </tr>
+                </thead>
+                
+                <!-- データ行 -->
+                <tbody>
+                  <tr *ngFor="let row of rateTables; let i = index" class="data-row">
+                    <!-- 健保・介護保険の等級 -->
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.grade }}</ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.grade" [ngModelOptions]="{standalone: true}" min="1">
+                    </td>
+                    <!-- 厚生年金の等級 -->
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">
+                        <span *ngIf="row.pensionGrade">{{ row.pensionGrade }}</span>
+                        <span *ngIf="!row.pensionGrade">-</span>
+                      </ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.pensionGrade" [ngModelOptions]="{standalone: true}" min="1" placeholder="-">
+                    </td>
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.standardRewardAmount | number }}</ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.standardRewardAmount" [ngModelOptions]="{standalone: true}" min="0">
+                    </td>
+                    <!-- 報酬月額最小値（0の場合は空欄表示） -->
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">
+                        <span *ngIf="row.minAmount > 0">{{ row.minAmount | number }}</span>
+                        <span *ngIf="row.minAmount === 0"></span>
+                      </ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.minAmount" [ngModelOptions]="{standalone: true}" min="0" placeholder="">
+                    </td>
+                    <!-- 報酬月額最大値（nullまたは0の場合は空欄表示） -->
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">
+                        <span *ngIf="row.maxAmount && row.maxAmount > 0">{{ row.maxAmount | number }}</span>
+                        <span *ngIf="!row.maxAmount || row.maxAmount === 0"></span>
+                      </ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.maxAmount" [ngModelOptions]="{standalone: true}" min="0" placeholder="">
+                    </td>
+                    <!-- 健康保険料（介護非該当）: 全額、折半額のみ -->
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.healthInsuranceWithoutCare.total | number }}</ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.healthInsuranceWithoutCare.total" [ngModelOptions]="{standalone: true}" min="0">
+                    </td>
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.healthInsuranceWithoutCare.half | number }}</ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.healthInsuranceWithoutCare.half" [ngModelOptions]="{standalone: true}" min="0">
+                    </td>
+                    <!-- 健康保険料（介護該当）: 全額、折半額のみ -->
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.healthInsuranceWithCare.total | number }}</ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.healthInsuranceWithCare.total" [ngModelOptions]="{standalone: true}" min="0">
+                    </td>
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.healthInsuranceWithCare.half | number }}</ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.healthInsuranceWithCare.half" [ngModelOptions]="{standalone: true}" min="0">
+                    </td>
+                    <!-- 厚生年金保険料: 全額、折半額のみ -->
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.pensionInsurance.total | number }}</ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.pensionInsurance.total" [ngModelOptions]="{standalone: true}" min="0">
+                    </td>
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.pensionInsurance.half | number }}</ng-container>
+                      <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.pensionInsurance.half" [ngModelOptions]="{standalone: true}" min="0">
+                    </td>
+                    <!-- 操作 -->
+                    <td>
+                      <ng-container *ngIf="!editingRow || editingRowIndex !== i">
+                        <button mat-icon-button color="primary" (click)="editRow(row)" [disabled]="editingRow !== null">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        <button mat-icon-button color="warn" (click)="deleteRow(row)" [disabled]="editingRow !== null || isLoading">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </ng-container>
+                      <ng-container *ngIf="editingRow && editingRowIndex === i">
+                        <button mat-icon-button color="primary" (click)="saveRow()" [disabled]="isLoading">
+                          <mat-icon>check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="cancelEdit()" [disabled]="isLoading">
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </ng-container>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="button-group">
+              <button mat-button matStepperPrevious>戻る</button>
+              <button mat-raised-button color="primary" (click)="onStep4Submit()" [disabled]="isLoading">
+                <span *ngIf="!isLoading">次へ</span>
+                <span *ngIf="isLoading">保存中...</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </mat-step>
+
+      <!-- ステップ5: 申請フロー設定 -->
+      <mat-step>
+        <ng-template matStepLabel>申請フロー設定</ng-template>
+        <div class="step-content">
+          <p class="step-description">申請種別、承認ルール、添付書類設定、通知設定を設定してください。</p>
+          
+          <form [formGroup]="applicationFlowForm">
+            <!-- タブ構成 -->
+            <mat-tab-group>
+              <!-- タブ1: 申請種別設定 -->
+              <mat-tab label="申請種別設定">
+                <div class="tab-content">
+                  <!-- 内部申請セクション -->
+                  <div class="application-type-section">
+                    <h3>内部申請（社員から管理者）</h3>
+                    <button mat-raised-button color="primary" (click)="addInternalApplicationType()" [disabled]="editingApplicationType !== null">
+                      <mat-icon>add</mat-icon>
+                      新規追加
+                    </button>
+                    
+                    <div class="application-type-list">
+                      <div *ngFor="let type of getInternalApplicationTypes(); let i = index" class="application-type-item">
+                        <div *ngIf="editingApplicationTypeIndex !== i" class="application-type-display">
+                          <div class="application-type-info">
+                            <span class="application-type-name">{{ type.name }}</span>
+                            <span class="application-type-code">（{{ type.code }}）</span>
+                            <mat-checkbox [(ngModel)]="type.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
+                          </div>
+                          <div class="application-type-actions">
+                            <button mat-icon-button color="primary" (click)="editApplicationType(getInternalApplicationTypes().indexOf(type))" [disabled]="editingApplicationType !== null">
+                              <mat-icon>edit</mat-icon>
+                            </button>
+                            <button *ngIf="type.isDeletable" mat-icon-button color="warn" (click)="deleteApplicationType(getInternalApplicationTypes().indexOf(type))" [disabled]="editingApplicationType !== null">
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </div>
+                        </div>
+                        <div *ngIf="editingApplicationTypeIndex === i && editingApplicationType" class="application-type-edit">
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>申請種別名</mat-label>
+                            <input matInput [(ngModel)]="editingApplicationType.name" [ngModelOptions]="{standalone: true}" required>
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>申請種別コード</mat-label>
+                            <input matInput [(ngModel)]="editingApplicationType.code" [ngModelOptions]="{standalone: true}" required>
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>説明文</mat-label>
+                            <textarea matInput [(ngModel)]="editingApplicationType.description" [ngModelOptions]="{standalone: true}" rows="3"></textarea>
+                          </mat-form-field>
+                          <mat-checkbox [(ngModel)]="editingApplicationType.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
+                          <div class="edit-actions">
+                            <button mat-raised-button color="primary" (click)="saveApplicationType()">保存</button>
+                            <button mat-button (click)="cancelApplicationTypeEdit()">キャンセル</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 外部申請セクション -->
+                  <div class="application-type-section">
+                    <h3>外部申請</h3>
+                    <div class="application-type-list">
+                      <div *ngFor="let type of getExternalApplicationTypes(); let i = index" class="application-type-item">
+                        <div *ngIf="editingApplicationTypeIndex !== i" class="application-type-display">
+                          <div class="application-type-info">
+                            <span class="application-type-name">{{ type.name }}</span>
+                            <span class="application-type-code">（{{ type.code }}）</span>
+                            <mat-checkbox [(ngModel)]="type.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
+                          </div>
+                          <div class="application-type-actions">
+                            <button mat-icon-button color="primary" (click)="editApplicationType(getInternalApplicationTypes().length + i)" [disabled]="editingApplicationType !== null">
+                              <mat-icon>edit</mat-icon>
+                            </button>
+                          </div>
+                        </div>
+                        <div *ngIf="editingApplicationTypeIndex === getInternalApplicationTypes().length + i && editingApplicationType" class="application-type-edit">
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>申請種別名</mat-label>
+                            <input matInput [(ngModel)]="editingApplicationType.name" [ngModelOptions]="{standalone: true}" required>
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>申請種別コード</mat-label>
+                            <input matInput [(ngModel)]="editingApplicationType.code" [ngModelOptions]="{standalone: true}" required>
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>説明文</mat-label>
+                            <textarea matInput [(ngModel)]="editingApplicationType.description" [ngModelOptions]="{standalone: true}" rows="3"></textarea>
+                          </mat-form-field>
+                          <mat-checkbox [(ngModel)]="editingApplicationType.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
+                          <div class="edit-actions">
+                            <button mat-raised-button color="primary" (click)="saveApplicationType()">保存</button>
+                            <button mat-button (click)="cancelApplicationTypeEdit()">キャンセル</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </mat-tab>
+
+              <!-- タブ2: 承認ルール設定 -->
+              <mat-tab label="承認ルール設定">
+                <div class="tab-content">
+                  <p>承認方法：管理者のいずれか一名の承認が必要です。</p>
+                  <p class="info-text">承認フローの詳細設定は不要です。管理者権限を持つユーザーが承認を行います。</p>
+                </div>
+              </mat-tab>
+
+              <!-- タブ3: 添付書類設定 -->
+              <mat-tab label="添付書類設定">
+                <div class="tab-content">
+                  <h3>申請種別を選択</h3>
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>申請種別</mat-label>
+                    <mat-select [(ngModel)]="selectedAttachmentApplicationTypeId" [ngModelOptions]="{standalone: true}" (selectionChange)="selectAttachmentApplicationType($event.value)">
+                      <mat-option *ngFor="let type of applicationTypes" [value]="type.id">
+                        {{ type.name }}（{{ type.category === 'internal' ? '内部' : '外部' }}）
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <div *ngIf="editingAttachmentSetting" class="attachment-setting-form">
+                    <h4>{{ getApplicationTypeName(editingAttachmentSetting.applicationTypeId) }}の添付書類設定</h4>
+                    
+                    <h5>ファイル形式制限</h5>
+                    <div class="file-format-options">
+                      <mat-checkbox *ngFor="let option of fileFormatOptions" 
+                        [checked]="editingAttachmentSetting.allowedFormats?.includes(option.value)"
+                        (change)="toggleFileFormat(option.value)">
+                        {{ option.label }}
+                      </mat-checkbox>
+                    </div>
+                    <p class="info-text">※ 何も選択しない場合はすべてのファイル形式が許可されます</p>
+
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>ファイルサイズ制限（MB）</mat-label>
+                      <input matInput type="number" [(ngModel)]="editingAttachmentSetting.maxFileSize" [ngModelOptions]="{standalone: true}" min="0" placeholder="10">
+                      <mat-hint>空欄の場合は制限なし</mat-hint>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>説明文（申請者向け）</mat-label>
+                      <textarea matInput [(ngModel)]="editingAttachmentSetting.description" [ngModelOptions]="{standalone: true}" rows="3"></textarea>
+                    </mat-form-field>
+
+                    <div class="edit-actions">
+                      <button mat-raised-button color="primary" (click)="saveAttachmentSetting()">保存</button>
+                      <button mat-button (click)="cancelAttachmentSettingEdit()">キャンセル</button>
+                      <button *ngIf="editingAttachmentSettingIndex !== null" mat-button color="warn" (click)="deleteAttachmentSetting(editingAttachmentSettingIndex)">削除</button>
+                    </div>
+                  </div>
+                </div>
+              </mat-tab>
+
+              <!-- タブ4: 通知設定 -->
+              <mat-tab label="通知設定">
+                <div class="tab-content">
+                  <h3>通知タイミング設定</h3>
+                  <mat-checkbox [(ngModel)]="notificationSettings.notifyOnSubmit" [ngModelOptions]="{standalone: true}">申請提出時</mat-checkbox>
+                  <mat-checkbox [(ngModel)]="notificationSettings.notifyOnApprove" [ngModelOptions]="{standalone: true}">承認時</mat-checkbox>
+                  <mat-checkbox [(ngModel)]="notificationSettings.notifyOnReturn" [ngModelOptions]="{standalone: true}">差戻し時</mat-checkbox>
+                  <mat-checkbox [(ngModel)]="notificationSettings.notifyOnReject" [ngModelOptions]="{standalone: true}">却下時</mat-checkbox>
+
+                  <h3>通知対象設定</h3>
+                  <mat-checkbox [(ngModel)]="notificationSettings.notifyApplicant" [ngModelOptions]="{standalone: true}">申請者への通知</mat-checkbox>
+                  <mat-checkbox [(ngModel)]="notificationSettings.notifyAdmin" [ngModelOptions]="{standalone: true}">管理者への通知（全申請）</mat-checkbox>
+
+                  <h3>リマインダー設定</h3>
+                  <mat-form-field appearance="outline">
+                    <mat-label>内部申請の承認期限（日数）</mat-label>
+                    <input matInput type="number" [(ngModel)]="notificationSettings.internalDeadlineDays" [ngModelOptions]="{standalone: true}" min="1" required>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>外部申請の提出期限（日数）</mat-label>
+                    <input matInput type="number" [(ngModel)]="notificationSettings.externalDeadlineDays" [ngModelOptions]="{standalone: true}" min="1" required>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>リマインダー送信間隔（日数）</mat-label>
+                    <mat-select [(ngModel)]="notificationSettings.reminderInterval" [ngModelOptions]="{standalone: true}">
+                      <mat-option [value]="1">1日ごと</mat-option>
+                      <mat-option [value]="3">3日ごと</mat-option>
+                      <mat-option [value]="7">7日ごと</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              </mat-tab>
+            </mat-tab-group>
+
+            <div class="button-group">
+              <button mat-button matStepperPrevious>戻る</button>
+              <button mat-raised-button color="primary" (click)="onStep5Submit()" [disabled]="isLoading">
+                <span *ngIf="!isLoading">次へ</span>
+                <span *ngIf="isLoading">保存中...</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </mat-step>
+
+      <!-- ステップ6: ドキュメント設定 -->
+      <mat-step>
+        <ng-template matStepLabel>ドキュメント設定</ng-template>
+        <div class="step-content">
+          <p class="step-description">社員情報に添付する書類の設定を行います。この設定は申請種別ごとの添付書類設定（ステップ5）とは独立しています。</p>
+          
+          <form [formGroup]="documentForm">
+            <h3>ファイル形式制限</h3>
+            <p class="info-text">社員情報に添付する書類で許可するファイル形式を選択してください。何も選択しない場合はすべてのファイル形式が許可されます。</p>
+            <div class="file-format-options">
+              <mat-checkbox *ngFor="let option of fileFormatOptions" 
+                [checked]="documentSettings.allowedFormats.includes(option.value)"
+                (change)="toggleDocumentFileFormat(option.value)">
+                {{ option.label }}
+              </mat-checkbox>
+            </div>
+
+            <h3>ファイルサイズ制限</h3>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>最大ファイルサイズ（MB）</mat-label>
+              <input matInput type="number" [(ngModel)]="documentSettings.maxFileSize" [ngModelOptions]="{standalone: true}" min="0" required>
+              <mat-hint>デフォルト: 10MB</mat-hint>
+            </mat-form-field>
+
+            <h3>保存期間設定</h3>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>書類の保存期間（年）</mat-label>
+              <input matInput type="number" [(ngModel)]="documentSettings.retentionYears" [ngModelOptions]="{standalone: true}" min="1" required>
+              <mat-hint>保存期間経過後、書類は自動的に削除されます。デフォルト: 6年</mat-hint>
+            </mat-form-field>
+
+            <div class="button-group">
+              <button mat-button matStepperPrevious>戻る</button>
+              <button mat-raised-button color="primary" (click)="onStep6Submit()" [disabled]="isLoading">
+                <span *ngIf="!isLoading">次へ</span>
+                <span *ngIf="isLoading">保存中...</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </mat-step>
+
+      <!-- ステップ7: 最終確認 -->
+      <mat-step>
+        <ng-template matStepLabel>最終確認</ng-template>
+        <div class="step-content">
+          <h2>設定内容の確認</h2>
+          <p class="step-description">以下の設定内容を確認してください。問題がなければ「完了」ボタンをクリックしてセットアップを完了してください。</p>
+
+          <div class="summary-container">
+            <!-- ステップ1: 組織情報 -->
+            <mat-card class="summary-card">
+              <mat-card-header>
+                <mat-card-title>
+                  <mat-icon>business</mat-icon>
+                  ステップ1: 組織情報
+                </mat-card-title>
+                <button mat-icon-button (click)="goToStep(0)" class="edit-button">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="summary-item">
+                  <span class="label">会社名:</span>
+                  <span class="value">{{ getStepSummary().step1.name }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">法人番号:</span>
+                  <span class="value">{{ getStepSummary().step1.corporateNumber }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">事業所番号:</span>
+                  <span class="value">{{ getStepSummary().step1.officeNumber }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">住所:</span>
+                  <span class="value">{{ getStepSummary().step1.address }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">電話番号:</span>
+                  <span class="value">{{ getStepSummary().step1.phoneNumber }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">メールアドレス:</span>
+                  <span class="value">{{ getStepSummary().step1.email }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">業種:</span>
+                  <span class="value">{{ getStepSummary().step1.industry }}</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- ステップ2: 部署作成 -->
+            <mat-card class="summary-card">
+              <mat-card-header>
+                <mat-card-title>
+                  <mat-icon>groups</mat-icon>
+                  ステップ2: 部署作成
+                </mat-card-title>
+                <button mat-icon-button (click)="goToStep(1)" class="edit-button">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="summary-item">
+                  <span class="label">部署数:</span>
+                  <span class="value">{{ getStepSummary().step2.departmentCount }}件</span>
+                </div>
+                <div class="summary-item" *ngIf="getStepSummary().step2.departments.length > 0">
+                  <span class="label">部署一覧:</span>
+                  <span class="value">{{ getStepSummary().step2.departments.join(', ') }}</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- ステップ3: 保険設定 -->
+            <mat-card class="summary-card">
+              <mat-card-header>
+                <mat-card-title>
+                  <mat-icon>health_and_safety</mat-icon>
+                  ステップ3: 保険設定
+                </mat-card-title>
+                <button mat-icon-button (click)="goToStep(2)" class="edit-button">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </mat-card-header>
+              <mat-card-content>
+                <h4>健康保険</h4>
+                <div class="summary-item">
+                  <span class="label">保険者:</span>
+                  <span class="value">{{ getStepSummary().step3.healthInsuranceType }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">事業所番号:</span>
+                  <span class="value">{{ getStepSummary().step3.healthInsuranceOfficeNumber }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">端数処理方式:</span>
+                  <span class="value">{{ getStepSummary().step3.healthInsuranceRoundingMethod }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">保険証の形式:</span>
+                  <span class="value">{{ getStepSummary().step3.healthInsuranceCardFormat }}</span>
+                </div>
+                
+                <h4>厚生年金保険</h4>
+                <div class="summary-item">
+                  <span class="label">事業所番号:</span>
+                  <span class="value">{{ getStepSummary().step3.pensionInsuranceOfficeNumber }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">端数処理方式:</span>
+                  <span class="value">{{ getStepSummary().step3.pensionInsuranceRoundingMethod }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">適用事業所区分:</span>
+                  <span class="value">{{ getStepSummary().step3.pensionInsuranceBusinessCategory }}</span>
+                </div>
+                
+                <h4>介護保険</h4>
+                <div class="summary-item">
+                  <span class="label">介護保険該当事業所:</span>
+                  <span class="value">{{ getStepSummary().step3.careInsuranceTargetOffice }}</span>
+                </div>
+                
+                <h4>雇用保険</h4>
+                <div class="summary-item">
+                  <span class="label">事業所番号:</span>
+                  <span class="value">{{ getStepSummary().step3.employmentInsuranceOfficeNumber }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">労働保険番号:</span>
+                  <span class="value">{{ getStepSummary().step3.employmentInsuranceLaborNumber }}</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- ステップ4: 料率インポート -->
+            <mat-card class="summary-card">
+              <mat-card-header>
+                <mat-card-title>
+                  <mat-icon>table_chart</mat-icon>
+                  ステップ4: 料率インポート
+                </mat-card-title>
+                <button mat-icon-button (click)="goToStep(3)" class="edit-button">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="summary-item">
+                  <span class="label">読み込み件数:</span>
+                  <span class="value">{{ getStepSummary().step4.importedCount }}件</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">有効件数:</span>
+                  <span class="value">{{ getStepSummary().step4.rateTableCount }}件</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">適用開始日:</span>
+                  <span class="value">{{ getStepSummary().step4.effectiveFrom }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">適用終了日:</span>
+                  <span class="value">{{ getStepSummary().step4.effectiveTo }}</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- ステップ5: 申請フロー設定 -->
+            <mat-card class="summary-card">
+              <mat-card-header>
+                <mat-card-title>
+                  <mat-icon>assignment</mat-icon>
+                  ステップ5: 申請フロー設定
+                </mat-card-title>
+                <button mat-icon-button (click)="goToStep(4)" class="edit-button">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="summary-item">
+                  <span class="label">申請種別数:</span>
+                  <span class="value">{{ getStepSummary().step5.applicationTypeCount }}件（内部: {{ getStepSummary().step5.internalApplicationTypes }}件、外部: {{ getStepSummary().step5.externalApplicationTypes }}件）</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">添付書類設定数:</span>
+                  <span class="value">{{ getStepSummary().step5.attachmentSettingCount }}件</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- ステップ6: ドキュメント設定 -->
+            <mat-card class="summary-card">
+              <mat-card-header>
+                <mat-card-title>
+                  <mat-icon>description</mat-icon>
+                  ステップ6: ドキュメント設定
+                </mat-card-title>
+                <button mat-icon-button (click)="goToStep(5)" class="edit-button">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="summary-item">
+                  <span class="label">許可するファイル形式:</span>
+                  <span class="value">{{ getStepSummary().step6.allowedFormats }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">最大ファイルサイズ:</span>
+                  <span class="value">{{ getStepSummary().step6.maxFileSize }}MB</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">保存期間:</span>
+                  <span class="value">{{ getStepSummary().step6.retentionYears }}年</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+
+          <!--<div class="success-message" *ngIf="successMessage">
+            {{ successMessage }}
+          </div>
+          <div class="error-message" *ngIf="errorMessage">
+            {{ errorMessage }}
+          </div>-->
+
+          <div class="button-group">
+            <button mat-button matStepperPrevious>戻る</button>
+            <button mat-raised-button color="primary" (click)="onStep7Submit()" [disabled]="isLoading">
+              <span *ngIf="!isLoading">完了</span>
+              <span *ngIf="isLoading">保存中...</span>
+            </button>
+          </div>
+        </div>
+      </mat-step>
+    </mat-stepper>
+  </div>
+</div>
+

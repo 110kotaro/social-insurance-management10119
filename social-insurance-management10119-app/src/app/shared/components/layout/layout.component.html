@@ -1,0 +1,16 @@
+<div class="layout-container">
+  <!-- ヘッダー -->
+  <app-header></app-header>
+  
+  <!-- メインコンテンツエリア -->
+  <div class="main-content">
+    <!-- サイドバー -->
+    <app-sidebar [isAdminMode]="isAdminMode"></app-sidebar>
+    
+    <!-- コンテンツ -->
+    <div class="content-area">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>
+
