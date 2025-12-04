@@ -1,0 +1,261 @@
+<div class="employee-detail-container" *ngIf="!isLoading && employee">
+  <mat-card>
+    <mat-card-header>
+      <div class="header-content">
+        <div>
+          <mat-card-title>
+            <mat-icon>person</mat-icon>
+            {{ employee.name }} の詳細情報
+          </mat-card-title>
+          <mat-card-subtitle>
+            <mat-chip [color]="getStatusColor(employee.status)">
+              {{ getStatusLabel(employee.status) }}
+            </mat-chip>
+            <mat-chip *ngIf="!employee.invitationEmailSent" color="warn" style="margin-left: 8px;">
+              <mat-icon style="font-size: 16px; height: 16px; width: 16px;">mail_outline</mat-icon>
+              未送信
+            </mat-chip>
+          </mat-card-subtitle>
+        </div>
+        <div class="header-actions">
+          <button mat-raised-button color="accent" (click)="inviteEmployee()" [disabled]="isInviting">
+            <mat-icon>mail</mat-icon>
+            {{ isInviting ? '送信中...' : '招待メール送信' }}
+          </button>
+          <button mat-raised-button color="primary" (click)="editEmployee()">
+            <mat-icon>edit</mat-icon>
+            編集
+          </button>
+          <button mat-raised-button color="warn" (click)="deleteEmployee()">
+            <mat-icon>delete</mat-icon>
+            削除
+          </button>
+          <button mat-button (click)="goBack()">
+            <mat-icon>arrow_back</mat-icon>
+            戻る
+          </button>
+        </div>
+      </div>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-tab-group>
+        <!-- 基本情報タブ -->
+        <mat-tab label="基本情報">
+          <div class="tab-content">
+            <mat-list>
+              <mat-list-item>
+                <span matListItemTitle>社員番号</span>
+                <span matListItemLine>{{ employee.employeeNumber }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>氏名</span>
+                <span matListItemLine>{{ employee.name }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>氏名カナ</span>
+                <span matListItemLine>{{ employee.nameKana }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>メールアドレス</span>
+                <span matListItemLine>{{ employee.email }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>部署</span>
+                <span matListItemLine>{{ department?.name || '未設定' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>入社日</span>
+                <span matListItemLine>{{ formatDate(employee.joinDate) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>生年月日</span>
+                <span matListItemLine>{{ formatDate(employee.birthDate) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>ステータス</span>
+                <span matListItemLine>
+                  <mat-chip [color]="getStatusColor(employee.status)">
+                    {{ getStatusLabel(employee.status) }}
+                  </mat-chip>
+                </span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>権限</span>
+                <span matListItemLine>
+                  <mat-chip [color]="getRoleColor(employee.role)">
+                    {{ getRoleLabel(employee.role) }}
+                  </mat-chip>
+                  <button *ngIf="isAdmin()" mat-icon-button (click)="editRole()" matTooltip="権限を編集">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                </span>
+              </mat-list-item>
+            </mat-list>
+          </div>
+        </mat-tab>
+
+        <!-- 保険情報タブ -->
+        <mat-tab label="保険情報">
+          <div class="tab-content">
+            <mat-list *ngIf="employee.insuranceInfo; else noInsuranceInfo">
+              <mat-list-item>
+                <span matListItemTitle>健康保険被保険者番号</span>
+                <span matListItemLine>{{ employee.insuranceInfo.healthInsuranceNumber || '-' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>厚生年金被保険者番号</span>
+                <span matListItemLine>{{ employee.insuranceInfo.pensionNumber || '-' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>マイナンバー</span>
+                <span matListItemLine>{{ employee.insuranceInfo.myNumber || '-' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>標準報酬月額</span>
+                <span matListItemLine>{{ employee.insuranceInfo.standardReward ? (employee.insuranceInfo.standardReward | number) + '円' : '-' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>保険適用開始日</span>
+                <span matListItemLine>{{ formatDate(employee.insuranceInfo.insuranceStartDate) }}</span>
+              </mat-list-item>
+            </mat-list>
+            <ng-template #noInsuranceInfo>
+              <p class="no-data">保険情報が登録されていません</p>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+        <!-- 扶養情報タブ -->
+        <mat-tab label="扶養情報">
+          <div class="tab-content">
+            <div *ngIf="employee.dependentInfo && employee.dependentInfo.length > 0; else noDependentInfo">
+              <mat-list>
+                <mat-list-item *ngFor="let dependent of employee.dependentInfo; let i = index">
+                  <div class="dependent-item">
+                    <h4>扶養者 {{ i + 1 }}</h4>
+                    <mat-list>
+                      <mat-list-item>
+                        <span matListItemTitle>氏名</span>
+                        <span matListItemLine>{{ dependent.name }}</span>
+                      </mat-list-item>
+                      <mat-divider></mat-divider>
+                      <mat-list-item>
+                        <span matListItemTitle>氏名カナ</span>
+                        <span matListItemLine>{{ dependent.nameKana }}</span>
+                      </mat-list-item>
+                      <mat-divider></mat-divider>
+                      <mat-list-item>
+                        <span matListItemTitle>生年月日</span>
+                        <span matListItemLine>{{ formatDate(dependent.birthDate) }}</span>
+                      </mat-list-item>
+                      <mat-divider></mat-divider>
+                      <mat-list-item>
+                        <span matListItemTitle>続柄</span>
+                        <span matListItemLine>{{ dependent.relationship }}</span>
+                      </mat-list-item>
+                      <mat-divider></mat-divider>
+                      <mat-list-item>
+                        <span matListItemTitle>年収</span>
+                        <span matListItemLine>{{ dependent.income ? (dependent.income | number) + '円' : '-' }}</span>
+                      </mat-list-item>
+                      <mat-divider></mat-divider>
+                      <mat-list-item>
+                        <span matListItemTitle>同一世帯</span>
+                        <span matListItemLine>{{ dependent.livingTogether ? 'はい' : 'いいえ' }}</span>
+                      </mat-list-item>
+                    </mat-list>
+                  </div>
+                  <mat-divider *ngIf="i < employee.dependentInfo!.length - 1"></mat-divider>
+                </mat-list-item>
+              </mat-list>
+            </div>
+            <ng-template #noDependentInfo>
+              <p class="no-data">扶養情報が登録されていません</p>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+        <!-- 他社勤務情報タブ -->
+        <mat-tab label="他社勤務情報">
+          <div class="tab-content">
+            <mat-list *ngIf="employee.otherCompanyInfo && employee.otherCompanyInfo.isOtherCompany; else noOtherCompanyInfo">
+              <mat-list-item>
+                <span matListItemTitle>他社勤務</span>
+                <span matListItemLine>あり</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>主たる勤務先</span>
+                <span matListItemLine>{{ employee.otherCompanyInfo.isPrimary ? 'はい' : 'いいえ' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>会社名</span>
+                <span matListItemLine>{{ employee.otherCompanyInfo.companyName || '-' }}</span>
+              </mat-list-item>
+            </mat-list>
+            <ng-template #noOtherCompanyInfo>
+              <p class="no-data">他社勤務情報が登録されていません</p>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+        <!-- 住所情報タブ -->
+        <mat-tab label="住所情報">
+          <div class="tab-content">
+            <div *ngIf="employee.address?.internal; else noAddressInfo">
+              <h4>社内表示用住所</h4>
+              <mat-list>
+                <mat-list-item>
+                  <span matListItemTitle>郵便番号</span>
+                  <span matListItemLine>{{ employee.address?.internal?.postalCode || '-' }}</span>
+                </mat-list-item>
+                <mat-divider></mat-divider>
+                <mat-list-item>
+                  <span matListItemTitle>都道府県</span>
+                  <span matListItemLine>{{ employee.address?.internal?.prefecture || '-' }}</span>
+                </mat-list-item>
+                <mat-divider></mat-divider>
+                <mat-list-item>
+                  <span matListItemTitle>市区町村</span>
+                  <span matListItemLine>{{ employee.address?.internal?.city || '-' }}</span>
+                </mat-list-item>
+                <mat-divider></mat-divider>
+                <mat-list-item>
+                  <span matListItemTitle>町名・番地</span>
+                  <span matListItemLine>{{ employee.address?.internal?.street || '-' }}</span>
+                </mat-list-item>
+                <mat-divider></mat-divider>
+                <mat-list-item>
+                  <span matListItemTitle>建物名・部屋番号</span>
+                  <span matListItemLine>{{ employee.address?.internal?.building || '-' }}</span>
+                </mat-list-item>
+              </mat-list>
+            </div>
+            <ng-template #noAddressInfo>
+              <p class="no-data">住所情報が登録されていません</p>
+            </ng-template>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<div *ngIf="isLoading" class="loading-container">
+  <mat-icon>hourglass_empty</mat-icon>
+  <p>読み込み中...</p>
+</div>
+

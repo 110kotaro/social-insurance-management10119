@@ -1,0 +1,91 @@
+.employee-detail-container {
+  padding: 24px;
+}
+
+mat-card {
+  max-width: 100%;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.tab-content {
+  padding: 24px;
+}
+
+.dependent-item {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.dependent-item h4 {
+  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.no-data {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 16px;
+}
+
+.loading-container mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: rgba(0, 0, 0, 0.6);
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .header-actions button {
+    width: 100%;
+  }
+}
+

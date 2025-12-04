@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Firestore, doc, setDoc, collection, query, where, getDocs } from '@angular/fire/firestore';
+import { Firestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, Timestamp } from '@angular/fire/firestore';
 import { Department } from '../models/department.model';
 import { environment } from '../../../environments/environment';
 
@@ -69,6 +69,59 @@ export class DepartmentService {
         updatedAt: data['updatedAt']?.toDate() || new Date()
       } as Department;
     });
+  }
+
+  /**
+   * 部署を取得
+   */
+  async getDepartment(departmentId: string): Promise<Department | null> {
+    const deptRef = doc(this.firestore, `${environment.firestorePrefix}departments`, departmentId);
+    const deptDoc = await getDoc(deptRef);
+    
+    if (!deptDoc.exists()) {
+      return null;
+    }
+    
+    const data = deptDoc.data();
+    return {
+      id: deptDoc.id,
+      ...data,
+      createdAt: data['createdAt']?.toDate() || new Date(),
+      updatedAt: data['updatedAt']?.toDate() || new Date()
+    } as Department;
+  }
+
+  /**
+   * 部署を更新
+   */
+  async updateDepartment(departmentId: string, department: Partial<Department>): Promise<void> {
+    const deptRef = doc(this.firestore, `${environment.firestorePrefix}departments`, departmentId);
+    const updateData: any = {
+      ...department,
+      updatedAt: new Date()
+    };
+
+    // id, createdAt, updatedAtを除外
+    delete updateData.id;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+
+    // undefinedを削除
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    await updateDoc(deptRef, updateData);
+  }
+
+  /**
+   * 部署を削除
+   */
+  async deleteDepartment(departmentId: string): Promise<void> {
+    const deptRef = doc(this.firestore, `${environment.firestorePrefix}departments`, departmentId);
+    await deleteDoc(deptRef);
   }
 }
 

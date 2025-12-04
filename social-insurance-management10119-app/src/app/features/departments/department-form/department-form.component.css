@@ -1,0 +1,27 @@
+.department-form-container {
+  padding: 24px;
+}
+
+.form-row {
+  margin-bottom: 24px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.required {
+  color: red;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.form-actions button {
+  min-width: 120px;
+}
+

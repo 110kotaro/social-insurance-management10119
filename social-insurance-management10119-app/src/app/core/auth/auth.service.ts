@@ -19,29 +19,41 @@ export class AuthService {
   constructor() {
     // 認証状態の監視
     onAuthStateChanged(this.auth, async (firebaseUser) => {
+      // 現在ログインしているユーザーかどうかを確認
+      // （新規アカウント作成時など、他のユーザーの状態変更は無視）
+      const currentLoggedInUser = this.currentUserSubject.value;
+      
       if (firebaseUser) {
-        // Firestoreで新アプリのユーザーかどうか確認
-        const user = await this.getUserProfile(firebaseUser.uid);
-        
-        // 新アプリのユーザーでない場合、または無効化されている場合
-        if (!user || !user.isActive) {
-          // ログアウトしてnullを設定
-          await signOut(this.auth);
-          this.currentUserSubject.next(null);
-          return;
-        }
+        // 現在ログインしているユーザーの場合のみ処理を続行
+        if (currentLoggedInUser && currentLoggedInUser.uid === firebaseUser.uid) {
+          // Firestoreで新アプリのユーザーかどうか確認
+          const user = await this.getUserProfile(firebaseUser.uid);
+          
+          // 新アプリのユーザーでない場合、または無効化されている場合
+          if (!user || !user.isActive) {
+            // ログアウトしてnullを設定
+            await signOut(this.auth);
+            this.currentUserSubject.next(null);
+            return;
+          }
 
-        // メール認証状態が変更された場合、Firestoreも更新
-        if (firebaseUser.emailVerified !== user.emailVerified) {
-          await this.updateEmailVerificationStatus(firebaseUser.uid, firebaseUser.emailVerified);
-          // ユーザープロフィールを再取得
-          const updatedUser = await this.getUserProfile(firebaseUser.uid);
-          this.currentUserSubject.next(updatedUser);
-        } else {
-          this.currentUserSubject.next(user);
+          // メール認証状態が変更された場合、Firestoreも更新
+          if (firebaseUser.emailVerified !== user.emailVerified) {
+            await this.updateEmailVerificationStatus(firebaseUser.uid, firebaseUser.emailVerified);
+            // ユーザープロフィールを再取得
+            const updatedUser = await this.getUserProfile(firebaseUser.uid);
+            this.currentUserSubject.next(updatedUser);
+          } else {
+            this.currentUserSubject.next(user);
+          }
         }
+        // それ以外（新規作成されたユーザーなど）は無視
       } else {
-        this.currentUserSubject.next(null);
+        // ログアウトの場合（firebaseUserがnull）
+        // 現在ログインしているユーザーがログアウトした場合のみ処理
+        if (currentLoggedInUser) {
+          this.currentUserSubject.next(null);
+        }
       }
     });
   }
@@ -143,6 +155,85 @@ export class AuthService {
   }
 
   /**
+   * 社員を招待（アカウント作成 + パスワード設定リンク送信）
+   */
+  async inviteEmployee(email: string, employeeId: string, organizationId: string, displayName?: string): Promise<string> {
+    // アカウント作成前に現在のユーザーIDを保存
+    const currentLoggedInUserId = this.currentUserSubject.value?.uid;
+    
+    try {
+      // 一時パスワードを生成（32文字のランダムな英数字記号）
+      const temporaryPassword = this.generateTemporaryPassword();
+
+      // Firebase Authenticationでアカウントを作成
+      const userCredential = await createUserWithEmailAndPassword(this.auth, email, temporaryPassword);
+      const user = userCredential.user;
+
+      // プロフィール更新（displayNameがあれば設定）
+      if (displayName) {
+        await updateProfile(user, { displayName });
+      }
+
+      // パスワードリセットメールを送信（これが招待メールの役割）
+      await sendPasswordResetEmail(this.auth, email);
+
+      // アカウント作成後、現在のユーザーを再設定（onAuthStateChangedの誤動作を防ぐ）
+      if (currentLoggedInUserId) {
+        const currentUser = await this.getUserProfile(currentLoggedInUserId);
+        if (currentUser) {
+          this.currentUserSubject.next(currentUser);
+        }
+      }
+
+      return user.uid;
+    } catch (error: any) {
+      // 既にアカウントが存在する場合、パスワードリセットメールのみ送信
+      if (error.code === 'auth/email-already-in-use') {
+        // 既存のユーザーにパスワードリセットメールを送信
+        await sendPasswordResetEmail(this.auth, email);
+        
+        // Firestoreのユーザー情報を更新（存在する場合のみ）
+        const userQuery = query(
+          collection(this.firestore, `${environment.firestorePrefix}users`),
+          where('email', '==', email)
+        );
+        const querySnapshot = await getDocs(userQuery);
+        
+        if (!querySnapshot.empty) {
+          const userDoc = querySnapshot.docs[0];
+          await setDoc(userDoc.ref, {
+            employeeId,
+            organizationId,
+            isActive: true
+          }, { merge: true });
+          // 既存のユーザーUIDを返す（成功として扱う）
+          return userDoc.id;
+        }
+        
+        // usersコレクションにデータが存在しない場合でも、成功として扱う
+        // （パスワード設定完了時にusersコレクションにデータを作成する）
+        // Firebase AuthenticationのUIDを取得する必要があるが、emailから直接取得できないため、
+        // 一時的に空文字列を返す（実際のUIDはパスワード設定完了時に取得可能）
+        return '';
+      }
+      
+      throw this.handleAuthError(error);
+    }
+  }
+
+  /**
+   * 一時パスワードを生成（32文字のランダムな英数字記号）
+   */
+  private generateTemporaryPassword(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 32; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  }
+
+  /**
    * メール認証再送信
    */
   async resendEmailVerification(): Promise<void> {
@@ -210,6 +301,13 @@ export class AuthService {
   }
 
   /**
+   * Firestoreにユーザードキュメントを作成（パブリックメソッド）
+   */
+  async createUserDocumentForEmployee(uid: string, userData: Partial<User>): Promise<void> {
+    await this.createUserDocument(uid, userData);
+  }
+
+  /**
    * Firestoreにユーザードキュメントを作成
    */
   private async createUserDocument(uid: string, userData: Partial<User>): Promise<void> {
@@ -264,6 +362,26 @@ export class AuthService {
         this.currentUserSubject.next(user);
       }
     }
+  }
+
+  /**
+   * 社員の権限を更新（employeesコレクションとusersコレクションの両方を更新）
+   */
+  async updateUserRole(employeeId: string, role: 'admin' | 'employee'): Promise<void> {
+    // usersコレクションから該当するemployeeIdを持つユーザーを検索
+    const usersRef = collection(this.firestore, `${environment.firestorePrefix}users`);
+    const q = query(usersRef, where('employeeId', '==', employeeId));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      // 該当するユーザーが存在する場合、roleを更新
+      const batch = querySnapshot.docs.map(docSnapshot => {
+        const userDocRef = doc(this.firestore, `${environment.firestorePrefix}users`, docSnapshot.id);
+        return setDoc(userDocRef, { role }, { merge: true });
+      });
+      await Promise.all(batch);
+    }
+    // 該当するユーザーが存在しない場合（まだパスワード設定が完了していない場合）は何もしない
   }
 
   /**

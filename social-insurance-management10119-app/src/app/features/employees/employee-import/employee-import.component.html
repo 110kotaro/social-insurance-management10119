@@ -1,0 +1,213 @@
+<div class="employee-import-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>upload</mat-icon>
+        社員一括インポート
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- ファイル選択 -->
+      <div class="file-selection">
+        <div class="file-input-wrapper">
+          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" style="display: none;">
+          <label for="fileInput" class="file-label">
+            <mat-icon>attach_file</mat-icon>
+            CSV/Excelファイルを選択
+          </label>
+        </div>
+        <div class="sample-link-wrapper">
+          <a href="#" (click)="showSample(); $event.preventDefault()" class="sample-link">
+            <mat-icon>description</mat-icon>
+            サンプルデータを表示
+          </a>
+        </div>
+        <p class="file-hint">
+          CSV/Excelファイル形式: 基本情報（社員番号, 氏名, 氏名カナ, メールアドレス, 部署名, 入社日(yyyy-MM-dd), 生年月日，ステータス(在籍/休職/退職/未入社)，権限），住所情報は必須項目です。
+        </p>
+      </div>
+
+      <!-- エラーメッセージ -->
+      <div *ngIf="importErrors.length > 0" class="error-section">
+        <h3>インポートエラー</h3>
+        <ul>
+          <li *ngFor="let error of importErrors">{{ error }}</li>
+        </ul>
+      </div>
+
+      <!-- インポートプレビュー -->
+      <div *ngIf="importedEmployees.length > 0" class="preview-section">
+        <h3>インポートプレビュー ({{ importedEmployees.length }}件)</h3>
+        <div class="table-container">
+          <table mat-table [dataSource]="dataSource" class="import-table">
+            <!-- 社員番号 -->
+            <ng-container matColumnDef="employeeNumber">
+              <th mat-header-cell *matHeaderCellDef>社員番号</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.employeeNumber }}</td>
+            </ng-container>
+
+            <!-- 氏名 -->
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef>氏名</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.name }}</td>
+            </ng-container>
+
+            <!-- 氏名カナ -->
+            <ng-container matColumnDef="nameKana">
+              <th mat-header-cell *matHeaderCellDef>氏名カナ</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.nameKana }}</td>
+            </ng-container>
+
+            <!-- メールアドレス -->
+            <ng-container matColumnDef="email">
+              <th mat-header-cell *matHeaderCellDef>メールアドレス</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.email }}</td>
+            </ng-container>
+
+            <!-- 部署 -->
+            <ng-container matColumnDef="department">
+              <th mat-header-cell *matHeaderCellDef>部署</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.departmentName }}</td>
+            </ng-container>
+
+          <!-- 入社日 -->
+          <ng-container matColumnDef="joinDate">
+            <th mat-header-cell *matHeaderCellDef>入社日</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDate(emp.joinDate) }}</td>
+          </ng-container>
+
+          <!-- 生年月日 -->
+          <ng-container matColumnDef="birthDate">
+            <th mat-header-cell *matHeaderCellDef>生年月日</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDate(emp.birthDate) }}</td>
+          </ng-container>
+
+          <!-- ステータス -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>ステータス</th>
+            <td mat-cell *matCellDef="let emp">
+              <span [class.error-status]="emp.errors">
+                {{ getStatusLabel(emp.status) }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- 権限 -->
+          <ng-container matColumnDef="role">
+            <th mat-header-cell *matHeaderCellDef>権限</th>
+            <td mat-cell *matCellDef="let emp">{{ getRoleLabel(emp.role) }}</td>
+          </ng-container>
+
+          <!-- 健康保険被保険者番号 -->
+          <ng-container matColumnDef="healthInsuranceNumber">
+            <th mat-header-cell *matHeaderCellDef>健康保険被保険者番号</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.healthInsuranceNumber) }}</td>
+          </ng-container>
+
+          <!-- 厚生年金被保険者番号 -->
+          <ng-container matColumnDef="pensionNumber">
+            <th mat-header-cell *matHeaderCellDef>厚生年金被保険者番号</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.pensionNumber) }}</td>
+          </ng-container>
+
+          <!-- マイナンバー -->
+          <ng-container matColumnDef="myNumber">
+            <th mat-header-cell *matHeaderCellDef>マイナンバー</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.myNumber) }}</td>
+          </ng-container>
+
+          <!-- 標準報酬月額 -->
+          <ng-container matColumnDef="standardReward">
+            <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.standardReward) }}</td>
+          </ng-container>
+
+          <!-- 保険適用開始日 -->
+          <ng-container matColumnDef="insuranceStartDate">
+            <th mat-header-cell *matHeaderCellDef>保険適用開始日</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(formatDate(emp.insuranceStartDate)) }}</td>
+          </ng-container>
+
+          <!-- 他社勤務有無 -->
+          <ng-container matColumnDef="isOtherCompany">
+            <th mat-header-cell *matHeaderCellDef>他社勤務有無</th>
+            <td mat-cell *matCellDef="let emp">{{ emp.isOtherCompany !== undefined ? (emp.isOtherCompany ? 'あり' : 'なし') : '' }}</td>
+          </ng-container>
+
+          <!-- 主たる勤務先 -->
+          <ng-container matColumnDef="isPrimary">
+            <th mat-header-cell *matHeaderCellDef>主たる勤務先</th>
+            <td mat-cell *matCellDef="let emp">{{ emp.isPrimary !== undefined ? (emp.isPrimary ? 'あり' : 'なし') : '' }}</td>
+          </ng-container>
+
+          <!-- 会社名 -->
+          <ng-container matColumnDef="companyName">
+            <th mat-header-cell *matHeaderCellDef>会社名</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.companyName) }}</td>
+          </ng-container>
+
+          <!-- 郵便番号 -->
+          <ng-container matColumnDef="postalCode">
+            <th mat-header-cell *matHeaderCellDef>郵便番号</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.postalCode) }}</td>
+          </ng-container>
+
+          <!-- 都道府県 -->
+          <ng-container matColumnDef="prefecture">
+            <th mat-header-cell *matHeaderCellDef>都道府県</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.prefecture) }}</td>
+          </ng-container>
+
+          <!-- 市区町村 -->
+          <ng-container matColumnDef="city">
+            <th mat-header-cell *matHeaderCellDef>市区町村</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.city) }}</td>
+          </ng-container>
+
+          <!-- 町名・番地 -->
+          <ng-container matColumnDef="street">
+            <th mat-header-cell *matHeaderCellDef>町名・番地</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.street) }}</td>
+          </ng-container>
+
+          <!-- 建物名・部屋番号 -->
+          <ng-container matColumnDef="building">
+            <th mat-header-cell *matHeaderCellDef>建物名・部屋番号</th>
+            <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.building) }}</td>
+          </ng-container>
+
+            <!-- エラー -->
+            <ng-container matColumnDef="errors">
+              <th mat-header-cell *matHeaderCellDef>エラー</th>
+              <td mat-cell *matCellDef="let emp">
+                <div *ngIf="emp.errors && emp.errors.length > 0" class="error-list">
+                  <span *ngFor="let error of emp.errors" class="error-item">{{ error }}</span>
+                </div>
+                <span *ngIf="!emp.errors || emp.errors.length === 0" class="no-error">✓</span>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.error-row]="row.errors && row.errors.length > 0"></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- アクションボタン -->
+      <div class="action-buttons">
+        <button mat-button type="button" (click)="cancel()" [disabled]="isLoading">
+          キャンセル
+        </button>
+        <button 
+          mat-raised-button 
+          color="primary" 
+          (click)="executeImport()" 
+          [disabled]="isLoading || importedEmployees.length === 0 || hasOnlyErrors()">
+          <mat-icon *ngIf="isLoading">hourglass_empty</mat-icon>
+          {{ isLoading ? 'インポート中...' : 'インポート実行' }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
+

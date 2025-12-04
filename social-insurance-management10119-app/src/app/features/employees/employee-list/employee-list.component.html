@@ -1,0 +1,152 @@
+<div class="employee-list-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>people</mat-icon>
+        社員一覧
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- 検索・フィルタ -->
+      <form [formGroup]="searchForm" class="search-form">
+        <div class="search-row">
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-label>検索</mat-label>
+            <input matInput formControlName="keyword" placeholder="社員番号、氏名で検索">
+            <mat-icon matPrefix>search</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>部署</mat-label>
+            <mat-select formControlName="departmentId">
+              <mat-option value="">すべて</mat-option>
+              <mat-option *ngFor="let dept of departments" [value]="dept.id">
+                {{ dept.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>ステータス</mat-label>
+            <mat-select formControlName="status">
+              <mat-option value="">すべて</mat-option>
+              <mat-option value="active">在籍</mat-option>
+              <mat-option value="leave">休職</mat-option>
+              <mat-option value="retired">退職</mat-option>
+              <mat-option value="pre_join">未入社</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <button mat-button type="button" (click)="resetFilters()" class="reset-button">
+            <mat-icon>refresh</mat-icon>
+            リセット
+          </button>
+        </div>
+      </form>
+
+      <!-- アクションボタン -->
+      <div class="action-buttons">
+        <button mat-raised-button color="primary" (click)="createEmployee()">
+          <mat-icon>person_add</mat-icon>
+          新規登録
+        </button>
+        <button mat-raised-button (click)="importEmployees()">
+          <mat-icon>upload</mat-icon>
+          一括インポート
+        </button>
+      </div>
+
+      <!-- 件数表示 -->
+      <div class="count-info">
+        表示: {{ dataSource.data.length }}件 / 全{{ totalCount }}件
+      </div>
+
+      <!-- テーブル -->
+      <div class="table-container">
+        <table mat-table [dataSource]="dataSource" matSort (matSortChange)="onSortChange($event)" class="employee-table">
+          <!-- 社員番号 -->
+          <ng-container matColumnDef="employeeNumber">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>社員番号</th>
+            <td mat-cell *matCellDef="let employee">{{ employee.employeeNumber }}</td>
+          </ng-container>
+
+          <!-- 氏名 -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>氏名</th>
+            <td mat-cell *matCellDef="let employee">{{ employee.name }}</td>
+          </ng-container>
+
+          <!-- 氏名カナ -->
+          <ng-container matColumnDef="nameKana">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>氏名カナ</th>
+            <td mat-cell *matCellDef="let employee">{{ employee.nameKana }}</td>
+          </ng-container>
+
+          <!-- 部署 -->
+          <ng-container matColumnDef="department">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>部署</th>
+            <td mat-cell *matCellDef="let employee">{{ getDepartmentName(employee.departmentId) }}</td>
+          </ng-container>
+
+          <!-- ステータス -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>ステータス</th>
+            <td mat-cell *matCellDef="let employee">
+              <mat-chip [color]="getStatusColor(employee.status)">
+                {{ getStatusLabel(employee.status) }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <!-- 認証メール送信状態 -->
+          <ng-container matColumnDef="invitationEmailSent">
+            <th mat-header-cell *matHeaderCellDef>認証メール</th>
+            <td mat-cell *matCellDef="let employee">
+              <mat-chip *ngIf="!employee.invitationEmailSent" color="warn" style="font-size: 12px;">
+                <mat-icon style="font-size: 16px; height: 16px; width: 16px;">mail_outline</mat-icon>
+                未送信
+              </mat-chip>
+              <span *ngIf="employee.invitationEmailSent" style="color: #4caf50;">
+                <mat-icon style="font-size: 16px; height: 16px; width: 16px; vertical-align: middle;">mail</mat-icon>
+                送信済み
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- 入社日 -->
+          <ng-container matColumnDef="joinDate">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>入社日</th>
+            <td mat-cell *matCellDef="let employee">{{ formatDate(employee.joinDate) }}</td>
+          </ng-container>
+
+          <!-- アクション -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>操作</th>
+            <td mat-cell *matCellDef="let employee">
+              <button mat-icon-button (click)="inviteEmployee(employee)" matTooltip="招待メール送信" color="primary">
+                <mat-icon>mail</mat-icon>
+              </button>
+              <button mat-icon-button (click)="viewEmployee(employee.id!)" matTooltip="詳細">
+                <mat-icon>visibility</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
+
+      <!-- ページネーション -->
+      <mat-paginator
+        [length]="totalCount"
+        [pageSize]="pageSize"
+        [pageIndex]="pageIndex"
+        [pageSizeOptions]="pageSizeOptions"
+        [showFirstLastButtons]="true"
+        (page)="onPageChange($event)">
+      </mat-paginator>
+    </mat-card-content>
+  </mat-card>
+</div>
+
