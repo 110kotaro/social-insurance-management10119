@@ -1,0 +1,39 @@
+.return-history-view-container {
+  padding: 16px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-content {
+  padding: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.application-data-section {
+  margin-top: 16px;
+}
+
+.data-section {
+  margin-bottom: 16px;
+}
+
+.section-card {
+  margin-bottom: 16px;
+}
+
+.empty-value {
+  color: #999;
+  font-style: italic;
+}
+

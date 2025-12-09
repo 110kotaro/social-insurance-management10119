@@ -1,0 +1,13 @@
+rules_version = '2';
+// Firebase Storage セキュリティルール
+// 開発環境用の簡易ルール（本番環境では適切なセキュリティルールを設定してください）
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // すべてのパスへのアクセスを許可（開発環境用）
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
+

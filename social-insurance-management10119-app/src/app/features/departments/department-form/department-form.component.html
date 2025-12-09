@@ -45,7 +45,7 @@
             <mat-select formControlName="managerId">
               <mat-option [value]="null">なし</mat-option>
               <mat-option *ngFor="let employee of employees" [value]="employee.id">
-                {{ employee.name }} ({{ employee.employeeNumber }})
+                {{ employee.lastName }} {{ employee.firstName }} ({{ employee.employeeNumber }})
               </mat-option>
             </mat-select>
             <mat-hint>この部署の責任者を選択（任意）</mat-hint>

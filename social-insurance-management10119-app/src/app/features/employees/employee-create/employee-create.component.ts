@@ -74,8 +74,10 @@ export class EmployeeCreateComponent implements OnInit {
     // ステップ1: 基本情報
     this.basicInfoForm = this.fb.group({
       employeeNumber: ['', [Validators.required]],
-      name: ['', [Validators.required]],
-      nameKana: ['', [Validators.required, this.katakanaValidator]],
+      firstName: ['', [Validators.required]],
+      lastName: ['', [Validators.required]],
+      firstNameKana: ['', [Validators.required, this.katakanaValidator]],
+      lastNameKana: ['', [Validators.required, this.katakanaValidator]],
       email: ['', [Validators.required, Validators.email]],
       departmentId: ['', [Validators.required]],
       joinDate: [new Date(), [Validators.required]],
@@ -288,9 +290,9 @@ export class EmployeeCreateComponent implements OnInit {
             }
           : undefined;
 
-      // 住所情報（必須項目なので常に設定、undefinedを除外）
-      const address: { internal: Address } = {
-        internal: {
+      // 住所情報（officialのみ使用）
+      const address: { official: Address } = {
+        official: {
           postalCode: this.addressForm.value.postalCode,
           prefecture: this.addressForm.value.prefecture,
           city: this.addressForm.value.city,
@@ -302,8 +304,10 @@ export class EmployeeCreateComponent implements OnInit {
       // 社員データを作成
       const employeeData: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'> = {
         employeeNumber: basicInfo.employeeNumber,
-        name: basicInfo.name,
-        nameKana: basicInfo.nameKana,
+        firstName: basicInfo.firstName,
+        lastName: basicInfo.lastName,
+        firstNameKana: basicInfo.firstNameKana,
+        lastNameKana: basicInfo.lastNameKana,
         email: basicInfo.email,
         departmentId: basicInfo.departmentId,
         joinDate: basicInfo.joinDate,

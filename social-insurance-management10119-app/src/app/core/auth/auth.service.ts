@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Auth, User as FirebaseUser, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, updateProfile } from '@angular/fire/auth';
-import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs } from '@angular/fire/firestore';
+import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe } from '@angular/fire/firestore';
 import { Observable, BehaviorSubject, from, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { User, UserProfile } from '../models/user.model';
@@ -15,6 +15,7 @@ export class AuthService {
   
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
+  private userDocumentUnsubscribe: Unsubscribe | null = null;
 
   constructor() {
     // 認証状態の監視
@@ -34,6 +35,8 @@ export class AuthService {
             // ログアウトしてnullを設定
             await signOut(this.auth);
             this.currentUserSubject.next(null);
+            // 監視を解除
+            this.unwatchUserDocument();
             return;
           }
 
@@ -46,6 +49,23 @@ export class AuthService {
           } else {
             this.currentUserSubject.next(user);
           }
+          
+          // 監視を開始（既にログインしている場合でも、Firestoreの変更を検知できるようにする）
+          this.logToStorage('onAuthStateChanged - watchUserDocument を呼び出します', { uid: firebaseUser.uid });
+          console.log('[AuthService] watchUserDocument を呼び出します。', { uid: firebaseUser.uid });
+          this.watchUserDocument(firebaseUser.uid);
+        } else if (!currentLoggedInUser) {
+          // 初回ログイン時またはcurrentUserSubjectがnullの場合
+          // Firestoreでユーザー情報を取得して設定
+          const user = await this.getUserProfile(firebaseUser.uid);
+          if (user && user.isActive) {
+            this.currentUserSubject.next(user);
+            
+            // 現在ログインしているユーザーのドキュメントを監視
+            this.logToStorage('onAuthStateChanged - watchUserDocument を呼び出します（初回ログイン）', { uid: firebaseUser.uid });
+            console.log('[AuthService] watchUserDocument を呼び出します（初回ログイン）。', { uid: firebaseUser.uid });
+            this.watchUserDocument(firebaseUser.uid);
+          }
         }
         // それ以外（新規作成されたユーザーなど）は無視
       } else {
@@ -53,6 +73,8 @@ export class AuthService {
         // 現在ログインしているユーザーがログアウトした場合のみ処理
         if (currentLoggedInUser) {
           this.currentUserSubject.next(null);
+          // 監視を解除
+          this.unwatchUserDocument();
         }
       }
     });
@@ -256,6 +278,122 @@ export class AuthService {
   }
 
   /**
+   * Firebase Authenticationの現在のユーザーを再読み込みして最新状態を取得
+   * メール認証画面でのみ使用（社員メール送信時のサイドバー問題を防ぐため、条件付きでcurrentUserSubjectを更新）
+   */
+  async reloadCurrentUser(): Promise<FirebaseUser | null> {
+    console.log('[AuthService] reloadCurrentUser() 開始');
+    let firebaseUser = this.auth.currentUser;
+    console.log('[AuthService] 初期 firebaseUser:', firebaseUser ? {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      emailVerified: firebaseUser.emailVerified
+    } : null);
+    
+    // firebaseUserがnullの場合、onAuthStateChangedが発火するまで待つ（最大5秒）
+    if (!firebaseUser) {
+      console.log('[AuthService] firebaseUser が null のため、onAuthStateChanged を待機します');
+      try {
+        firebaseUser = await new Promise<FirebaseUser | null>((resolve, reject) => {
+          let unsubscribe: (() => void) | null = null;
+          const timeout = setTimeout(() => {
+            if (unsubscribe) {
+              unsubscribe();
+            }
+            console.log('[AuthService] onAuthStateChanged の待機がタイムアウトしました');
+            resolve(null);
+          }, 5000);
+          
+          unsubscribe = onAuthStateChanged(this.auth, (user) => {
+            console.log('[AuthService] onAuthStateChanged が発火しました:', user ? {
+              uid: user.uid,
+              email: user.email,
+              emailVerified: user.emailVerified
+            } : null);
+            clearTimeout(timeout);
+            if (unsubscribe) {
+              unsubscribe();
+            }
+            resolve(user);
+          });
+        });
+        
+        console.log('[AuthService] onAuthStateChanged 待機後の firebaseUser:', firebaseUser ? {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          emailVerified: firebaseUser.emailVerified
+        } : null);
+      } catch (error) {
+        console.error('[AuthService] onAuthStateChanged 待機中にエラー:', error);
+        return null;
+      }
+    }
+    
+    if (firebaseUser) {
+      // ユーザー情報を再読み込み（メール認証状態などを最新化）
+      console.log('[AuthService] firebaseUser.reload() を呼び出し');
+      await firebaseUser.reload();
+      console.log('[AuthService] firebaseUser.reload() 完了, emailVerified:', firebaseUser.emailVerified);
+      
+      // 現在ログインしているユーザーの場合のみ、currentUserSubjectを更新
+      // （社員メール送信時のサイドバー問題を防ぐため）
+      const currentLoggedInUser = this.currentUserSubject.value;
+      console.log('[AuthService] currentLoggedInUser:', currentLoggedInUser ? {
+        uid: currentLoggedInUser.uid,
+        email: currentLoggedInUser.email,
+        emailVerified: currentLoggedInUser.emailVerified
+      } : null);
+      
+      // currentLoggedInUserがnullの場合でも、firebaseUserが存在する場合は処理を続行
+      // （メール認証リンクをクリックした直後など、currentUserSubjectがまだ更新されていない場合）
+      if (!currentLoggedInUser || currentLoggedInUser.uid === firebaseUser.uid) {
+        console.log('[AuthService] 条件一致 - currentUserSubjectを更新');
+        // Firestoreで新アプリのユーザーかどうか確認
+        const user = await this.getUserProfile(firebaseUser.uid);
+        console.log('[AuthService] getUserProfile() 結果:', user ? {
+          uid: user.uid,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          isActive: user.isActive
+        } : null);
+        
+        if (user && user.isActive) {
+          // メール認証状態が変更された場合、Firestoreも更新
+          if (firebaseUser.emailVerified !== user.emailVerified) {
+            console.log('[AuthService] メール認証状態が変更されました:', {
+              firebaseEmailVerified: firebaseUser.emailVerified,
+              userEmailVerified: user.emailVerified
+            });
+            await this.updateEmailVerificationStatus(firebaseUser.uid, firebaseUser.emailVerified);
+            // ユーザープロフィールを再取得
+            const updatedUser = await this.getUserProfile(firebaseUser.uid);
+            console.log('[AuthService] 更新後のユーザー:', updatedUser ? {
+              uid: updatedUser.uid,
+              email: updatedUser.email,
+              emailVerified: updatedUser.emailVerified
+            } : null);
+            this.currentUserSubject.next(updatedUser);
+            console.log('[AuthService] currentUserSubject を更新しました');
+          } else {
+            console.log('[AuthService] メール認証状態は変更されていません');
+            // メール認証状態が変更されていない場合でも、最新の状態を反映
+            this.currentUserSubject.next(user);
+            console.log('[AuthService] currentUserSubject を更新しました（状態変更なし）');
+          }
+        } else {
+          console.log('[AuthService] ユーザーが存在しないか、無効化されています');
+        }
+      } else {
+        console.log('[AuthService] 条件不一致 - currentUserSubjectを更新しません');
+      }
+      
+      return firebaseUser;
+    }
+    console.log('[AuthService] firebaseUser が null のため、null を返します');
+    return null;
+  }
+
+  /**
    * 認証済みかどうか
    */
   isAuthenticated(): boolean {
@@ -380,8 +518,173 @@ export class AuthService {
         return setDoc(userDocRef, { role }, { merge: true });
       });
       await Promise.all(batch);
+
+      // 現在ログインしているユーザーの権限が変更された場合は、currentUserSubjectを更新
+      const currentUser = this.currentUserSubject.value;
+      console.log('[AuthService] updateUserRole - currentUser:', currentUser ? {
+        uid: currentUser.uid,
+        employeeId: currentUser.employeeId,
+        role: currentUser.role
+      } : null, 'employeeId:', employeeId);
+      
+      if (currentUser && currentUser.employeeId === employeeId) {
+        console.log('[AuthService] 権限変更を検出。currentUserSubjectを更新します。', {
+          currentUserUid: currentUser.uid,
+          employeeId: employeeId,
+          newRole: role
+        });
+        
+        // ユーザープロフィールを再取得して更新
+        const updatedUser = await this.getUserProfile(currentUser.uid);
+        if (updatedUser) {
+          console.log('[AuthService] ユーザープロフィールを取得しました。', {
+            uid: updatedUser.uid,
+            role: updatedUser.role,
+            isActive: updatedUser.isActive,
+            organizationId: updatedUser.organizationId
+          });
+          this.currentUserSubject.next(updatedUser);
+          console.log('[AuthService] currentUserSubjectを更新しました。');
+        } else {
+          console.error('[AuthService] ユーザープロフィールの取得に失敗しました。', {
+            uid: currentUser.uid
+          });
+        }
+      } else {
+        console.log('[AuthService] 現在ログインしているユーザーの権限変更ではありません。', {
+          currentUserEmployeeId: currentUser?.employeeId,
+          targetEmployeeId: employeeId
+        });
+      }
     }
     // 該当するユーザーが存在しない場合（まだパスワード設定が完了していない場合）は何もしない
+  }
+
+  /**
+   * 現在ログインしているユーザーのFirestoreドキュメントを監視
+   */
+  private watchUserDocument(uid: string): void {
+    this.logToStorage('watchUserDocument 開始', { uid });
+    console.log('[AuthService] watchUserDocument 開始', { uid });
+    
+    // 既存の監視を解除
+    this.unwatchUserDocument();
+    
+    const userDocRef = doc(this.firestore, `${environment.firestorePrefix}users`, uid);
+    
+    // ドキュメントの変更を監視
+    this.userDocumentUnsubscribe = onSnapshot(userDocRef, async (snapshot) => {
+      this.logToStorage('onSnapshot 発火', { uid, exists: snapshot.exists() });
+      console.log('[AuthService] onSnapshot 発火', { uid, exists: snapshot.exists() });
+      
+      const currentUser = this.currentUserSubject.value;
+      
+      // 現在ログインしているユーザーの場合のみ処理
+      if (currentUser && currentUser.uid === uid) {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          const updatedUser = {
+            uid,
+            email: data['email'],
+            displayName: data['displayName'],
+            emailVerified: data['emailVerified'] ?? false,
+            role: data['role'],
+            organizationId: data['organizationId'],
+            employeeId: data['employeeId'],
+            isActive: data['isActive'] ?? true,
+            createdAt: data['createdAt']?.toDate() ?? new Date(),
+            lastLoginAt: data['lastLoginAt']?.toDate()
+          } as User;
+          
+          // 常にログを出力（権限変更の検出のため）
+          this.logToStorage('onSnapshot - role比較', {
+            currentUserRole: currentUser.role,
+            updatedUserRole: updatedUser.role,
+            roleChanged: currentUser.role !== updatedUser.role,
+            uid: uid
+          });
+          console.log('[AuthService] onSnapshot - role比較', {
+            currentUserRole: currentUser.role,
+            updatedUserRole: updatedUser.role,
+            roleChanged: currentUser.role !== updatedUser.role
+          });
+          
+          // 権限が変更された場合のみログを出力
+          if (currentUser.role !== updatedUser.role) {
+            this.logToStorage('権限変更を検出（Firestore監視）', {
+              oldRole: currentUser.role,
+              newRole: updatedUser.role,
+              uid: uid
+            });
+            console.log('[AuthService] 権限変更を検出（Firestore監視）:', {
+              oldRole: currentUser.role,
+              newRole: updatedUser.role,
+              uid: uid
+            });
+          }
+          
+          this.logToStorage('currentUserSubject を更新', {
+            uid: updatedUser.uid,
+            role: updatedUser.role,
+            organizationId: updatedUser.organizationId
+          });
+          this.currentUserSubject.next(updatedUser);
+        }
+      } else {
+        this.logToStorage('onSnapshot - 条件不一致', { 
+          currentUserUid: currentUser?.uid, 
+          targetUid: uid 
+        });
+        console.log('[AuthService] onSnapshot - 条件不一致', { 
+          currentUserUid: currentUser?.uid, 
+          targetUid: uid 
+        });
+      }
+    }, (error) => {
+      this.logToStorage('Firestore監視エラー', { error: error.message });
+      console.error('[AuthService] Firestore監視エラー:', error);
+    });
+  }
+
+  /**
+   * ユーザードキュメントの監視を解除
+   */
+  private unwatchUserDocument(): void {
+    if (this.userDocumentUnsubscribe) {
+      this.logToStorage('unwatchUserDocument - 監視を解除', null);
+      console.log('[AuthService] unwatchUserDocument - 監視を解除');
+      this.userDocumentUnsubscribe();
+      this.userDocumentUnsubscribe = null;
+    }
+  }
+
+  /**
+   * localStorageにログを保存するヘルパー関数
+   */
+  private logToStorage(message: string, data: any): void {
+    try {
+      const timestamp = new Date().toISOString();
+      const logEntry = {
+        timestamp,
+        message,
+        data: data !== null ? JSON.stringify(data) : null
+      };
+      
+      // 既存のログを取得
+      const existingLogs = localStorage.getItem('authServiceLogs');
+      const logs = existingLogs ? JSON.parse(existingLogs) : [];
+      
+      // 新しいログを追加（最大100件まで保持）
+      logs.push(logEntry);
+      if (logs.length > 100) {
+        logs.shift(); // 古いログを削除
+      }
+      
+      // localStorageに保存
+      localStorage.setItem('authServiceLogs', JSON.stringify(logs));
+    } catch (error) {
+      console.error('[AuthService] ログの保存に失敗しました:', error);
+    }
   }
 
   /**

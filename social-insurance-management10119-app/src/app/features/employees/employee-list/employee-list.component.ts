@@ -135,8 +135,8 @@ export class EmployeeListComponent implements OnInit, OnDestroy {
       if (this.searchKeyword) {
         const matchesKeyword = 
           employee.employeeNumber.toLowerCase().includes(this.searchKeyword) ||
-          employee.name.toLowerCase().includes(this.searchKeyword) ||
-          employee.nameKana.toLowerCase().includes(this.searchKeyword);
+          `${employee.lastName} ${employee.firstName}`.toLowerCase().includes(this.searchKeyword) ||
+          `${employee.lastNameKana} ${employee.firstNameKana}`.toLowerCase().includes(this.searchKeyword);
         if (!matchesKeyword) return false;
       }
 
@@ -197,12 +197,12 @@ export class EmployeeListComponent implements OnInit, OnDestroy {
           valueB = b.employeeNumber;
           break;
         case 'name':
-          valueA = a.name;
-          valueB = b.name;
+          valueA = `${a.lastName} ${a.firstName}`;
+          valueB = `${b.lastName} ${b.firstName}`;
           break;
         case 'nameKana':
-          valueA = a.nameKana;
-          valueB = b.nameKana;
+          valueA = `${a.lastNameKana} ${a.firstNameKana}`;
+          valueB = `${b.lastNameKana} ${b.firstNameKana}`;
           break;
         case 'email':
           valueA = a.email;
@@ -321,7 +321,7 @@ export class EmployeeListComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const confirmed = confirm(`${employee.name} さんに招待メールを送信しますか？`);
+    const confirmed = confirm(`${employee.lastName} ${employee.firstName} さんに招待メールを送信しますか？`);
     if (!confirmed) return;
 
     try {
@@ -329,7 +329,7 @@ export class EmployeeListComponent implements OnInit, OnDestroy {
         employee.email,
         employee.id,
         employee.organizationId,
-        employee.name
+        `${employee.lastName} ${employee.firstName}`
       );
       
       // 認証メール送信済みフラグを更新

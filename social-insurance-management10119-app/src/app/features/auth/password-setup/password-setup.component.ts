@@ -144,7 +144,7 @@ export class PasswordSetupComponent implements OnInit {
               // usersコレクションにデータを作成（employeesコレクションのroleを使用、デフォルト: 'employee'）
               await this.authService.createUserDocumentForEmployee(firebaseUser.uid, {
                 email: this.email,
-                displayName: employee.name,
+                displayName: `${employee.lastName} ${employee.firstName}`,
                 role: employee.role || 'employee',
                 emailVerified: false,
                 isActive: true,

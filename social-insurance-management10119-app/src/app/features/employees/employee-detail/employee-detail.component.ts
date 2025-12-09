@@ -12,10 +12,11 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address } from '../../../core/models/employee.model';
+import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address, EmployeeChangeHistory } from '../../../core/models/employee.model';
 import { Department } from '../../../core/models/department.model';
 
 @Component({
@@ -33,7 +34,8 @@ import { Department } from '../../../core/models/department.model';
     MatDialogModule,
     MatSelectModule,
     MatFormFieldModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatExpansionModule
   ],
   templateUrl: './employee-detail.component.html',
   styleUrl: './employee-detail.component.css'
@@ -263,7 +265,7 @@ export class EmployeeDetailComponent implements OnInit {
       return;
     }
 
-    const confirmed = confirm(`${this.employee.name} さんに招待メールを送信しますか？`);
+    const confirmed = confirm(`${this.employee.lastName} ${this.employee.firstName} さんに招待メールを送信しますか？`);
     if (!confirmed) return;
 
     this.isInviting = true;
@@ -273,7 +275,7 @@ export class EmployeeDetailComponent implements OnInit {
         this.employee.email,
         this.employee.id,
         this.employee.organizationId,
-        this.employee.name
+        `${this.employee.lastName} ${this.employee.firstName}`
       );
       
       // 認証メール送信済みフラグを更新
@@ -291,6 +293,55 @@ export class EmployeeDetailComponent implements OnInit {
     } finally {
       this.isInviting = false;
     }
+  }
+
+  /**
+   * 変更履歴を降順でソート（新しい順）
+   */
+  getSortedChangeHistory(): EmployeeChangeHistory[] {
+    if (!this.employee?.changeHistory) {
+      return [];
+    }
+    return [...this.employee.changeHistory].sort((a, b) => {
+      const dateA = a.changedAt instanceof Date ? a.changedAt.getTime() : (a.changedAt?.toDate ? a.changedAt.toDate().getTime() : 0);
+      const dateB = b.changedAt instanceof Date ? b.changedAt.getTime() : (b.changedAt?.toDate ? b.changedAt.toDate().getTime() : 0);
+      return dateB - dateA; // 降順（新しい順）
+    });
+  }
+
+  /**
+   * フィールド名のラベルを取得
+   */
+  getFieldLabel(field: string): string {
+    const labels: { [key: string]: string } = {
+      'dependentInfo': '扶養情報',
+      'address.official': '正式住所',
+      'firstName': '名',
+      'lastName': '氏',
+      'firstNameKana': '名カナ',
+      'lastNameKana': '氏カナ',
+      'insuranceInfo.standardReward': '標準報酬月額'
+    };
+    return labels[field] || field;
+  }
+
+  /**
+   * 変更値をフォーマット
+   */
+  formatChangeValue(value: any): string {
+    if (value === null || value === undefined) {
+      return '-';
+    }
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      return JSON.stringify(value, null, 2);
+    }
+    if (typeof value === 'object') {
+      return JSON.stringify(value, null, 2);
+    }
+    return String(value);
   }
 }
 

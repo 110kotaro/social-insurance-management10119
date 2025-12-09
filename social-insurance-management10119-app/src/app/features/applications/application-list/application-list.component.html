@@ -1,0 +1,163 @@
+<div class="application-list-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>description</mat-icon>
+        {{ isAdminMode ? '申請管理' : '自分の申請' }}
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- 検索・フィルタ -->
+      <form [formGroup]="searchForm" class="search-form">
+        <div class="search-row">
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>カテゴリ</mat-label>
+            <mat-select formControlName="category">
+              <mat-option value="">すべて</mat-option>
+              <mat-option value="internal">内部申請</mat-option>
+              <mat-option value="external">外部申請</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>ステータス</mat-label>
+            <mat-select formControlName="status">
+              <mat-option value="">すべて</mat-option>
+              <mat-option value="draft">下書き</mat-option>
+              <mat-option value="pending">承認待ち</mat-option>
+              <mat-option value="approved">承認済み</mat-option>
+              <mat-option value="rejected">却下</mat-option>
+              <mat-option value="returned">差戻し</mat-option>
+              <mat-option value="withdrawn">取り下げ</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>申請種別</mat-label>
+            <mat-select formControlName="type">
+              <mat-option value="">すべて</mat-option>
+              <!-- 実装済みの外部申請種別（8種） -->
+              <ng-container *ngFor="let type of organization?.applicationFlowSettings?.applicationTypes">
+                <mat-option *ngIf="['INSURANCE_ACQUISITION', 'INSURANCE_LOSS', 'DEPENDENT_CHANGE_EXTERNAL', 
+                                     'ADDRESS_CHANGE_EXTERNAL', 'NAME_CHANGE_EXTERNAL', 'REWARD_BASE', 
+                                     'REWARD_CHANGE', 'BONUS_PAYMENT'].includes(type.code)" 
+                            [value]="type.id">
+                  {{ type.name }}
+                </mat-option>
+              </ng-container>
+              <!-- 実装済みの内部申請種別（3種） -->
+              <ng-container *ngFor="let type of organization?.applicationFlowSettings?.applicationTypes">
+                <mat-option *ngIf="['DEPENDENT_CHANGE', 'ADDRESS_CHANGE', 'NAME_CHANGE'].includes(type.code)" 
+                            [value]="type.id">
+                  {{ type.name }}
+                </mat-option>
+              </ng-container>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field" *ngIf="isAdminMode">
+            <mat-label>社員</mat-label>
+            <mat-select formControlName="employeeId">
+              <mat-option value="">すべて</mat-option>
+              <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                {{ employee.lastName }} {{ employee.firstName }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <button mat-button type="button" (click)="resetFilters()" class="reset-button">
+            <mat-icon>refresh</mat-icon>
+            リセット
+          </button>
+        </div>
+      </form>
+
+      <!-- アクションボタン -->
+      <div class="action-buttons">
+        <button mat-raised-button color="primary" (click)="createApplication()">
+          <mat-icon>add</mat-icon>
+          新規作成
+        </button>
+      </div>
+
+      <!-- 件数表示 -->
+      <div class="count-info">
+        表示: {{ dataSource.data.length }}件 / 全{{ totalCount }}件
+      </div>
+
+      <!-- テーブル -->
+      <div class="table-container">
+        <table mat-table [dataSource]="dataSource" matSort (matSortChange)="onSortChange($event)" class="application-table">
+          <!-- 申請種別 -->
+          <ng-container matColumnDef="type">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>申請種別</th>
+            <td mat-cell *matCellDef="let application">{{ getApplicationTypeName(application.type) }}</td>
+          </ng-container>
+
+          <!-- 申請者 -->
+          <ng-container matColumnDef="employee">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>申請者</th>
+            <td mat-cell *matCellDef="let application">{{ getEmployeeName(application.employeeId) }}</td>
+          </ng-container>
+
+          <!-- カテゴリ -->
+          <ng-container matColumnDef="category">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>カテゴリ</th>
+            <td mat-cell *matCellDef="let application">
+              <mat-chip>{{ getCategoryLabel(application.category) }}</mat-chip>
+            </td>
+          </ng-container>
+
+          <!-- ステータス -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>ステータス</th>
+            <td mat-cell *matCellDef="let application">
+              <mat-chip [color]="getStatusColor(application.status)">
+                {{ getStatusLabel(application.status) }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <!-- 作成日 -->
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>作成日</th>
+            <td mat-cell *matCellDef="let application">{{ formatDate(application.createdAt) }}</td>
+          </ng-container>
+
+          <!-- 期限 -->
+          <ng-container matColumnDef="deadline">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>期限</th>
+            <td mat-cell *matCellDef="let application">{{ formatDate(application.deadline) }}</td>
+          </ng-container>
+
+          <!-- アクション -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>操作</th>
+            <td mat-cell *matCellDef="let application">
+              <button mat-icon-button (click)="viewApplication(application)" matTooltip="詳細">
+                <mat-icon>visibility</mat-icon>
+              </button>
+              <button mat-icon-button (click)="deleteApplication(application)" matTooltip="削除" *ngIf="application.status === 'draft'">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
+
+      <!-- ページネーション -->
+      <mat-paginator
+        [length]="totalCount"
+        [pageSize]="pageSize"
+        [pageIndex]="pageIndex"
+        [pageSizeOptions]="pageSizeOptions"
+        [showFirstLastButtons]="true"
+        (page)="onPageChange($event)">
+      </mat-paginator>
+    </mat-card-content>
+  </mat-card>
+</div>
+

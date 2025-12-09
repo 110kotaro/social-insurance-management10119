@@ -5,7 +5,7 @@
         <div>
           <mat-card-title>
             <mat-icon>person</mat-icon>
-            {{ employee.name }} の詳細情報
+            {{ employee.lastName }} {{ employee.firstName }} の詳細情報
           </mat-card-title>
           <mat-card-subtitle>
             <mat-chip [color]="getStatusColor(employee.status)">
@@ -50,12 +50,12 @@
               <mat-divider></mat-divider>
               <mat-list-item>
                 <span matListItemTitle>氏名</span>
-                <span matListItemLine>{{ employee.name }}</span>
+                <span matListItemLine>{{ employee.lastName }} {{ employee.firstName }}</span>
               </mat-list-item>
               <mat-divider></mat-divider>
               <mat-list-item>
                 <span matListItemTitle>氏名カナ</span>
-                <span matListItemLine>{{ employee.nameKana }}</span>
+                <span matListItemLine>{{ employee.lastNameKana }} {{ employee.firstNameKana }}</span>
               </mat-list-item>
               <mat-divider></mat-divider>
               <mat-list-item>
@@ -215,7 +215,8 @@
         <!-- 住所情報タブ -->
         <mat-tab label="住所情報">
           <div class="tab-content">
-            <div *ngIf="employee.address?.internal; else noAddressInfo">
+            <!-- 社内表示用住所はコメントアウト（address.officialのみ使用） -->
+            <!-- <div *ngIf="employee.address?.internal; else noAddressInfo">
               <h4>社内表示用住所</h4>
               <mat-list>
                 <mat-list-item>
@@ -243,9 +244,76 @@
                   <span matListItemLine>{{ employee.address?.internal?.building || '-' }}</span>
                 </mat-list-item>
               </mat-list>
+            </div> -->
+            <div *ngIf="employee.address?.official; else noAddressInfo">
+              <h4>正式住所</h4>
+              <mat-list>
+                <mat-list-item>
+                  <span matListItemTitle>郵便番号</span>
+                  <span matListItemLine>{{ employee.address?.official?.postalCode || '-' }}</span>
+                </mat-list-item>
+                <mat-divider></mat-divider>
+                <mat-list-item>
+                  <span matListItemTitle>都道府県</span>
+                  <span matListItemLine>{{ employee.address?.official?.prefecture || '-' }}</span>
+                </mat-list-item>
+                <mat-divider></mat-divider>
+                <mat-list-item>
+                  <span matListItemTitle>市区町村</span>
+                  <span matListItemLine>{{ employee.address?.official?.city || '-' }}</span>
+                </mat-list-item>
+                <mat-divider></mat-divider>
+                <mat-list-item>
+                  <span matListItemTitle>町名・番地</span>
+                  <span matListItemLine>{{ employee.address?.official?.street || '-' }}</span>
+                </mat-list-item>
+                <mat-divider></mat-divider>
+                <mat-list-item>
+                  <span matListItemTitle>建物名・部屋番号</span>
+                  <span matListItemLine>{{ employee.address?.official?.building || '-' }}</span>
+                </mat-list-item>
+              </mat-list>
             </div>
             <ng-template #noAddressInfo>
               <p class="no-data">住所情報が登録されていません</p>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+        <!-- 変更履歴タブ -->
+        <mat-tab label="変更履歴">
+          <div class="tab-content">
+            <div *ngIf="employee.changeHistory && employee.changeHistory.length > 0; else noChangeHistory">
+              <mat-accordion>
+                <mat-expansion-panel *ngFor="let history of getSortedChangeHistory(); let i = index">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      {{ history.applicationName }}
+                    </mat-panel-title>
+                    <mat-panel-description>
+                      {{ formatDate(history.changedAt) }}
+                    </mat-panel-description>
+                  </mat-expansion-panel-header>
+                  <div class="change-history-content">
+                    <div *ngFor="let change of history.changes" class="change-item">
+                      <h4>{{ getFieldLabel(change.field) }}</h4>
+                      <div class="change-details">
+                        <div class="change-before">
+                          <strong>変更前:</strong>
+                          <pre>{{ formatChangeValue(change.before) }}</pre>
+                        </div>
+                        <div class="change-after">
+                          <strong>変更後:</strong>
+                          <pre>{{ formatChangeValue(change.after) }}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </mat-expansion-panel>
+              </mat-accordion>
+            </div>
+            <ng-template #noChangeHistory>
+              <p class="no-data">変更履歴がありません</p>
             </ng-template>
           </div>
         </mat-tab>

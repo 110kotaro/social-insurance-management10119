@@ -1,0 +1,286 @@
+<div class="application-detail-container" *ngIf="!isLoading && application">
+  <mat-card>
+    <mat-card-header>
+      <div class="header-content">
+        <div>
+          <mat-card-title>
+            <mat-icon>description</mat-icon>
+            {{ getApplicationTypeName() }}
+          </mat-card-title>
+          <mat-card-subtitle>
+            <mat-chip [color]="getStatusColor(application.status)">
+              {{ getStatusLabel(application.status) }}
+            </mat-chip>
+            <mat-chip style="margin-left: 8px;">
+              {{ getCategoryLabel(application.category) }}
+            </mat-chip>
+          </mat-card-subtitle>
+        </div>
+        <div class="header-actions">
+          <button mat-button (click)="router.navigate(['/applications'])" *ngIf="!isAdmin || application.employeeId === currentUserId">
+            <mat-icon>arrow_back</mat-icon>
+            戻る
+          </button>
+          <button mat-raised-button color="primary" (click)="editApplication()" *ngIf="canEdit()">
+            <mat-icon>edit</mat-icon>
+            編集
+          </button>
+          <button mat-raised-button color="accent" (click)="submitApplication()" *ngIf="canSubmit()">
+            <mat-icon>send</mat-icon>
+            送信
+          </button>
+          <button mat-raised-button color="accent" (click)="approveApplication()" *ngIf="canApprove()">
+            <mat-icon>check_circle</mat-icon>
+            承認
+          </button>
+          <button mat-raised-button color="warn" (click)="returnApplication()" *ngIf="canApprove()">
+            <mat-icon>undo</mat-icon>
+            差戻し
+          </button>
+          <button mat-raised-button color="warn" (click)="rejectApplication()" *ngIf="canApprove()">
+            <mat-icon>cancel</mat-icon>
+            却下
+          </button>
+          <button mat-raised-button color="primary" (click)="exportToCsv()" *ngIf="isExternalApplication()">
+            <mat-icon>download</mat-icon>
+            CSV出力
+          </button>
+          <button mat-raised-button color="accent" (click)="changeExternalApplicationStatus()" *ngIf="canChangeExternalStatus()">
+            <mat-icon>edit</mat-icon>
+            送信ステータス変更
+          </button>
+          <button mat-raised-button color="accent" (click)="changeApplicationStatus()" *ngIf="canChangeApplicationStatus()">
+            <mat-icon>edit</mat-icon>
+            申請ステータス変更
+          </button>
+          <button mat-raised-button color="warn" (click)="withdrawApplication()" *ngIf="canWithdraw()">
+            <mat-icon>cancel</mat-icon>
+            取り下げ
+          </button>
+          <button mat-raised-button color="warn" (click)="deleteApplication()" *ngIf="canDelete()">
+            <mat-icon>delete</mat-icon>
+            削除
+          </button>
+          <button mat-raised-button color="primary" (click)="createExternalApplicationFromInternal()" *ngIf="canCreateExternalFromInternal()">
+            <mat-icon>add</mat-icon>
+            外部申請を作成
+          </button>
+        </div>
+      </div>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-tab-group>
+        <!-- 申請内容タブ -->
+        <mat-tab label="申請内容">
+          <div class="tab-content">
+            <mat-list>
+              <mat-list-item>
+                <span matListItemTitle>申請種別</span>
+                <span matListItemLine>{{ getApplicationTypeName() }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>申請者</span>
+                <span matListItemLine>{{ employee ? (employee.lastName + ' ' + employee.firstName) : '不明' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>ステータス</span>
+                <span matListItemLine>
+                  <mat-chip [color]="getStatusColor(application.status)">
+                    {{ getStatusLabel(application.status) }}
+                  </mat-chip>
+                </span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>カテゴリ</span>
+                <span matListItemLine>
+                  <mat-chip>{{ getCategoryLabel(application.category) }}</mat-chip>
+                </span>
+              </mat-list-item>
+              <mat-divider *ngIf="application.submissionDate"></mat-divider>
+              <mat-list-item *ngIf="application.submissionDate">
+                <span matListItemTitle>届書提出日</span>
+                <span matListItemLine>{{ formatDate(application.submissionDate) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>作成日</span>
+                <span matListItemLine>{{ formatDate(application.createdAt) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item *ngIf="application.deadline">
+                <span matListItemTitle>期限</span>
+                <span matListItemLine>{{ formatDate(application.deadline) }}</span>
+              </mat-list-item>
+              <mat-divider *ngIf="application.deadline"></mat-divider>
+              <mat-list-item *ngIf="application.category === 'external'">
+                <span matListItemTitle>送信ステータス</span>
+                <span matListItemLine>{{ getExternalApplicationStatusLabel(application.externalApplicationStatus) }}</span>
+              </mat-list-item>
+              <mat-divider *ngIf="application.category === 'external'"></mat-divider>
+            </mat-list>
+
+            <!-- 申請データ -->
+            <div class="application-data-section" *ngIf="application.data && objectKeys(application.data).length > 0">
+              <div *ngFor="let section of formatApplicationData(application.data)" class="data-section">
+                <mat-card class="section-card">
+                  <mat-card-header>
+                    <mat-card-title>{{ section.title }}</mat-card-title>
+                  </mat-card-header>
+                  <mat-card-content>
+                    <mat-list>
+                      <mat-list-item *ngFor="let item of section.items">
+                        <span matListItemTitle>{{ item.label }}</span>
+                        <span matListItemLine [class.empty-value]="item.isEmpty">
+                          {{ item.isEmpty ? '(未入力)' : item.value }}
+                        </span>
+                      </mat-list-item>
+                    </mat-list>
+                  </mat-card-content>
+                </mat-card>
+              </div>
+            </div>
+          </div>
+        </mat-tab>
+
+        <!-- 添付ファイルタブ -->
+        <mat-tab label="添付ファイル" *ngIf="application.attachments && application.attachments.length > 0">
+          <div class="tab-content">
+            <mat-list>
+              <mat-list-item *ngFor="let attachment of application.attachments">
+                <mat-icon matListItemIcon>attach_file</mat-icon>
+                <span matListItemTitle>{{ attachment.fileName }}</span>
+                <span matListItemLine>アップロード日: {{ formatDate(attachment.uploadedAt) }}</span>
+                <a mat-button [href]="attachment.fileUrl" target="_blank" matListItemMeta>
+                  <mat-icon>open_in_new</mat-icon>
+                  開く
+                </a>
+              </mat-list-item>
+            </mat-list>
+          </div>
+        </mat-tab>
+
+        <!-- コメント・履歴タブ -->
+        <mat-tab label="コメント・履歴">
+          <div class="tab-content">
+            <!-- コメント追加 -->
+            <div class="comment-add-section">
+              <h3>コメント追加</h3>
+              <button mat-raised-button color="primary" (click)="openCommentDialog()">
+                <mat-icon>add_comment</mat-icon>
+                コメントを追加
+              </button>
+            </div>
+
+            <!-- コメント一覧 -->
+            <div class="comments-section" *ngIf="getSortedComments().length > 0">
+              <h3>コメント</h3>
+              <mat-list>
+                <mat-list-item *ngFor="let comment of getSortedComments()">
+                  <mat-icon matListItemIcon>{{ comment.type === 'rejection_reason' ? 'warning' : 'comment' }}</mat-icon>
+                  <span matListItemTitle>
+                    {{ comment.type === 'rejection_reason' ? '差戻し・却下理由' : 'コメント' }}
+                  </span>
+                  <span matListItemLine>{{ comment.comment }}</span>
+                  <span matListItemLine>{{ formatDateTime(comment.createdAt) }}</span>
+                </mat-list-item>
+              </mat-list>
+            </div>
+
+            <!-- 申請履歴 -->
+            <div class="history-section" *ngIf="getSortedHistory().length > 0">
+              <h3>申請履歴</h3>
+              <mat-list>
+                <mat-list-item *ngFor="let hist of getSortedHistory()">
+                  <mat-icon matListItemIcon>history</mat-icon>
+                  <span matListItemTitle>{{ getActionLabel(hist.action) }}</span>
+                  <span matListItemLine>{{ formatDateTime(hist.createdAt) }}</span>
+                  <span matListItemLine *ngIf="hist.comment">{{ hist.comment }}</span>
+                </mat-list-item>
+              </mat-list>
+            </div>
+
+            <div *ngIf="getSortedHistory().length === 0 && getSortedComments().length === 0">
+              <p>履歴・コメントはありません</p>
+            </div>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- 差戻し履歴セクション -->
+  <mat-card *ngIf="application && application.returnHistory && application.returnHistory.length > 0" class="return-history-card">
+    <mat-card-header>
+      <mat-card-title>差戻し履歴</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-accordion>
+        <mat-expansion-panel *ngFor="let returnHist of getSortedReturnHistory(); let i = index">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon>history</mat-icon>
+              {{ i + 1 }}回目の差戻し（{{ formatDateTime(returnHist.returnedAt) }}）
+            </mat-panel-title>
+            <mat-panel-description>
+              {{ returnHist.reason || '理由なし' }}
+            </mat-panel-description>
+          </mat-expansion-panel-header>
+          <div class="return-history-content">
+            <p><strong>差戻し日時:</strong> {{ formatDateTime(returnHist.returnedAt) }}</p>
+            <p *ngIf="returnHist.reason"><strong>差戻し理由:</strong> {{ returnHist.reason }}</p>
+            <button mat-raised-button color="primary" (click)="viewReturnHistoryData(returnHist)">
+              <mat-icon>visibility</mat-icon>
+              この時点の申請データを表示
+            </button>
+          </div>
+        </mat-expansion-panel>
+      </mat-accordion>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- 関連する内部申請セクション（外部申請の場合） -->
+  <mat-card *ngIf="application && application.category === 'external' && application.relatedInternalApplicationIds && application.relatedInternalApplicationIds.length > 0" class="related-applications-card">
+    <mat-card-header>
+      <mat-card-title>関連する内部申請</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-list>
+        <mat-list-item *ngFor="let appId of application.relatedInternalApplicationIds">
+          <mat-icon matListItemIcon>description</mat-icon>
+          <span matListItemTitle>{{ getRelatedApplicationDisplayName(appId, 'internal') }}</span>
+          <button mat-button (click)="viewRelatedApplication(appId)" matListItemMeta>
+            <mat-icon>open_in_new</mat-icon>
+            詳細を見る
+          </button>
+        </mat-list-item>
+      </mat-list>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- 関連する外部申請セクション（内部申請の場合） -->
+  <mat-card *ngIf="application && application.category === 'internal' && application.relatedExternalApplicationIds && application.relatedExternalApplicationIds.length > 0" class="related-applications-card">
+    <mat-card-header>
+      <mat-card-title>関連する外部申請</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-list>
+        <mat-list-item *ngFor="let appId of application.relatedExternalApplicationIds">
+          <mat-icon matListItemIcon>description</mat-icon>
+          <span matListItemTitle>{{ getRelatedApplicationDisplayName(appId, 'external') }}</span>
+          <button mat-button (click)="viewRelatedApplication(appId)" matListItemMeta>
+            <mat-icon>open_in_new</mat-icon>
+            詳細を見る
+          </button>
+        </mat-list-item>
+      </mat-list>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<div class="loading-container" *ngIf="isLoading">
+  <p>読み込み中...</p>
+</div>
+

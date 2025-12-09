@@ -21,8 +21,10 @@ import { Department } from '../../../core/models/department.model';
 
 interface ImportedEmployee {
   employeeNumber: string;
-  name: string;
-  nameKana: string;
+  firstName: string;
+  lastName: string;
+  firstNameKana: string;
+  lastNameKana: string;
   email: string;
   departmentName: string;
   departmentId?: string;
@@ -232,8 +234,8 @@ export class EmployeeImportComponent implements OnInit {
       errors.push(`列数が不足しています（最低8列必要：必須項目1-8）`);
       this.importedEmployees.push({
         employeeNumber: row[0] || '',
-        name: row[1] || '',
-        nameKana: row[2] || '',
+        // 氏名を分割（スペースで分割、なければカナから推測）
+        ...this.splitNameFromCSV(row[1] || '', row[2] || ''),
         email: row[3] || '',
         departmentName: row[4] || '',
         joinDate: null,
@@ -387,10 +389,10 @@ export class EmployeeImportComponent implements OnInit {
       }
     }
 
+    const nameParts = this.splitNameFromCSV(name, nameKana);
     this.importedEmployees.push({
       employeeNumber,
-      name,
-      nameKana,
+      ...nameParts,
       email,
       departmentName,
       departmentId,
@@ -639,9 +641,9 @@ export class EmployeeImportComponent implements OnInit {
               }
             : undefined;
 
-        // 住所情報（必須項目なので常に設定、undefinedを除外）
-        const address: { internal: Address } = {
-          internal: {
+        // 住所情報（officialのみ使用）
+        const address: { official: Address } = {
+          official: {
             postalCode: emp.postalCode || '',
             prefecture: emp.prefecture || '',
             city: emp.city || '',
@@ -652,8 +654,10 @@ export class EmployeeImportComponent implements OnInit {
 
         return {
           employeeNumber: emp.employeeNumber,
-          name: emp.name,
-          nameKana: emp.nameKana,
+          firstName: emp.firstName,
+          lastName: emp.lastName,
+          firstNameKana: emp.firstNameKana,
+          lastNameKana: emp.lastNameKana,
           email: emp.email,
           departmentId: emp.departmentId!,
           joinDate: emp.joinDate || new Date(),
@@ -737,6 +741,41 @@ export class EmployeeImportComponent implements OnInit {
       maxWidth: '90vw',
       maxHeight: '90vh'
     });
+  }
+
+  /**
+   * CSVから読み込んだ氏名を分割（後方互換性のため）
+   */
+  private splitNameFromCSV(name: string, nameKana: string): { firstName: string; lastName: string; firstNameKana: string; lastNameKana: string } {
+    // 既にスペースで分割されている場合
+    if (name && name.includes(' ')) {
+      const parts = name.split(' ', 2);
+      const kanaParts = nameKana ? nameKana.split(' ', 2) : ['', ''];
+      return {
+        firstName: parts[1] || '',
+        lastName: parts[0] || '',
+        firstNameKana: kanaParts[1] || '',
+        lastNameKana: kanaParts[0] || ''
+      };
+    }
+    
+    // nameKanaから推測（カタカナの長さで分割）
+    if (nameKana && nameKana.length > 0) {
+      // カタカナの長さの半分で分割（簡易的な方法）
+      const kanaMid = Math.ceil(nameKana.length / 2);
+      const lastNameKana = nameKana.substring(0, kanaMid);
+      const firstNameKana = nameKana.substring(kanaMid);
+      
+      // nameも同様に分割
+      const nameMid = Math.ceil(name.length / 2);
+      const lastName = name.substring(0, nameMid);
+      const firstName = name.substring(nameMid);
+      
+      return { firstName, lastName, firstNameKana, lastNameKana };
+    }
+    
+    // デフォルト値（名のみ）
+    return { firstName: name || '', lastName: '', firstNameKana: nameKana || '', lastNameKana: '' };
   }
 }
 

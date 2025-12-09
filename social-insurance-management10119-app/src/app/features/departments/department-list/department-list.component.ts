@@ -186,7 +186,7 @@ export class DepartmentListComponent implements OnInit, OnDestroy {
   getManagerName(managerId: string | null | undefined): string {
     if (!managerId) return '-';
     const manager = this.employees.find(emp => emp.id === managerId);
-    return manager ? manager.name : '-';
+    return manager ? `${manager.lastName} ${manager.firstName}` : '-';
   }
 
   /**

@@ -1,0 +1,71 @@
+<div class="return-history-view-container">
+  <mat-card>
+    <mat-card-header>
+      <div class="header-content">
+        <div>
+          <mat-card-title>
+            <mat-icon>history</mat-icon>
+            差戻し履歴データ
+          </mat-card-title>
+          <mat-card-subtitle>
+            差戻し日時: {{ formatDateTime(returnHistory.returnedAt) }}
+            <span *ngIf="returnHistory.reason"> | 理由: {{ returnHistory.reason }}</span>
+          </mat-card-subtitle>
+        </div>
+        <div class="header-actions">
+          <button mat-button (click)="close()">
+            <mat-icon>close</mat-icon>
+            閉じる
+          </button>
+        </div>
+      </div>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-tab-group>
+        <!-- 申請内容タブ -->
+        <mat-tab label="申請内容">
+          <div class="tab-content">
+            <!-- 申請データ -->
+            <div class="application-data-section" *ngIf="formattedData && formattedData.length > 0">
+              <div *ngFor="let section of formattedData" class="data-section">
+                <mat-card class="section-card">
+                  <mat-card-header>
+                    <mat-card-title>{{ section.title }}</mat-card-title>
+                  </mat-card-header>
+                  <mat-card-content>
+                    <mat-list>
+                      <mat-list-item *ngFor="let item of section.items">
+                        <span matListItemTitle>{{ item.label }}</span>
+                        <span matListItemLine [class.empty-value]="item.isEmpty">
+                          {{ item.isEmpty ? '(未入力)' : item.value }}
+                        </span>
+                      </mat-list-item>
+                    </mat-list>
+                  </mat-card-content>
+                </mat-card>
+              </div>
+            </div>
+          </div>
+        </mat-tab>
+
+        <!-- 添付ファイルタブ -->
+        <mat-tab label="添付ファイル" *ngIf="returnHistory.attachmentsSnapshot && returnHistory.attachmentsSnapshot.length > 0">
+          <div class="tab-content">
+            <mat-list>
+              <mat-list-item *ngFor="let attachment of returnHistory.attachmentsSnapshot">
+                <mat-icon matListItemIcon>attach_file</mat-icon>
+                <span matListItemTitle>{{ attachment.fileName }}</span>
+                <span matListItemLine>アップロード日: {{ formatDate(attachment.uploadedAt) }}</span>
+                <a mat-button [href]="attachment.fileUrl" target="_blank" matListItemMeta>
+                  <mat-icon>open_in_new</mat-icon>
+                  開く
+                </a>
+              </mat-list-item>
+            </mat-list>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </mat-card-content>
+  </mat-card>
+</div>
+

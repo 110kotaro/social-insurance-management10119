@@ -4,7 +4,7 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { provideFirestore, getFirestore, connectFirestoreEmulator } from '@angular/fire/firestore';
 import { provideAuth, getAuth, connectAuthEmulator } from '@angular/fire/auth';
-import { provideStorage, getStorage } from '@angular/fire/storage';
+import { provideStorage, getStorage, connectStorageEmulator } from '@angular/fire/storage';
 import { MAT_DATE_LOCALE } from '@angular/material/core';
 import { MatPaginatorIntl } from '@angular/material/paginator';
 
@@ -47,7 +47,18 @@ export const appConfig: ApplicationConfig = {
       }
       return auth;
     }),
-    // Storageは本番環境を使用
-    provideStorage(() => getStorage())
+    // Storage Emulatorを使用
+    provideStorage(() => {
+      const storage = getStorage();
+      if (environment.useEmulator) {
+        try {
+          connectStorageEmulator(storage, 'localhost', 9199);
+        } catch (error) {
+          // Emulator already connected or connection failed
+          console.warn('Storage Emulator connection:', error);
+        }
+      }
+      return storage;
+    })
   ]
 };

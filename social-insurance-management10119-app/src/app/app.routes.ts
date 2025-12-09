@@ -73,6 +73,23 @@ export const routes: Routes = [
       {
         path: 'departments/:id/edit',
         loadComponent: () => import('./features/departments/department-form/department-form.component').then(m => m.DepartmentFormComponent)
+      },
+      {
+        path: 'applications',
+        loadComponent: () => import('./features/applications/application-list/application-list.component').then(m => m.ApplicationListComponent)
+      },
+      {
+        path: 'applications/create',
+        loadComponent: () => import('./features/applications/application-create/application-create.component').then(m => m.ApplicationCreateComponent)
+      },
+      {
+        path: 'applications/:id',
+        loadComponent: () => import('./features/applications/application-detail/application-detail.component').then(m => m.ApplicationDetailComponent)
+      },
+      {
+        path: 'applications/:id/edit',
+        loadComponent: () => import('./features/applications/application-edit/application-edit.component').then(m => m.ApplicationEditComponent),
+        canActivate: [authGuard]
       }
       // TODO: 他の認証が必要なルートをここに追加
     ]

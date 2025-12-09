@@ -8,6 +8,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ModeService } from '../../../core/services/mode.service';
 import { User } from '../../../core/models/user.model';
 import { environment } from '../../../../environments/environment';
 import { Subscription } from 'rxjs';
@@ -29,12 +30,13 @@ import { Subscription } from 'rxjs';
 })
 export class HeaderComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
+  private modeService = inject(ModeService);
   private router = inject(Router);
   
   currentUser: User | null = null;
   appName = environment.appName;
   unreadNotificationCount = 0; // TODO: 通知サービスから取得
-  isAdminMode = false; // TODO: 管理者モードの状態管理
+  isAdminMode = false;
   
   private subscriptions = new Subscription();
 
@@ -45,11 +47,15 @@ export class HeaderComponent implements OnInit, OnDestroy {
     // ユーザー情報の変更を監視
     const userSub = this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
-      // 管理者かどうかを判定（ownerまたはadmin）
-      this.isAdminMode = user ? (user.role === 'owner' || user.role === 'admin') : false;
+    });
+    
+    // モードの変更を監視
+    const modeSub = this.modeService.isAdminMode$.subscribe(isAdminMode => {
+      this.isAdminMode = isAdminMode;
     });
     
     this.subscriptions.add(userSub);
+    this.subscriptions.add(modeSub);
   }
 
   ngOnDestroy(): void {
@@ -72,9 +78,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   toggleAdminMode(): void {
-    // TODO: 管理者モードの切替処理
-    this.isAdminMode = !this.isAdminMode;
-    console.log('管理者モード切替:', this.isAdminMode);
+    const currentMode = this.modeService.getIsAdminMode();
+    this.modeService.setAdminMode(!currentMode);
   }
 
   navigateToNotifications(): void {

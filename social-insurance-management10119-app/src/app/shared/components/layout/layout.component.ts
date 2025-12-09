@@ -23,7 +23,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   
   currentUser: User | null = null;
-  isAdminMode: boolean = false;
   
   private subscriptions = new Subscription();
 
@@ -34,8 +33,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
     // ユーザー情報の変更を監視
     const userSub = this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
-      // 管理者かどうかを判定（ownerまたはadmin）
-      this.isAdminMode = user ? (user.role === 'owner' || user.role === 'admin') : false;
     });
     
     this.subscriptions.add(userSub);
@@ -43,10 +40,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
-  }
-
-  onModeToggle(): void {
-    this.isAdminMode = !this.isAdminMode;
   }
 }
 

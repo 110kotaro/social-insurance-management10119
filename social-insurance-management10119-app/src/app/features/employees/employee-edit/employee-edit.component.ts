@@ -78,8 +78,10 @@ export class EmployeeEditComponent implements OnInit {
     // ステップ1: 基本情報
     this.basicInfoForm = this.fb.group({
       employeeNumber: ['', [Validators.required]],
-      name: ['', [Validators.required]],
-      nameKana: ['', [Validators.required, this.katakanaValidator]],
+      firstName: ['', [Validators.required]],
+      lastName: ['', [Validators.required]],
+      firstNameKana: ['', [Validators.required, this.katakanaValidator]],
+      lastNameKana: ['', [Validators.required, this.katakanaValidator]],
       email: ['', [Validators.required, Validators.email]],
       departmentId: ['', [Validators.required]],
       joinDate: [new Date(), [Validators.required]],
@@ -219,8 +221,10 @@ export class EmployeeEditComponent implements OnInit {
 
     this.basicInfoForm.patchValue({
       employeeNumber: this.employee.employeeNumber,
-      name: this.employee.name,
-      nameKana: this.employee.nameKana,
+      firstName: this.employee.firstName,
+      lastName: this.employee.lastName,
+      firstNameKana: this.employee.firstNameKana,
+      lastNameKana: this.employee.lastNameKana,
       email: this.employee.email,
       departmentId: this.employee.departmentId,
       joinDate: joinDate,
@@ -275,14 +279,23 @@ export class EmployeeEditComponent implements OnInit {
       });
     }
 
-    // 住所情報
-    if (this.employee.address?.internal) {
+    // 住所情報（officialのみ使用）
+    // if (this.employee.address?.internal) {
+    //   this.addressForm.patchValue({
+    //     postalCode: this.employee.address.internal.postalCode || '',
+    //     prefecture: this.employee.address.internal.prefecture || '',
+    //     city: this.employee.address.internal.city || '',
+    //     street: this.employee.address.internal.street || '',
+    //     building: this.employee.address.internal.building || ''
+    //   });
+    // }
+    if (this.employee.address?.official) {
       this.addressForm.patchValue({
-        postalCode: this.employee.address.internal.postalCode || '',
-        prefecture: this.employee.address.internal.prefecture || '',
-        city: this.employee.address.internal.city || '',
-        street: this.employee.address.internal.street || '',
-        building: this.employee.address.internal.building || ''
+        postalCode: this.employee.address.official.postalCode || '',
+        prefecture: this.employee.address.official.prefecture || '',
+        city: this.employee.address.official.city || '',
+        street: this.employee.address.official.street || '',
+        building: this.employee.address.official.building || ''
       });
     }
   }
@@ -410,9 +423,9 @@ export class EmployeeEditComponent implements OnInit {
             }
           : undefined;
 
-      // 住所情報（必須項目なので常に設定、undefinedを除外）
-      const address: { internal: Address } = {
-        internal: {
+      // 住所情報（officialのみ使用）
+      const address: { official: Address } = {
+        official: {
           postalCode: this.addressForm.value.postalCode,
           prefecture: this.addressForm.value.prefecture,
           city: this.addressForm.value.city,
@@ -424,8 +437,10 @@ export class EmployeeEditComponent implements OnInit {
       // 社員データを更新
       const employeeData: Partial<Employee> = {
         employeeNumber: basicInfo.employeeNumber,
-        name: basicInfo.name,
-        nameKana: basicInfo.nameKana,
+        firstName: basicInfo.firstName,
+        lastName: basicInfo.lastName,
+        firstNameKana: basicInfo.firstNameKana,
+        lastNameKana: basicInfo.lastNameKana,
         email: basicInfo.email,
         departmentId: basicInfo.departmentId,
         joinDate: basicInfo.joinDate,

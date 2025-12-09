@@ -46,8 +46,10 @@ export class EmployeeService {
     
     const employeeData: any = {
       employeeNumber: employee.employeeNumber,
-      name: employee.name,
-      nameKana: employee.nameKana,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      firstNameKana: employee.firstNameKana,
+      lastNameKana: employee.lastNameKana,
       email: employee.email,
       departmentId: employee.departmentId,
       joinDate: employee.joinDate,
@@ -70,6 +72,9 @@ export class EmployeeService {
     }
     if (employee.address !== undefined) {
       employeeData.address = employee.address;
+    }
+    if (employee.role !== undefined) {
+      employeeData.role = employee.role;
     }
 
     // undefinedを再帰的に削除
@@ -201,6 +206,48 @@ export class EmployeeService {
   }
 
   /**
+   * 識別情報で社員を検索（被保険者整理番号、個人番号、基礎年金番号）
+   */
+  async getEmployeeByIdentification(
+    organizationId: string,
+    insuranceNumber?: string,
+    personalNumber?: string,
+    basicPensionNumber?: string
+  ): Promise<Employee | null> {
+    const employeesRef = collection(this.firestore, `${environment.firestorePrefix}employees`);
+    
+    // 組織内の全社員を取得
+    const q = query(employeesRef, where('organizationId', '==', organizationId));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    // 各社員をチェック
+    for (const docSnap of snapshot.docs) {
+      const employee = this.convertToEmployee(docSnap.data(), docSnap.id);
+      
+      // 被保険者整理番号で検索
+      if (insuranceNumber && employee.insuranceInfo?.healthInsuranceNumber === insuranceNumber) {
+        return employee;
+      }
+      
+      // 個人番号で検索
+      if (personalNumber && employee.insuranceInfo?.myNumber === personalNumber) {
+        return employee;
+      }
+      
+      // 基礎年金番号で検索
+      if (basicPensionNumber && employee.insuranceInfo?.pensionNumber === basicPensionNumber) {
+        return employee;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
    * FirestoreのTimestampまたはDateをDateオブジェクトに変換するヘルパー関数
    * Emulatorと本番環境の両方に対応
    */
@@ -218,6 +265,41 @@ export class EmployeeService {
     }
     // その他の場合はnullを返す
     return null;
+  }
+
+  /**
+   * 氏名を分割（後方互換性のため）
+   */
+  private splitName(name: string, nameKana: string): { firstName: string; lastName: string; firstNameKana: string; lastNameKana: string } {
+    // 既にfirstName/lastNameがある場合はそのまま返す
+    if (name && name.includes(' ')) {
+      const parts = name.split(' ', 2);
+      const kanaParts = nameKana ? nameKana.split(' ', 2) : ['', ''];
+      return {
+        firstName: parts[1] || '',
+        lastName: parts[0] || '',
+        firstNameKana: kanaParts[1] || '',
+        lastNameKana: kanaParts[0] || ''
+      };
+    }
+    
+    // nameKanaから推測（カタカナの長さで分割）
+    if (nameKana && nameKana.length > 0) {
+      // カタカナの長さの半分で分割（簡易的な方法）
+      const kanaMid = Math.ceil(nameKana.length / 2);
+      const lastNameKana = nameKana.substring(0, kanaMid);
+      const firstNameKana = nameKana.substring(kanaMid);
+      
+      // nameも同様に分割
+      const nameMid = Math.ceil(name.length / 2);
+      const lastName = name.substring(0, nameMid);
+      const firstName = name.substring(nameMid);
+      
+      return { firstName, lastName, firstNameKana, lastNameKana };
+    }
+    
+    // デフォルト値
+    return { firstName: name || '', lastName: '', firstNameKana: nameKana || '', lastNameKana: '' };
   }
 
   /**
@@ -244,11 +326,27 @@ export class EmployeeService {
       };
     }
 
+    // 後方互換性: name/nameKanaがある場合はfirstName/lastNameに分割
+    let firstName = data['firstName'];
+    let lastName = data['lastName'];
+    let firstNameKana = data['firstNameKana'];
+    let lastNameKana = data['lastNameKana'];
+    
+    if (!firstName && !lastName && data['name']) {
+      const nameParts = this.splitName(data['name'], data['nameKana'] || '');
+      firstName = nameParts.firstName;
+      lastName = nameParts.lastName;
+      firstNameKana = nameParts.firstNameKana;
+      lastNameKana = nameParts.lastNameKana;
+    }
+
     return {
       id,
       employeeNumber: data['employeeNumber'],
-      name: data['name'],
-      nameKana: data['nameKana'],
+      firstName: firstName || '',
+      lastName: lastName || '',
+      firstNameKana: firstNameKana || '',
+      lastNameKana: lastNameKana || '',
       email: data['email'],
       departmentId: data['departmentId'],
       joinDate: this.convertToDate(data['joinDate']) || data['joinDate'],
@@ -258,6 +356,7 @@ export class EmployeeService {
       insuranceInfo: insuranceInfo,
       otherCompanyInfo: data['otherCompanyInfo'],
       address: data['address'],
+      changeHistory: data['changeHistory'],
       organizationId: data['organizationId'],
       role: data['role'] || 'employee', // デフォルト: 'employee'
       invitationEmailSent: data['invitationEmailSent'],

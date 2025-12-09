@@ -71,28 +71,69 @@ export class EmailVerificationComponent implements OnInit, OnDestroy {
   }
 
   async checkEmailVerification(): Promise<void> {
+    console.log('[EmailVerification] checkEmailVerification() 開始');
     this.isChecking = true;
     
-    // Firebase Authenticationの認証状態を再確認
-    const user = this.authService.getCurrentUser();
-    if (user) {
-      this.isEmailVerified = user.emailVerified;
-    }
-    
-    this.isChecking = false;
-
-    // 認証済みの場合は組織作成画面またはダッシュボードに遷移
-    if (this.isEmailVerified) {
-      setTimeout(() => {
-        const currentUser = this.authService.getCurrentUser();
-        // 組織が既に作成済みの場合はダッシュボードに遷移
-        // 未作成の場合は組織作成画面に遷移
-        if (currentUser?.organizationId) {
-          this.router.navigate(['/dashboard']);
+    try {
+      // 現在の状態を確認
+      const currentUserBefore = this.authService.getCurrentUser();
+      console.log('[EmailVerification] 更新前の状態:', {
+        currentUser: currentUserBefore,
+        isEmailVerified: this.isEmailVerified
+      });
+      
+      // Firebase Authenticationの認証状態を直接確認し、最新状態を取得
+      console.log('[EmailVerification] reloadCurrentUser() を呼び出し');
+      const firebaseUser = await this.authService.reloadCurrentUser();
+      console.log('[EmailVerification] reloadCurrentUser() 完了:', {
+        firebaseUser: firebaseUser ? {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          emailVerified: firebaseUser.emailVerified
+        } : null
+      });
+      
+      if (firebaseUser) {
+        console.log('[EmailVerification] firebaseUser.emailVerified:', firebaseUser.emailVerified);
+        this.isEmailVerified = firebaseUser.emailVerified;
+        this.email = firebaseUser.email || '';
+        console.log('[EmailVerification] isEmailVerified を更新:', this.isEmailVerified);
+        
+        // Firestoreの状態も更新（onAuthStateChangedが処理する）
+        // 少し待ってからcurrentUserSubjectが更新されるのを待つ
+        console.log('[EmailVerification] 500ms待機中...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const currentUserAfter = this.authService.getCurrentUser();
+        console.log('[EmailVerification] 更新後の状態:', {
+          currentUser: currentUserAfter,
+          isEmailVerified: this.isEmailVerified
+        });
+        
+        // 認証済みの場合は組織作成画面またはダッシュボードに遷移
+        if (this.isEmailVerified) {
+          console.log('[EmailVerification] 認証済み - 遷移処理開始');
+          const currentUser = this.authService.getCurrentUser();
+          // 組織が既に作成済みの場合はダッシュボードに遷移
+          // 未作成の場合は組織作成画面に遷移
+          if (currentUser?.organizationId) {
+            console.log('[EmailVerification] ダッシュボードに遷移');
+            this.router.navigate(['/dashboard']);
+          } else {
+            console.log('[EmailVerification] 組織作成画面に遷移');
+            this.router.navigate(['/organization/create']);
+          }
         } else {
-          this.router.navigate(['/organization/create']);
+          console.log('[EmailVerification] まだ認証されていません');
         }
-      }, 2000);
+      } else {
+        console.log('[EmailVerification] firebaseUser が null');
+      }
+    } catch (error) {
+      console.error('[EmailVerification] メール認証状態の確認に失敗しました:', error);
+    } finally {
+      this.isChecking = false;
+      console.log('[EmailVerification] checkEmailVerification() 終了, isChecking:', this.isChecking);
     }
   }
 

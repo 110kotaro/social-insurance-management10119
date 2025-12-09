@@ -1,0 +1,57 @@
+.application-list-container {
+  padding: 20px;
+}
+
+.search-form {
+  margin-bottom: 20px;
+}
+
+.search-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-field {
+  flex: 1;
+  min-width: 200px;
+}
+
+.filter-field {
+  min-width: 150px;
+}
+
+.reset-button {
+  margin-left: auto;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.count-info {
+  margin-bottom: 16px;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.application-table {
+  width: 100%;
+}
+
+.application-table th,
+.application-table td {
+  padding: 12px;
+}
+
+.application-table th {
+  font-weight: 500;
+}
+

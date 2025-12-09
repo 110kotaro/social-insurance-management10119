@@ -73,13 +73,13 @@
           <!-- 氏名 -->
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>氏名</th>
-            <td mat-cell *matCellDef="let employee">{{ employee.name }}</td>
+            <td mat-cell *matCellDef="let employee">{{ employee.lastName }} {{ employee.firstName }}</td>
           </ng-container>
 
           <!-- 氏名カナ -->
           <ng-container matColumnDef="nameKana">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>氏名カナ</th>
-            <td mat-cell *matCellDef="let employee">{{ employee.nameKana }}</td>
+            <td mat-cell *matCellDef="let employee">{{ employee.lastNameKana }} {{ employee.firstNameKana }}</td>
           </ng-container>
 
           <!-- 部署 -->
