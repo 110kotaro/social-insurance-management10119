@@ -35,7 +35,20 @@
 
   <!-- 通常のダッシュボードコンテンツ（後で実装） -->
   <div *ngIf="!showSetupGuide" class="dashboard-content">
-    <p>ダッシュボードコンテンツは後で実装します</p>
+    <mat-card *ngIf="currentUser?.role === 'owner' || currentUser?.role === 'admin'">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>settings</mat-icon>
+          開発・テスト用機能
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <button mat-raised-button color="primary" (click)="checkRemindersManually()">
+          <mat-icon>notifications</mat-icon>
+          リマインダーを手動でチェック
+        </button>
+      </mat-card-content>
+    </mat-card>
   </div>
 </div>
 

@@ -21,6 +21,7 @@ import { OrganizationService } from '../../../core/services/organization.service
 import { AuthService } from '../../../core/auth/auth.service';
 import { ModeService } from '../../../core/services/mode.service';
 import { InsuranceRateTableService } from '../../../core/services/insurance-rate-table.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.model';
 import { Application, ApplicationStatus, ApplicationCategory, ExternalApplicationStatus, Comment, Attachment, ApplicationHistory, ApplicationReturnHistory } from '../../../core/models/application.model';
 import { Employee, EmployeeChangeHistory, DependentInfo } from '../../../core/models/employee.model';
@@ -76,6 +77,7 @@ export class ApplicationDetailComponent implements OnInit {
   private authService = inject(AuthService);
   private modeService = inject(ModeService);
   private insuranceRateTableService = inject(InsuranceRateTableService);
+  private notificationService = inject(NotificationService);
   private route = inject(ActivatedRoute);
   router = inject(Router); // テンプレートで使用するためpublic
   private snackBar = inject(MatSnackBar);
@@ -1343,6 +1345,9 @@ export class ApplicationDetailComponent implements OnInit {
             createdAt: new Date()
           });
           
+          // 通知を作成
+          await this.createNotificationForStatusChange('pending');
+          
           this.snackBar.open('申請を送信しました', '閉じる', { duration: 3000 });
           await this.loadApplication(this.application.id);
         } catch (error) {
@@ -1386,6 +1391,9 @@ export class ApplicationDetailComponent implements OnInit {
             action: 'submit',
             createdAt: new Date()
           });
+          
+          // 通知を作成（再申請）
+          await this.createNotificationForStatusChange('pending', undefined, true);
           
           this.snackBar.open('申請を再送信しました', '閉じる', { duration: 3000 });
           await this.loadApplication(this.application.id);
@@ -1515,6 +1523,22 @@ export class ApplicationDetailComponent implements OnInit {
         createdAt: new Date()
       });
       
+      // 外部申請ステータス変更時に通知を作成（受理確認・エラー時のみ）
+      if ((selectedStatus === 'received' || selectedStatus === 'error') && this.employee && this.organization) {
+        const applicationTypeName = this.applicationType?.name || this.application.type;
+        const employeeName = `${this.employee.lastName} ${this.employee.firstName}`;
+        
+        await this.notificationService.createExternalApplicationStatusNotification({
+          applicationId: this.application.id,
+          employeeId: this.application.employeeId,
+          organizationId: this.application.organizationId,
+          externalStatus: selectedStatus,
+          applicationTypeName: applicationTypeName,
+          employeeName: employeeName,
+          notificationSettings: this.organization.applicationFlowSettings?.notificationSettings
+        });
+      }
+      
       this.snackBar.open('送信ステータスを変更しました', '閉じる', { duration: 3000 });
       
       // エラーが選択された場合、アラートを表示
@@ -1614,6 +1638,9 @@ export class ApplicationDetailComponent implements OnInit {
           type: 'rejection_reason',
           createdAt: new Date()
         });
+        
+        // 通知を作成
+        await this.createNotificationForStatusChange('returned', reason);
       } else if (selectedStatus === 'rejected') {
         // 却下の場合、スナップショットは保存しない（内部申請と同様）
         await this.applicationService.updateStatus(
@@ -1630,6 +1657,9 @@ export class ApplicationDetailComponent implements OnInit {
           type: 'rejection_reason',
           createdAt: new Date()
         });
+        
+        // 通知を作成
+        await this.createNotificationForStatusChange('rejected', reason);
       } else {
         // その他のステータス（pending, approved）
         await this.applicationService.updateStatus(
@@ -1856,6 +1886,10 @@ export class ApplicationDetailComponent implements OnInit {
         'approved',
         this.currentUserId
       );
+      
+      // 通知を作成
+      await this.createNotificationForStatusChange('approved');
+      
       this.snackBar.open('申請を承認しました', '閉じる', { duration: 3000 });
       await this.loadApplication(this.application.id);
     } catch (error) {
@@ -1913,6 +1947,9 @@ export class ApplicationDetailComponent implements OnInit {
         createdAt: new Date()
       });
 
+      // 通知を作成
+      await this.createNotificationForStatusChange('returned', reason);
+
       this.snackBar.open('申請を差戻ししました', '閉じる', { duration: 3000 });
       await this.loadApplication(this.application.id);
     } catch (error) {
@@ -1949,6 +1986,9 @@ export class ApplicationDetailComponent implements OnInit {
         type: 'rejection_reason',
         createdAt: new Date()
       });
+
+      // 通知を作成
+      await this.createNotificationForStatusChange('rejected', reason);
 
       this.snackBar.open('申請を却下しました', '閉じる', { duration: 3000 });
       await this.loadApplication(this.application.id);
@@ -2775,6 +2815,31 @@ export class ApplicationDetailComponent implements OnInit {
     const day = eraDate.day;
 
     return new Date(year, month, day);
+  }
+
+  /**
+   * 申請ステータス変更時に通知を作成
+   */
+  private async createNotificationForStatusChange(status: ApplicationStatus, comment?: string, isResubmission: boolean = false): Promise<void> {
+    if (!this.application || !this.employee || !this.organization) {
+      return;
+    }
+
+    const applicationTypeName = this.applicationType?.name || this.application.type;
+    const employeeName = `${this.employee.lastName} ${this.employee.firstName}`;
+
+    await this.notificationService.createApplicationStatusNotification({
+      applicationId: this.application.id!,
+      employeeId: this.application.employeeId,
+      organizationId: this.application.organizationId,
+      status: status,
+      applicationTypeName: applicationTypeName,
+      employeeName: employeeName,
+      approverId: this.currentUserId || undefined,
+      comment: comment,
+      notificationSettings: this.organization.applicationFlowSettings?.notificationSettings,
+      isResubmission: isResubmission
+    });
   }
 
   /**

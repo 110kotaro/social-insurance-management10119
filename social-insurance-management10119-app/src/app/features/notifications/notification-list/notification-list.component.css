@@ -1,0 +1,151 @@
+.notification-list-container {
+  padding: 16px;
+}
+
+.search-form {
+  margin-bottom: 16px;
+}
+
+.search-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-field {
+  min-width: 150px;
+}
+
+.reset-button {
+  margin-left: auto;
+}
+
+.action-buttons {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.count-info {
+  margin-bottom: 16px;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.unread-count {
+  color: #f44336;
+  font-weight: 500;
+}
+
+.table-container {
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+
+.notification-table {
+  width: 100%;
+}
+
+.notification-table th {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.header-hint {
+  font-size: 11px;
+  font-weight: normal;
+  color: rgba(0, 0, 0, 0.5);
+  margin-left: 4px;
+}
+
+.notification-table td {
+  padding: 12px 16px;
+}
+
+.notification-table tr.unread-row {
+  background-color: #f5f5f5;
+  border-left: 4px solid #1976d2;
+}
+
+.notification-table tr.unread-row td {
+  padding-left: 12px;
+}
+
+.notification-table tr.read-row {
+  opacity: 0.7;
+}
+
+.unread-icon {
+  color: #1976d2;
+}
+
+.read-icon {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.application-link {
+  color: #1976d2;
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.application-link:hover {
+  color: #1565c0;
+}
+
+.no-application {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.notification-count-link {
+  cursor: pointer;
+  color: #1976d2;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.notification-count-link:hover {
+  color: #1565c0;
+}
+
+.notification-count-link.unread {
+  color: #f44336;
+  font-weight: 600;
+}
+
+.unread-badge {
+  color: #f44336;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.priority-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.priority-label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.no-notifications {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.no-notifications mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+}
+
+.no-notifications p {
+  margin: 0;
+  font-size: 16px;
+}

@@ -1,0 +1,103 @@
+<div class="notification-detail-container">
+  <mat-card *ngIf="!isLoading">
+    <mat-card-header>
+      <mat-card-title>
+        <button mat-icon-button (click)="navigateToList()" matTooltip="通知一覧に戻る">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <mat-icon>notifications</mat-icon>
+        通知詳細
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- 申請情報 -->
+      <div *ngIf="application" class="application-info">
+        <h3>申請情報</h3>
+        <mat-list>
+          <mat-list-item>
+            <span matListItemTitle>申請種別</span>
+            <span matListItemLine>{{ getApplicationTypeName() }}</span>
+          </mat-list-item>
+          <mat-list-item *ngIf="employee">
+            <span matListItemTitle>申請者</span>
+            <span matListItemLine>{{ employee.lastName }} {{ employee.firstName }}</span>
+          </mat-list-item>
+          <mat-list-item *ngIf="application.status">
+            <span matListItemTitle>ステータス</span>
+            <span matListItemLine>{{ getStatusLabel(application.status) }}</span>
+          </mat-list-item>
+        </mat-list>
+        <div class="action-buttons">
+          <button mat-raised-button color="primary" (click)="navigateToApplication()">
+            <mat-icon>open_in_new</mat-icon>
+            申請詳細を表示
+          </button>
+        </div>
+      </div>
+
+      <mat-divider *ngIf="application"></mat-divider>
+
+      <!-- 通知一覧 -->
+      <div class="notifications-section">
+        <div class="section-header">
+          <h3>通知一覧（{{ notifications.length }}件）</h3>
+          <button 
+            mat-raised-button 
+            color="primary" 
+            (click)="markAllAsRead()" 
+            [disabled]="unreadCount === 0"
+            *ngIf="unreadCount > 0">
+            <mat-icon>done_all</mat-icon>
+            すべて既読にする（{{ unreadCount }}件）
+          </button>
+        </div>
+
+        <!-- 通知一覧 -->
+        <mat-list *ngIf="notifications.length > 0">
+          <mat-list-item *ngFor="let notification of notifications" 
+                         [class.unread]="!notification.read"
+                         [class.read]="notification.read">
+            <mat-icon matListItemAvatar 
+                      [color]="getPriorityColor(notification.priority)">
+              {{ getTypeIcon(notification.type) }}
+            </mat-icon>
+            <div matListItemTitle>
+              <div class="notification-header">
+                <span class="notification-title">{{ notification.title }}</span>
+                <mat-chip [color]="getPriorityColor(notification.priority)" 
+                          *ngIf="notification.priority === 'high'">
+                  高
+                </mat-chip>
+                <span class="notification-type">{{ getTypeLabel(notification.type) }}</span>
+              </div>
+            </div>
+            <div matListItemLine class="notification-message">
+              {{ getFormattedMessage(notification) }}
+            </div>
+            <div matListItemLine class="notification-date">
+              {{ formatDate(notification.createdAt) }}
+            </div>
+            <button mat-icon-button 
+                    *ngIf="!notification.read"
+                    (click)="markAsRead(notification.id!)"
+                    matTooltip="既読にする">
+              <mat-icon>done</mat-icon>
+            </button>
+            <mat-icon *ngIf="notification.read" class="read-icon">drafts</mat-icon>
+          </mat-list-item>
+        </mat-list>
+
+        <div *ngIf="notifications.length === 0" class="no-notifications">
+          <mat-icon>notifications_none</mat-icon>
+          <p>通知がありません</p>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <div *ngIf="isLoading" class="loading">
+    <mat-icon>hourglass_empty</mat-icon>
+    <p>読み込み中...</p>
+  </div>
+</div>
+

@@ -1,8 +1,11 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, Injector } from '@angular/core';
 import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc, Timestamp, orderBy, limit } from '@angular/fire/firestore';
 import { Storage, ref, uploadBytes, getDownloadURL, deleteObject } from '@angular/fire/storage';
 import { Application, ApplicationStatus, ExternalApplicationStatus, Comment, Attachment, ApplicationHistory, ApplicationReturnHistory } from '../models/application.model';
 import { environment } from '../../../environments/environment';
+import { DeadlineCalculationService } from './deadline-calculation.service';
+import { NotificationService } from './notification.service';
+import { OrganizationService } from './organization.service';
 
 @Injectable({
   providedIn: 'root'
@@ -10,6 +13,9 @@ import { environment } from '../../../environments/environment';
 export class ApplicationService {
   private firestore = inject(Firestore);
   private storage = inject(Storage);
+  private deadlineCalculationService = inject(DeadlineCalculationService);
+  private organizationService = inject(OrganizationService);
+  private injector = inject(Injector);
 
   /**
    * オブジェクトからundefined値を再帰的に削除するヘルパー関数
@@ -180,7 +186,106 @@ export class ApplicationService {
     const cleanedData = this.removeUndefinedValues(appData);
     await setDoc(appRef, cleanedData);
 
+    // 内部申請が送信された場合、関連する外部申請の期限設定と即時通知を送信
+    if (application.category === 'internal' && application.status === 'pending') {
+      await this.setDeadlineAndSendReminderForInternalApplication(appRef.id, application);
+    }
+
     return appRef.id;
+  }
+
+  /**
+   * 内部申請送信時に、関連する外部申請の期限設定と即時通知を送信
+   */
+  private async setDeadlineAndSendReminderForInternalApplication(
+    applicationId: string,
+    application: Omit<Application, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<void> {
+    // 組織情報を取得
+    const organization = await this.organizationService.getOrganization(application.organizationId);
+    if (!organization?.applicationFlowSettings?.applicationTypes) {
+      return;
+    }
+
+    // 内部申請の種別を取得
+    const internalApplicationType = organization.applicationFlowSettings.applicationTypes.find(
+      type => type.id === application.type && type.category === 'internal'
+    );
+    if (!internalApplicationType) {
+      return;
+    }
+
+    // 内部申請の種別コードから外部申請の種別コードを取得
+    const externalApplicationTypeCode = this.getExternalApplicationTypeCode(internalApplicationType.code);
+    if (!externalApplicationTypeCode) {
+      return; // 外部申請にマッピングされない内部申請はスキップ
+    }
+
+    // 外部申請の種別を取得
+    const externalApplicationType = organization.applicationFlowSettings.applicationTypes.find(
+      type => type.code === externalApplicationTypeCode && type.category === 'external'
+    );
+    if (!externalApplicationType) {
+      return;
+    }
+
+    // 該当社員の外部申請が既に送信されているかチェック
+    const externalApplications = await this.getApplicationsByOrganization(application.organizationId, {
+      employeeId: application.employeeId,
+      category: 'external'
+    });
+
+    const hasSentApplication = externalApplications.some(app => 
+      app.type === externalApplicationType.id &&
+      app.externalApplicationStatus === 'sent'
+    );
+
+    if (hasSentApplication) {
+      return; // 既に送信されている場合は通知しない
+    }
+
+    // 仮想的な外部申請データを作成して期限を計算
+    const virtualExternalApplication: Application = {
+      id: undefined,
+      type: externalApplicationType.id,
+      category: 'external',
+      employeeId: application.employeeId,
+      organizationId: application.organizationId,
+      status: 'pending',
+      data: application.data, // 内部申請のデータをそのまま使用
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const deadline = await this.deadlineCalculationService.calculateLegalDeadline(
+      virtualExternalApplication,
+      externalApplicationType
+    );
+
+    if (deadline) {
+      // 即時通知を送信（事前通知のリマインダー日を過ぎている場合）
+      // 循環依存を避けるため、メソッド内で遅延注入
+      const notificationService = this.injector.get(NotificationService);
+      await notificationService.sendImmediateDeadlineReminderIfNeeded(
+        application.organizationId,
+        application.employeeId,
+        externalApplicationTypeCode,
+        deadline,
+        false // 法定期限
+      );
+    }
+  }
+
+  /**
+   * 内部申請種別コードから外部申請種別コードを取得
+   */
+  private getExternalApplicationTypeCode(internalTypeCode: string): string | null {
+    const mapping: Record<string, string> = {
+      'DEPENDENT_CHANGE': 'DEPENDENT_CHANGE_EXTERNAL',
+      'ADDRESS_CHANGE': 'ADDRESS_CHANGE_EXTERNAL',
+      'NAME_CHANGE': 'NAME_CHANGE_EXTERNAL'
+    };
+    return mapping[internalTypeCode] || null;
   }
 
   /**

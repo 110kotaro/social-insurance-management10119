@@ -1,13 +1,20 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, Injector } from '@angular/core';
 import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc, Timestamp } from '@angular/fire/firestore';
 import { Employee } from '../models/employee.model';
+import { Application } from '../models/application.model';
 import { environment } from '../../../environments/environment';
+import { DeadlineCalculationService } from './deadline-calculation.service';
+import { NotificationService } from './notification.service';
+import { OrganizationService } from './organization.service';
+import { ApplicationService } from './application.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class EmployeeService {
   private firestore = inject(Firestore);
+  private organizationService = inject(OrganizationService);
+  private injector = inject(Injector);
 
   /**
    * オブジェクトから再帰的にundefinedを削除（Firestore用）
@@ -96,6 +103,9 @@ export class EmployeeService {
    * 社員を更新
    */
   async updateEmployee(employeeId: string, employee: Partial<Employee>): Promise<void> {
+    // 更新前の社員データを取得
+    const previousEmployee = await this.getEmployee(employeeId);
+    
     const employeeRef = doc(this.firestore, `${environment.firestorePrefix}employees`, employeeId);
     const updateData: any = {
       ...employee,
@@ -110,6 +120,123 @@ export class EmployeeService {
     // undefinedを再帰的に削除
     const cleanedData = this.removeUndefinedValues(updateData);
     await updateDoc(employeeRef, cleanedData);
+
+    // 入社日または退職日が設定された場合、期限設定と即時通知を送信
+    if (previousEmployee) {
+      const updatedEmployee = await this.getEmployee(employeeId);
+      if (updatedEmployee) {
+        // 入社日が新規設定または変更された場合
+        if (employee.joinDate !== undefined) {
+          const previousJoinDate = previousEmployee.joinDate 
+            ? (previousEmployee.joinDate instanceof Date ? previousEmployee.joinDate : new Date((previousEmployee.joinDate as any).seconds * 1000))
+            : null;
+          const newJoinDate = updatedEmployee.joinDate instanceof Date 
+            ? updatedEmployee.joinDate 
+            : new Date((updatedEmployee.joinDate as any).seconds * 1000);
+          
+          if (!previousJoinDate || previousJoinDate.getTime() !== newJoinDate.getTime()) {
+            await this.setDeadlineAndSendReminderIfNeeded(
+              updatedEmployee,
+              'INSURANCE_ACQUISITION'
+            );
+          }
+        }
+
+        // 退職日が新規設定または変更された場合
+        if (employee.retirementDate !== undefined) {
+          const previousRetirementDate = previousEmployee.retirementDate 
+            ? (previousEmployee.retirementDate instanceof Date ? previousEmployee.retirementDate : new Date((previousEmployee.retirementDate as any).seconds * 1000))
+            : null;
+          const newRetirementDate = updatedEmployee.retirementDate instanceof Date 
+            ? updatedEmployee.retirementDate 
+            : (updatedEmployee.retirementDate ? new Date((updatedEmployee.retirementDate as any).seconds * 1000) : null);
+          
+          if (!previousRetirementDate || (newRetirementDate && previousRetirementDate.getTime() !== newRetirementDate.getTime())) {
+            if (newRetirementDate) {
+              await this.setDeadlineAndSendReminderIfNeeded(
+                updatedEmployee,
+                'INSURANCE_LOSS'
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 期限設定と即時通知を送信（該当社員の外部申請が送信されていない場合のみ）
+   */
+  private async setDeadlineAndSendReminderIfNeeded(
+    employee: Employee,
+    applicationTypeCode: string
+  ): Promise<void> {
+    if (!employee.organizationId || !employee.id) {
+      return;
+    }
+
+    // 組織情報を取得
+    const organization = await this.organizationService.getOrganization(employee.organizationId);
+    if (!organization?.applicationFlowSettings?.applicationTypes) {
+      return;
+    }
+
+    // 申請種別を取得
+    const applicationType = organization.applicationFlowSettings.applicationTypes.find(
+      type => type.code === applicationTypeCode && type.category === 'external'
+    );
+    if (!applicationType) {
+      return;
+    }
+
+    // 該当社員の外部申請が既に送信されているかチェック
+    const applicationService = this.injector.get(ApplicationService);
+    const externalApplications = await applicationService.getApplicationsByOrganization(employee.organizationId, {
+      employeeId: employee.id,
+      category: 'external'
+    });
+
+    const hasSentApplication = externalApplications.some(app => 
+      app.type === applicationType.id &&
+      app.externalApplicationStatus === 'sent'
+    );
+
+    if (hasSentApplication) {
+      return; // 既に送信されている場合は通知しない
+    }
+
+    // 仮想的な申請データを作成して期限を計算
+    const virtualApplication: Application = {
+      id: undefined,
+      type: applicationType.id,
+      category: 'external',
+      employeeId: employee.id,
+      organizationId: employee.organizationId,
+      status: 'pending',
+      data: {},
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // 循環依存を避けるため、メソッド内で遅延注入
+    const deadlineCalculationService = this.injector.get(DeadlineCalculationService);
+    const deadline = await deadlineCalculationService.calculateLegalDeadline(
+      virtualApplication,
+      applicationType
+    );
+
+    if (deadline) {
+      // 即時通知を送信（事前通知のリマインダー日を過ぎている場合）
+      // 循環依存を避けるため、メソッド内で遅延注入
+      const notificationService = this.injector.get(NotificationService);
+      await notificationService.sendImmediateDeadlineReminderIfNeeded(
+        employee.organizationId,
+        employee.id,
+        applicationTypeCode,
+        deadline,
+        false // 法定期限
+      );
+    }
   }
 
   /**

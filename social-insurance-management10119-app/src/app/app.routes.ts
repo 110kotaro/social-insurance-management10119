@@ -118,6 +118,18 @@ export const routes: Routes = [
       {
         path: 'salary-input',
         loadComponent: () => import('./features/salary-input/salary-input.component').then(m => m.SalaryInputComponent)
+      },
+      {
+        path: 'notifications',
+        loadComponent: () => import('./features/notifications/notification-list/notification-list.component').then(m => m.NotificationListComponent)
+      },
+      {
+        path: 'notifications/group/:groupId',
+        loadComponent: () => import('./features/notifications/notification-detail/notification-detail.component').then(m => m.NotificationDetailComponent)
+      },
+      {
+        path: 'settings',
+        loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
       }
       // TODO: 他の認証が必要なルートをここに追加
     ]

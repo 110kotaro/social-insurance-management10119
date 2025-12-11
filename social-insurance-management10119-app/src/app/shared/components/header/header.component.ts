@@ -9,6 +9,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ModeService } from '../../../core/services/mode.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { User } from '../../../core/models/user.model';
 import { environment } from '../../../../environments/environment';
 import { Subscription } from 'rxjs';
@@ -31,11 +32,12 @@ import { Subscription } from 'rxjs';
 export class HeaderComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private modeService = inject(ModeService);
+  private notificationService = inject(NotificationService);
   private router = inject(Router);
   
   currentUser: User | null = null;
   appName = environment.appName;
-  unreadNotificationCount = 0; // TODO: 通知サービスから取得
+  unreadNotificationCount = 0;
   isAdminMode = false;
   
   private subscriptions = new Subscription();
@@ -47,6 +49,12 @@ export class HeaderComponent implements OnInit, OnDestroy {
     // ユーザー情報の変更を監視
     const userSub = this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
+      // ユーザーが変更されたら通知数を更新
+      if (user?.organizationId) {
+        this.loadUnreadCount(user.uid, user.organizationId);
+      } else {
+        this.unreadNotificationCount = 0;
+      }
     });
     
     // モードの変更を監視
@@ -56,6 +64,22 @@ export class HeaderComponent implements OnInit, OnDestroy {
     
     this.subscriptions.add(userSub);
     this.subscriptions.add(modeSub);
+
+    // 初期の未読通知数を読み込む
+    if (this.currentUser?.organizationId) {
+      this.loadUnreadCount(this.currentUser.uid, this.currentUser.organizationId);
+    }
+  }
+
+  /**
+   * 未読通知数を読み込む
+   */
+  private loadUnreadCount(userId: string, organizationId: string): void {
+    // リアルタイムで未読通知数を監視
+    const countSub = this.notificationService.getUnreadCount$(userId, organizationId).subscribe(count => {
+      this.unreadNotificationCount = count;
+    });
+    this.subscriptions.add(countSub);
   }
 
   ngOnDestroy(): void {
@@ -83,8 +107,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   navigateToNotifications(): void {
-    // TODO: 通知一覧画面への遷移
-    console.log('通知一覧へ遷移');
+    this.router.navigate(['/notifications']);
   }
 }
 

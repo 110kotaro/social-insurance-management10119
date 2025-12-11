@@ -6,10 +6,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../../core/auth/auth.service';
 import { OrganizationService } from '../../../core/services/organization.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { InsuranceRateTableService } from '../../../core/services/insurance-rate-table.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { Organization } from '../../../core/models/organization.model';
 import { Subscription } from 'rxjs';
 
@@ -29,7 +31,8 @@ interface SetupTask {
     MatButtonModule,
     MatIconModule,
     MatListModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatSnackBarModule
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.css'
@@ -40,6 +43,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private organizationService = inject(OrganizationService);
   private departmentService = inject(DepartmentService);
   private insuranceRateTableService = inject(InsuranceRateTableService);
+  private notificationService = inject(NotificationService);
+  private snackBar = inject(MatSnackBar);
   
   currentUser = this.authService.getCurrentUser();
   organization: Organization | null = null;
@@ -53,6 +58,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     const currentUser = this.authService.getCurrentUser();
     if (currentUser?.organizationId) {
       this.loadOrganization(currentUser.organizationId);
+      // リマインダーをチェック（バックグラウンドで実行、エラーは無視）
+      this.checkReminders(currentUser.organizationId).catch(error => {
+        console.error('リマインダーのチェックに失敗しました:', error);
+      });
     } else {
       // 組織が未作成の場合はセットアップガイドを表示しない
       this.showSetupGuide = false;
@@ -166,6 +175,45 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   async logout(): Promise<void> {
     await this.authService.logout();
     this.router.navigate(['/login']);
+  }
+
+  /**
+   * リマインダーをチェックして送信
+   */
+  private async checkReminders(organizationId: string, skipDuplicateCheck: boolean = false): Promise<void> {
+    try {
+      // 算定計算のリマインダーをチェック
+      await this.notificationService.checkAndSendStandardRewardReminders(organizationId, skipDuplicateCheck);
+      
+      // 月変計算のリマインダーをチェック
+      await this.notificationService.checkAndSendMonthlyChangeReminders(organizationId, skipDuplicateCheck);
+      
+      // 期限リマインダーをチェック
+      await this.notificationService.checkAndSendDeadlineReminders(organizationId, skipDuplicateCheck);
+    } catch (error) {
+      console.error('リマインダーのチェックに失敗しました:', error);
+    }
+  }
+
+  /**
+   * リマインダーを手動でチェック（開発・テスト用）
+   */
+  async checkRemindersManually(): Promise<void> {
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser?.organizationId) {
+      this.snackBar.open('組織情報が取得できません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    try {
+      this.snackBar.open('リマインダーをチェック中...', '閉じる', { duration: 2000 });
+      // 手動送信時は重複チェックをスキップ
+      await this.checkReminders(currentUser.organizationId, true);
+      this.snackBar.open('リマインダーのチェックが完了しました', '閉じる', { duration: 3000 });
+    } catch (error) {
+      console.error('リマインダーのチェックに失敗しました:', error);
+      this.snackBar.open('リマインダーのチェックに失敗しました', '閉じる', { duration: 3000 });
+    }
   }
 }
 
