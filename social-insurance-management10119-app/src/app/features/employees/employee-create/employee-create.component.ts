@@ -16,8 +16,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address } from '../../../core/models/employee.model';
+import { InsuranceRateTableService } from '../../../core/services/insurance-rate-table.service';
+import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address, LeaveInfo } from '../../../core/models/employee.model';
 import { Department } from '../../../core/models/department.model';
+import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.model';
 
 @Component({
   selector: 'app-employee-create',
@@ -48,6 +50,7 @@ export class EmployeeCreateComponent implements OnInit {
   private employeeService = inject(EmployeeService);
   private departmentService = inject(DepartmentService);
   private authService = inject(AuthService);
+  private insuranceRateTableService = inject(InsuranceRateTableService);
   private snackBar = inject(MatSnackBar);
 
   // ステップ1: 基本情報
@@ -62,9 +65,14 @@ export class EmployeeCreateComponent implements OnInit {
 
   // ステップ4: 他社勤務情報
   otherCompanyForm: FormGroup;
+  otherCompanyFormArray: FormArray;
 
   // ステップ5: 住所情報
   addressForm: FormGroup;
+
+  // ステップ6: 休職情報
+  leaveInfoForm: FormGroup;
+  leaveInfoFormArray: FormArray;
 
   departments: Department[] = [];
   organizationId: string | null = null;
@@ -91,6 +99,9 @@ export class EmployeeCreateComponent implements OnInit {
       healthInsuranceNumber: [''],
       pensionNumber: [''],
       myNumber: [''],
+      averageReward: [null],
+      grade: [null],
+      pensionGrade: [null],
       standardReward: [null],
       insuranceStartDate: [null]
     });
@@ -102,10 +113,9 @@ export class EmployeeCreateComponent implements OnInit {
     this.dependentsFormArray = this.dependentInfoForm.get('dependents') as FormArray;
 
     // ステップ4: 他社勤務情報
+    this.otherCompanyFormArray = this.fb.array([]);
     this.otherCompanyForm = this.fb.group({
-      isOtherCompany: [false],
-      isPrimary: [true],
-      companyName: ['']
+      companies: this.otherCompanyFormArray
     });
 
     // ステップ5: 住所情報
@@ -116,6 +126,12 @@ export class EmployeeCreateComponent implements OnInit {
       street: ['', [Validators.required]],
       building: [''] // 建物名・部屋番号は任意
     });
+
+    // ステップ6: 休職情報
+    this.leaveInfoForm = this.fb.group({
+      leaveInfo: this.fb.array([])
+    });
+    this.leaveInfoFormArray = this.leaveInfoForm.get('leaveInfo') as FormArray;
   }
 
   ngOnInit(): void {
@@ -190,6 +206,44 @@ export class EmployeeCreateComponent implements OnInit {
   }
 
   /**
+   * 他社勤務情報を追加
+   */
+  addOtherCompany(): void {
+    const companyGroup = this.fb.group({
+      companyName: ['', [Validators.required]],
+      isPrimary: [true]
+    });
+    this.otherCompanyFormArray.push(companyGroup);
+  }
+
+  /**
+   * 他社勤務情報を削除
+   */
+  removeOtherCompany(index: number): void {
+    this.otherCompanyFormArray.removeAt(index);
+  }
+
+  /**
+   * 休職情報を追加
+   */
+  addLeaveInfo(): void {
+    const leaveGroup = this.fb.group({
+      type: ['maternity', [Validators.required]],
+      startDate: [null, [Validators.required]],
+      endDate: [null],
+      isApproved: [false]
+    });
+    this.leaveInfoFormArray.push(leaveGroup);
+  }
+
+  /**
+   * 休職情報を削除
+   */
+  removeLeaveInfo(index: number): void {
+    this.leaveInfoFormArray.removeAt(index);
+  }
+
+  /**
    * ステップ1の送信
    */
   onStep1Submit(): void {
@@ -220,9 +274,16 @@ export class EmployeeCreateComponent implements OnInit {
   }
 
   /**
-   * ステップ5の送信（最終保存）
+   * ステップ5の送信
    */
-  async onStep5Submit(): Promise<void> {
+  onStep5Submit(): void {
+    this.stepper.next();
+  }
+
+  /**
+   * ステップ6の送信（最終保存）
+   */
+  async onStep6Submit(): Promise<void> {
     if (!this.organizationId) {
       this.snackBar.open('組織情報が取得できませんでした', '閉じる', { duration: 3000 });
       return;
@@ -263,6 +324,9 @@ export class EmployeeCreateComponent implements OnInit {
         ...(this.insuranceInfoForm.value.healthInsuranceNumber && { healthInsuranceNumber: this.insuranceInfoForm.value.healthInsuranceNumber }),
         ...(this.insuranceInfoForm.value.pensionNumber && { pensionNumber: this.insuranceInfoForm.value.pensionNumber }),
         ...(this.insuranceInfoForm.value.myNumber && { myNumber: this.insuranceInfoForm.value.myNumber }),
+        ...(this.insuranceInfoForm.value.averageReward !== null && this.insuranceInfoForm.value.averageReward !== undefined && { averageReward: this.insuranceInfoForm.value.averageReward }),
+        ...(this.insuranceInfoForm.value.grade !== null && this.insuranceInfoForm.value.grade !== undefined && { grade: this.insuranceInfoForm.value.grade }),
+        ...(this.insuranceInfoForm.value.pensionGrade !== null && this.insuranceInfoForm.value.pensionGrade !== undefined && { pensionGrade: this.insuranceInfoForm.value.pensionGrade }),
         ...(this.insuranceInfoForm.value.standardReward && { standardReward: this.insuranceInfoForm.value.standardReward }),
         ...(this.insuranceInfoForm.value.insuranceStartDate && { insuranceStartDate: this.insuranceInfoForm.value.insuranceStartDate })
       } : undefined;
@@ -281,13 +345,17 @@ export class EmployeeCreateComponent implements OnInit {
           : undefined;
 
       // 他社勤務情報（undefinedを除外）
-      const otherCompanyInfo: OtherCompanyInfo | undefined = 
-        this.otherCompanyForm.value.isOtherCompany 
-          ? {
-              isOtherCompany: true,
-              isPrimary: this.otherCompanyForm.value.isPrimary,
-              ...(this.otherCompanyForm.value.companyName && { companyName: this.otherCompanyForm.value.companyName })
-            }
+      // 他社勤務情報（配列から作成）
+      const otherCompanyInfo: OtherCompanyInfo[] | undefined = 
+        this.otherCompanyFormArray.length > 0
+          ? this.otherCompanyFormArray.controls.map((control: AbstractControl) => {
+              const value = (control as FormGroup).value;
+              return {
+                companyId: crypto.randomUUID(), // UUIDを生成
+                companyName: value.companyName || '',
+                isPrimary: value.isPrimary ?? true
+              };
+            })
           : undefined;
 
       // 住所情報（officialのみ使用）
@@ -300,6 +368,17 @@ export class EmployeeCreateComponent implements OnInit {
           ...(this.addressForm.value.building && { building: this.addressForm.value.building })
         }
       };
+
+      // 休職情報（undefinedを除外）
+      const leaveInfo: LeaveInfo[] | undefined = 
+        this.leaveInfoFormArray.length > 0 
+          ? this.leaveInfoFormArray.value.map((leave: any) => ({
+              type: leave.type,
+              startDate: leave.startDate,
+              ...(leave.endDate && { endDate: leave.endDate }),
+              isApproved: leave.isApproved !== undefined ? leave.isApproved : false
+            }))
+          : undefined;
 
       // 社員データを作成
       const employeeData: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -318,6 +397,7 @@ export class EmployeeCreateComponent implements OnInit {
         insuranceInfo,
         otherCompanyInfo,
         address,
+        leaveInfo,
         organizationId: this.organizationId
       };
 
@@ -350,9 +430,186 @@ export class EmployeeCreateComponent implements OnInit {
       formValue.healthInsuranceNumber ||
       formValue.pensionNumber ||
       formValue.myNumber ||
+      formValue.averageReward ||
+      formValue.grade ||
+      formValue.pensionGrade ||
       formValue.standardReward ||
       formValue.insuranceStartDate
     );
+  }
+
+  /**
+   * 平均報酬月額から等級と標準報酬月額を自動計算
+   */
+  async onAverageRewardBlur(): Promise<void> {
+    const averageReward = this.insuranceInfoForm.get('averageReward')?.value;
+    if (!averageReward || !this.organizationId) {
+      return;
+    }
+
+    try {
+      const rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId);
+      const validRateTables = this.filterValidRateTables(rateTables);
+
+      if (validRateTables.length === 0) {
+        return;
+      }
+
+      const grade = this.getGradeFromAverageReward(averageReward, validRateTables);
+      const pensionGrade = this.getPensionGradeFromAverageReward(averageReward, validRateTables);
+
+      if (grade) {
+        const rateTable = validRateTables.find(t => t.grade === grade);
+        if (rateTable) {
+          this.insuranceInfoForm.patchValue({
+            grade: grade,
+            pensionGrade: pensionGrade || null,
+            standardReward: rateTable.standardRewardAmount
+          }, { emitEvent: false });
+        }
+      }
+    } catch (error) {
+      console.error('等級の自動計算に失敗しました:', error);
+    }
+  }
+
+  /**
+   * 標準報酬月額から等級を自動計算
+   */
+  async onStandardRewardBlur(): Promise<void> {
+    const standardReward = this.insuranceInfoForm.get('standardReward')?.value;
+    if (!standardReward || !this.organizationId) {
+      return;
+    }
+
+    try {
+      const rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId);
+      const validRateTables = this.filterValidRateTables(rateTables);
+
+      if (validRateTables.length === 0) {
+        return;
+      }
+
+      // standardRewardAmountと一致する等級を検索
+      const rateTable = validRateTables.find(t => t.standardRewardAmount === standardReward);
+      if (rateTable) {
+        const pensionGrade = this.getPensionGradeFromStandardReward(standardReward, validRateTables);
+        this.insuranceInfoForm.patchValue({
+          grade: rateTable.grade,
+          pensionGrade: pensionGrade || null
+        }, { emitEvent: false });
+      }
+    } catch (error) {
+      console.error('等級の自動計算に失敗しました:', error);
+    }
+  }
+
+  /**
+   * 等級から標準報酬月額を自動計算
+   */
+  async onGradeBlur(): Promise<void> {
+    const grade = this.insuranceInfoForm.get('grade')?.value;
+    if (!grade || !this.organizationId) {
+      return;
+    }
+
+    try {
+      const rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId);
+      const validRateTables = this.filterValidRateTables(rateTables);
+
+      if (validRateTables.length === 0) {
+        return;
+      }
+
+      const rateTable = validRateTables.find(t => t.grade === grade);
+      if (rateTable) {
+        this.insuranceInfoForm.patchValue({
+          standardReward: rateTable.standardRewardAmount
+        }, { emitEvent: false });
+      }
+    } catch (error) {
+      console.error('標準報酬月額の自動計算に失敗しました:', error);
+    }
+  }
+
+  /**
+   * 有効な保険料率テーブルをフィルタリング
+   */
+  private filterValidRateTables(rateTables: InsuranceRateTable[]): InsuranceRateTable[] {
+    const now = new Date();
+    return rateTables.filter(table => {
+      const effectiveFrom = this.convertToDate(table.effectiveFrom);
+      const effectiveTo = table.effectiveTo ? this.convertToDate(table.effectiveTo) : null;
+      
+      if (!effectiveFrom) {
+        return false;
+      }
+      
+      const fromDate = new Date(effectiveFrom.getFullYear(), effectiveFrom.getMonth(), 1);
+      const toDate = effectiveTo ? new Date(effectiveTo.getFullYear(), effectiveTo.getMonth(), 1) : null;
+      
+      return now >= fromDate && (!toDate || now <= toDate);
+    });
+  }
+
+  /**
+   * FirestoreのTimestampまたはDateをDateオブジェクトに変換
+   */
+  private convertToDate(value: any): Date | null {
+    if (!value) {
+      return null;
+    }
+    if (value instanceof Date) {
+      return value;
+    }
+    if (value && typeof value.toDate === 'function') {
+      return value.toDate();
+    }
+    if (value && typeof value.seconds === 'number') {
+      return new Date(value.seconds * 1000);
+    }
+    return null;
+  }
+
+  /**
+   * 平均月額から等級を判定
+   */
+  private getGradeFromAverageReward(averageReward: number, rateTables: InsuranceRateTable[]): number | null {
+    for (const table of rateTables) {
+      const minOk = averageReward >= table.minAmount;
+      const maxOk = table.maxAmount === 0 || table.maxAmount === null || averageReward <= table.maxAmount;
+      if (minOk && maxOk) {
+        return table.grade;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 平均月額から厚生年金等級を判定
+   */
+  private getPensionGradeFromAverageReward(averageReward: number, rateTables: InsuranceRateTable[]): number | null {
+    for (const table of rateTables) {
+      if (table.pensionGrade !== null && table.pensionGrade !== undefined) {
+        const minOk = averageReward >= table.minAmount;
+        const maxOk = table.maxAmount === 0 || table.maxAmount === null || averageReward <= table.maxAmount;
+        if (minOk && maxOk) {
+          return table.pensionGrade;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 標準報酬月額から厚生年金等級を判定
+   */
+  private getPensionGradeFromStandardReward(standardReward: number, rateTables: InsuranceRateTable[]): number | null {
+    const rateTable = rateTables.find(t => t.standardRewardAmount === standardReward);
+    if (rateTable && rateTable.pensionGrade !== null && rateTable.pensionGrade !== undefined) {
+      return rateTable.pensionGrade;
+    }
+    return null;
   }
 
   /**

@@ -1,0 +1,192 @@
+<div class="calculation-detail-container" *ngIf="!isLoading && calculation">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>{{ calculation.calculationType === 'standard' ? 'assessment' : 'trending_up' }}</mat-icon>
+        {{ calculation.calculationType === 'standard' ? '算定計算' : '月変計算' }}詳細
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- 基本情報 -->
+      <mat-list>
+        <mat-list-item>
+          <span matListItemTitle>計算タイプ</span>
+          <span matListItemLine>{{ calculation.calculationType === 'standard' ? '算定' : '月変' }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>対象年月</span>
+          <span matListItemLine>{{ calculation.targetYear }}年{{ calculation.targetMonth }}月</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>社員番号</span>
+          <span matListItemLine>{{ calculation.employeeNumber }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>社員名</span>
+          <span matListItemLine>{{ calculation.employeeName }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>部署</span>
+          <span matListItemLine>{{ departmentName || '-' }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <!-- 算定の場合 -->
+        <ng-container *ngIf="calculation.calculationType === 'standard'">
+          <mat-list-item *ngIf="calculation.baseMonths && calculation.baseMonths.length > 0">
+            <span matListItemTitle>対象期間</span>
+            <span matListItemLine>
+              {{ calculation.baseMonths[0].year }}年{{ calculation.baseMonths[0].month }}月～
+              {{ calculation.baseMonths[calculation.baseMonths.length - 1].year }}年{{ calculation.baseMonths[calculation.baseMonths.length - 1].month }}月
+            </span>
+          </mat-list-item>
+          <mat-divider *ngIf="calculation.baseMonths && calculation.baseMonths.length > 0"></mat-divider>
+        </ng-container>
+
+        <!-- 月変の場合 -->
+        <ng-container *ngIf="calculation.calculationType === 'monthly_change'">
+          <mat-list-item *ngIf="calculation.changeMonth">
+            <span matListItemTitle>変動月</span>
+            <span matListItemLine>{{ calculation.changeMonth.year }}年{{ calculation.changeMonth.month }}月</span>
+          </mat-list-item>
+          <mat-divider *ngIf="calculation.changeMonth"></mat-divider>
+
+          <mat-list-item *ngIf="calculation.calculationMonths && calculation.calculationMonths.length > 0">
+            <span matListItemTitle>計算対象期間</span>
+            <span matListItemLine>
+              {{ calculation.calculationMonths[0].year }}年{{ calculation.calculationMonths[0].month }}月～
+              {{ calculation.calculationMonths[calculation.calculationMonths.length - 1].year }}年{{ calculation.calculationMonths[calculation.calculationMonths.length - 1].month }}月
+            </span>
+          </mat-list-item>
+          <mat-divider *ngIf="calculation.calculationMonths && calculation.calculationMonths.length > 0"></mat-divider>
+
+          <mat-list-item *ngIf="calculation.previousGrade !== undefined">
+            <span matListItemTitle>従前等級</span>
+            <span matListItemLine>{{ calculation.previousGrade }}級</span>
+          </mat-list-item>
+          <mat-divider *ngIf="calculation.previousGrade !== undefined"></mat-divider>
+
+          <mat-list-item *ngIf="calculation.gradeChange !== undefined">
+            <span matListItemTitle>等級変動</span>
+            <span matListItemLine>{{ calculation.gradeChange }}等級</span>
+          </mat-list-item>
+          <mat-divider *ngIf="calculation.gradeChange !== undefined"></mat-divider>
+        </ng-container>
+
+        <mat-list-item>
+          <span matListItemTitle>平均月額</span>
+          <span matListItemLine>{{ formatCurrency(calculation.averageReward) }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>決定等級</span>
+          <span matListItemLine>{{ calculation.grade }}級</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item *ngIf="calculation.pensionGrade">
+          <span matListItemTitle>厚生年金等級</span>
+          <span matListItemLine>{{ calculation.pensionGrade }}級</span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.pensionGrade"></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>標準報酬月額</span>
+          <span matListItemLine>{{ formatCurrency(calculation.standardReward) }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item *ngIf="calculation.calculationType === 'monthly_change'">
+          <span matListItemTitle>申請要否</span>
+          <span matListItemLine>
+            <mat-chip [color]="calculation.requiresApplication ? 'warn' : 'primary'">
+              {{ calculation.requiresApplication ? '要申請' : '不要' }}
+            </mat-chip>
+          </span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.calculationType === 'monthly_change'"></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>ステータス</span>
+          <span matListItemLine>
+            <mat-chip [color]="getStatusColor(calculation.status)">
+              {{ getStatusLabel(calculation.status) }}
+            </mat-chip>
+          </span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>計算日時</span>
+          <span matListItemLine>{{ formatDate(calculation.calculatedAt) }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+      </mat-list>
+
+      <!-- 給与データ -->
+      <mat-expansion-panel *ngIf="calculation.salaryData && calculation.salaryData.length > 0" style="margin-top: 20px;">
+        <mat-expansion-panel-header>
+          <mat-panel-title>給与データ</mat-panel-title>
+        </mat-expansion-panel-header>
+        <mat-list>
+          <mat-list-item *ngFor="let salary of calculation.salaryData; let i = index">
+            <span matListItemTitle>{{ salary.year }}年{{ salary.month }}月</span>
+            <span matListItemLine>
+              基礎日数: {{ salary.baseDays }}日、
+              固定賃金: {{ formatCurrency(salary.fixedSalary) }}、
+              総支給: {{ formatCurrency(salary.totalPayment) }}
+              <span *ngIf="salary.retroactivePayment">、遡及支払額: {{ formatCurrency(salary.retroactivePayment) }}</span>
+            </span>
+          </mat-list-item>
+        </mat-list>
+      </mat-expansion-panel>
+
+      <!-- 再計算履歴 -->
+      <mat-expansion-panel *ngIf="calculation.recalculationHistory && calculation.recalculationHistory.length > 0" style="margin-top: 20px;">
+        <mat-expansion-panel-header>
+          <mat-panel-title>再計算履歴</mat-panel-title>
+        </mat-expansion-panel-header>
+        <mat-list>
+          <mat-list-item *ngFor="let history of getSortedRecalculationHistory(); let i = index">
+            <span matListItemTitle>{{ i + 1 }}回目 - {{ formatDate(history.recalculatedAt) }}</span>
+            <span matListItemLine>
+              実行者: {{ history.recalculatedBy }}
+              <span *ngIf="history.reason">、理由: {{ history.reason }}</span>
+            </span>
+          </mat-list-item>
+        </mat-list>
+      </mat-expansion-panel>
+
+      <!-- 操作ボタン -->
+      <div style="margin-top: 20px; display: flex; gap: 8px;">
+        <button mat-raised-button (click)="navigateBack()">
+          <mat-icon>arrow_back</mat-icon>
+          戻る
+        </button>
+        <button mat-raised-button color="primary" (click)="recalculate()" *ngIf="calculation.status === 'draft'">
+          <mat-icon>refresh</mat-icon>
+          再計算
+        </button>
+        <button mat-raised-button color="accent" (click)="createApplication()" *ngIf="calculation.requiresApplication && calculation.status === 'draft'">
+          <mat-icon>description</mat-icon>
+          申請作成
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<div class="loading-container" *ngIf="isLoading">
+  <mat-spinner></mat-spinner>
+  <p>読み込み中...</p>
+</div>
+

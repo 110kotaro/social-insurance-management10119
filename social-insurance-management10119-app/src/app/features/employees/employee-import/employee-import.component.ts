@@ -631,14 +631,14 @@ export class EmployeeImportComponent implements OnInit {
               }
             : undefined;
 
-        // 他社勤務情報（undefinedを除外）
-        const otherCompanyInfo: OtherCompanyInfo | undefined = 
+        // 他社勤務情報（配列として作成）
+        const otherCompanyInfo: OtherCompanyInfo[] | undefined = 
           emp.isOtherCompany !== undefined && emp.isOtherCompany
-            ? {
-                isOtherCompany: true,
-                isPrimary: emp.isPrimary !== undefined ? emp.isPrimary : true,
-                ...(emp.companyName && { companyName: emp.companyName })
-              }
+            ? [{
+                companyId: crypto.randomUUID(), // UUIDを生成
+                companyName: emp.companyName || '',
+                isPrimary: emp.isPrimary !== undefined ? emp.isPrimary : true
+              }]
             : undefined;
 
         // 住所情報（officialのみ使用）

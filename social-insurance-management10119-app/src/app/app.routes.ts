@@ -63,6 +63,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/employees/employee-edit/employee-edit.component').then(m => m.EmployeeEditComponent)
       },
       {
+        path: 'employees/:id/other-company-salary',
+        loadComponent: () => import('./features/employees/other-company-salary-input/other-company-salary-input.component').then(m => m.OtherCompanySalaryInputComponent)
+      },
+      {
         path: 'departments',
         loadComponent: () => import('./features/departments/department-list/department-list.component').then(m => m.DepartmentListComponent)
       },
@@ -90,6 +94,30 @@ export const routes: Routes = [
         path: 'applications/:id/edit',
         loadComponent: () => import('./features/applications/application-edit/application-edit.component').then(m => m.ApplicationEditComponent),
         canActivate: [authGuard]
+      },
+      {
+        path: 'calculations',
+        loadComponent: () => import('./features/calculations/calculation-list/calculation-list.component').then(m => m.CalculationListComponent)
+      },
+      {
+        path: 'calculations/:id',
+        loadComponent: () => import('./features/calculations/calculation-detail/calculation-detail.component').then(m => m.CalculationDetailComponent)
+      },
+      {
+        path: 'bonus-calculations/:id',
+        loadComponent: () => import('./features/calculations/bonus-calculation-detail/bonus-calculation-detail.component').then(m => m.BonusCalculationDetailComponent)
+      },
+      {
+        path: 'standard-reward-calculations',
+        loadComponent: () => import('./features/standard-reward-calculations/standard-reward-calculation-list/standard-reward-calculation-list.component').then(m => m.StandardRewardCalculationListComponent)
+      },
+      {
+        path: 'standard-reward-calculations/:id',
+        loadComponent: () => import('./features/standard-reward-calculations/standard-reward-calculation-detail/standard-reward-calculation-detail.component').then(m => m.StandardRewardCalculationDetailComponent)
+      },
+      {
+        path: 'salary-input',
+        loadComponent: () => import('./features/salary-input/salary-input.component').then(m => m.SalaryInputComponent)
       }
       // TODO: 他の認証が必要なルートをここに追加
     ]

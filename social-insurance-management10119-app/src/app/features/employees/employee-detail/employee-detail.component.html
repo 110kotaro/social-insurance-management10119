@@ -98,7 +98,51 @@
                   </button>
                 </span>
               </mat-list-item>
+              <mat-divider></mat-divider>
             </mat-list>
+            
+            <!-- 休職情報セクション -->
+            <div class="leave-info-section" style="margin-top: 24px;">
+              <h3 style="margin-bottom: 16px;">休職情報</h3>
+              <div *ngIf="employee.leaveInfo && employee.leaveInfo.length > 0; else noLeaveInfo">
+                <mat-list>
+                  <mat-list-item *ngFor="let leave of employee.leaveInfo; let i = index">
+                    <div class="leave-item" style="width: 100%;">
+                      <h4 style="margin-bottom: 8px;">休職情報 {{ i + 1 }}</h4>
+                      <mat-list>
+                        <mat-list-item>
+                          <span matListItemTitle>休職種別</span>
+                          <span matListItemLine>{{ getLeaveTypeLabel(leave.type) }}</span>
+                        </mat-list-item>
+                        <mat-divider></mat-divider>
+                        <mat-list-item>
+                          <span matListItemTitle>休職開始（予定）日</span>
+                          <span matListItemLine>{{ formatDate(leave.startDate) }}</span>
+                        </mat-list-item>
+                        <mat-divider></mat-divider>
+                        <mat-list-item>
+                          <span matListItemTitle>休職終了（予定）日</span>
+                          <span matListItemLine>{{ formatDate(leave.endDate) || '未設定' }}</span>
+                        </mat-list-item>
+                        <mat-divider></mat-divider>
+                        <mat-list-item>
+                          <span matListItemTitle>申請承認済み</span>
+                          <span matListItemLine>
+                            <mat-chip [color]="leave.isApproved ? 'primary' : 'warn'">
+                              {{ leave.isApproved ? '承認済み' : '未承認' }}
+                            </mat-chip>
+                          </span>
+                        </mat-list-item>
+                      </mat-list>
+                    </div>
+                    <mat-divider *ngIf="i < employee.leaveInfo!.length - 1" style="margin-top: 16px;"></mat-divider>
+                  </mat-list-item>
+                </mat-list>
+              </div>
+              <ng-template #noLeaveInfo>
+                <p class="no-data">休職情報が登録されていません</p>
+              </ng-template>
+            </div>
           </div>
         </mat-tab>
 
@@ -122,6 +166,21 @@
               </mat-list-item>
               <mat-divider></mat-divider>
               <mat-list-item>
+                <span matListItemTitle>平均報酬月額</span>
+                <span matListItemLine>{{ employee.insuranceInfo.averageReward ? (employee.insuranceInfo.averageReward | number) + '円' : '-' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>健康保険等級</span>
+                <span matListItemLine>{{ employee.insuranceInfo.grade || '-' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>厚生年金等級</span>
+                <span matListItemLine>{{ employee.insuranceInfo.pensionGrade || '-' }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
                 <span matListItemTitle>標準報酬月額</span>
                 <span matListItemLine>{{ employee.insuranceInfo.standardReward ? (employee.insuranceInfo.standardReward | number) + '円' : '-' }}</span>
               </mat-list-item>
@@ -129,6 +188,11 @@
               <mat-list-item>
                 <span matListItemTitle>保険適用開始日</span>
                 <span matListItemLine>{{ formatDate(employee.insuranceInfo.insuranceStartDate) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>等級・標準報酬月額適用年月日</span>
+                <span matListItemLine>{{ formatDate(employee.insuranceInfo.gradeAndStandardRewardEffectiveDate) || '-' }}</span>
               </mat-list-item>
             </mat-list>
             <ng-template #noInsuranceInfo>
@@ -175,6 +239,12 @@
                         <span matListItemTitle>同一世帯</span>
                         <span matListItemLine>{{ dependent.livingTogether ? 'はい' : 'いいえ' }}</span>
                       </mat-list-item>
+                      <mat-divider></mat-divider>
+                      <mat-list-item>
+                        <span matListItemTitle>被扶養者になった年月日</span>
+                        <span matListItemLine>{{ formatDate(dependent.becameDependentDate) || '-' }}</span>
+                      </mat-list-item>
+                      <mat-divider></mat-divider>
                     </mat-list>
                   </div>
                   <mat-divider *ngIf="i < employee.dependentInfo!.length - 1"></mat-divider>
@@ -190,22 +260,27 @@
         <!-- 他社勤務情報タブ -->
         <mat-tab label="他社勤務情報">
           <div class="tab-content">
-            <mat-list *ngIf="employee.otherCompanyInfo && employee.otherCompanyInfo.isOtherCompany; else noOtherCompanyInfo">
-              <mat-list-item>
-                <span matListItemTitle>他社勤務</span>
-                <span matListItemLine>あり</span>
-              </mat-list-item>
-              <mat-divider></mat-divider>
-              <mat-list-item>
-                <span matListItemTitle>主たる勤務先</span>
-                <span matListItemLine>{{ employee.otherCompanyInfo.isPrimary ? 'はい' : 'いいえ' }}</span>
-              </mat-list-item>
-              <mat-divider></mat-divider>
-              <mat-list-item>
-                <span matListItemTitle>会社名</span>
-                <span matListItemLine>{{ employee.otherCompanyInfo.companyName || '-' }}</span>
-              </mat-list-item>
-            </mat-list>
+            <div *ngIf="employee.otherCompanyInfo && employee.otherCompanyInfo.length > 0; else noOtherCompanyInfo">
+              <div class="header-actions" style="margin-bottom: 16px;">
+                <button mat-raised-button color="primary" (click)="goToOtherCompanySalaryInput()">
+                  <mat-icon>work</mat-icon>
+                  他社給与入力
+                </button>
+              </div>
+              <mat-list *ngFor="let company of employee.otherCompanyInfo; let i = index">
+                <h4 *ngIf="employee.otherCompanyInfo!.length > 1">他社 {{ i + 1 }}</h4>
+                <mat-list-item>
+                  <span matListItemTitle>会社名</span>
+                  <span matListItemLine>{{ company.companyName || '-' }}</span>
+                </mat-list-item>
+                <mat-divider></mat-divider>
+                <mat-list-item>
+                  <span matListItemTitle>主たる勤務先</span>
+                  <span matListItemLine>{{ company.isPrimary ? 'はい' : 'いいえ' }}</span>
+                </mat-list-item>
+                <mat-divider *ngIf="i < employee.otherCompanyInfo!.length - 1"></mat-divider>
+              </mat-list>
+            </div>
             <ng-template #noOtherCompanyInfo>
               <p class="no-data">他社勤務情報が登録されていません</p>
             </ng-template>

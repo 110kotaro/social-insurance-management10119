@@ -1,0 +1,39 @@
+.standard-reward-calculation-list-container {
+  padding: 20px;
+}
+
+.action-bar {
+  margin-bottom: 20px;
+}
+
+.search-form {
+  margin-bottom: 20px;
+}
+
+.search-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.filter-field {
+  min-width: 150px;
+}
+
+.tab-content {
+  padding: 20px 0;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.calculation-table {
+  width: 100%;
+}
+
+.calculation-table th,
+.calculation-table td {
+  padding: 8px 16px;
+}
+

@@ -1,0 +1,101 @@
+<div class="other-company-salary-input-container" *ngIf="employee">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>work</mat-icon>
+        {{ employee.lastName }} {{ employee.firstName }} の他社給与入力
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="header-actions">
+        <button mat-raised-button color="primary" (click)="saveDraft()">
+          <mat-icon>save</mat-icon>
+          保存（下書き）
+        </button>
+        <button mat-raised-button color="accent" (click)="confirm()">
+          <mat-icon>check</mat-icon>
+          確定
+        </button>
+        <button mat-button (click)="goBack()">
+          <mat-icon>arrow_back</mat-icon>
+          戻る
+        </button>
+      </div>
+
+      <div class="info-section">
+        <p>最新月含め過去1年分の他社給与データを入力できます。</p>
+        <p>表示されていない過去分は内部で保持されます。</p>
+      </div>
+
+      <form [formGroup]="otherCompanyForm">
+        <div formArrayName="companies">
+        <table mat-table [dataSource]="tableDataSource" class="salary-table">
+          <ng-container matColumnDef="year">
+            <th mat-header-cell *matHeaderCellDef>年</th>
+            <td mat-cell *matCellDef="let formGroup">
+              {{ formGroup.get('year')?.value }}
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="month">
+            <th mat-header-cell *matHeaderCellDef>月</th>
+            <td mat-cell *matCellDef="let formGroup">
+              {{ formGroup.get('month')?.value }}
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="companyName">
+            <th mat-header-cell *matHeaderCellDef>会社名</th>
+            <td mat-cell *matCellDef="let formGroup">
+              {{ formGroup.get('companyName')?.value }}
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="monthlyReward">
+            <th mat-header-cell *matHeaderCellDef>月額報酬</th>
+            <td mat-cell *matCellDef="let formGroup">
+              <mat-form-field appearance="outline" style="width: 150px;">
+                <input matInput type="number" formControlName="monthlyReward" [readonly]="formGroup.get('isConfirmed')?.value">
+                <span matTextSuffix>円</span>
+              </mat-form-field>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="bonus">
+            <th mat-header-cell *matHeaderCellDef>賞与</th>
+            <td mat-cell *matCellDef="let formGroup">
+              <mat-form-field appearance="outline" style="width: 150px;">
+                <input matInput type="number" formControlName="bonus" [readonly]="formGroup.get('isConfirmed')?.value">
+                <span matTextSuffix>円</span>
+              </mat-form-field>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="retroactivePayment">
+            <th mat-header-cell *matHeaderCellDef>遡及支払額</th>
+            <td mat-cell *matCellDef="let formGroup">
+              <mat-form-field appearance="outline" style="width: 150px;">
+                <input matInput type="number" formControlName="retroactivePayment" [readonly]="formGroup.get('isConfirmed')?.value">
+                <span matTextSuffix>円</span>
+              </mat-form-field>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="isConfirmed">
+            <th mat-header-cell *matHeaderCellDef>確定済み</th>
+            <td mat-cell *matCellDef="let formGroup">
+              <mat-chip [color]="formGroup.get('isConfirmed')?.value ? 'accent' : undefined">
+                {{ formGroup.get('isConfirmed')?.value ? '確定済み' : '未確定' }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>
+

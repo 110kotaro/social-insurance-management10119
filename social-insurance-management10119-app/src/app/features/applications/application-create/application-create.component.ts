@@ -24,6 +24,8 @@ import { OrganizationService } from '../../../core/services/organization.service
 import { EmployeeService } from '../../../core/services/employee.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ModeService } from '../../../core/services/mode.service';
+import { StandardRewardCalculationService } from '../../../core/services/standard-reward-calculation.service';
+import { StandardRewardCalculation } from '../../../core/models/standard-reward-calculation.model';
 import { Application, ApplicationStatus, ApplicationCategory } from '../../../core/models/application.model';
 import { Organization } from '../../../core/models/organization.model';
 import { ApplicationType } from '../../../core/models/application-flow.model';
@@ -69,6 +71,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   private employeeService = inject(EmployeeService);
   private authService = inject(AuthService);
   private modeService = inject(ModeService);
+  private standardRewardCalculationService = inject(StandardRewardCalculationService);
   private snackBar = inject(MatSnackBar);
 
   // ステップ1: 申請種別選択
@@ -92,6 +95,8 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   selectedInternalApplicationId: string | null = null; // 選択された内部申請ID（単一選択）
   availableInternalApplications: Application[] = []; // 選択可能な内部申請一覧（承認済み）
   isFromInternalApplication = false; // 内部申請詳細から外部申請を作成する場合のフラグ
+  selectedCalculationId: string | null = null; // 選択された計算履歴ID
+  isFromCalculation = false; // 計算履歴から申請を作成する場合のフラグ
 
   // 申請種別ごとのフォームフラグ（外部申請）
   isInsuranceAcquisitionForm = false; // 被保険者資格取得届
@@ -344,12 +349,19 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     this.organizationId = currentUser.organizationId;
     this.employeeId = currentUser.employeeId || null;
 
-    // クエリパラメータから内部申請IDを読み取る
+    // クエリパラメータから内部申請IDまたは計算履歴IDを読み取る
     const fromInternal = this.route.snapshot.queryParamMap.get('fromInternal');
+    const fromCalculation = this.route.snapshot.queryParamMap.get('fromCalculation');
+    
     if (fromInternal) {
       this.isFromInternalApplication = true;
       this.selectedInternalApplicationId = fromInternal;
       // 内部申請から外部申請を作成する場合は外部申請に固定
+      this.applicationTypeForm.patchValue({ category: 'external' });
+    } else if (fromCalculation) {
+      this.isFromCalculation = true;
+      this.selectedCalculationId = fromCalculation;
+      // 計算履歴から申請を作成する場合は外部申請に固定
       this.applicationTypeForm.patchValue({ category: 'external' });
     } else {
       // 権限チェック: 管理者モード時は外部申請のみ、社員モード時は内部申請のみ
@@ -372,6 +384,11 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     // 内部申請詳細から外部申請を作成する場合、申請種別を自動選択
     if (this.isFromInternalApplication && this.selectedInternalApplicationId) {
       await this.autoSelectApplicationTypeFromInternal(this.selectedInternalApplicationId);
+    }
+    
+    // 計算履歴から申請を作成する場合、申請種別を自動選択
+    if (this.isFromCalculation && this.selectedCalculationId) {
+      await this.autoSelectApplicationTypeFromCalculation(this.selectedCalculationId);
     }
     
     this.loadEmployees().then(() => {
@@ -485,6 +502,58 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       'DEPENDENT_CHANGE': 'DEPENDENT_CHANGE_EXTERNAL'
     };
     return mapping[internalTypeCode] || null;
+  }
+
+  /**
+   * 計算履歴から申請を作成する場合、申請種別を自動選択
+   */
+  private async autoSelectApplicationTypeFromCalculation(calculationId: string): Promise<void> {
+    try {
+      // 計算履歴を読み込む
+      const calculation = await this.standardRewardCalculationService.getCalculation(calculationId);
+      if (!calculation) {
+        console.error('計算履歴の読み込みに失敗しました');
+        return;
+      }
+
+      // 全カテゴリの申請種別を読み込む
+      await this.loadAllApplicationTypes();
+
+      // 計算履歴のタイプに応じて申請種別を決定
+      let applicationTypeCode: string;
+      if (calculation.calculationType === 'standard') {
+        applicationTypeCode = 'REWARD_BASE'; // 算定基礎届
+      } else if (calculation.calculationType === 'monthly_change') {
+        applicationTypeCode = 'REWARD_CHANGE'; // 報酬月額変更届
+      } else {
+        console.error('不明な計算タイプ:', calculation.calculationType);
+        return;
+      }
+
+      // 申請種別を検索
+      const applicationType = this.applicationTypes.find(t => t.code === applicationTypeCode && t.category === 'external');
+      if (!applicationType) {
+        console.error(`申請種別 ${applicationTypeCode} が見つかりません`);
+        return;
+      }
+
+      // カテゴリを外部申請に設定
+      this.applicationTypeForm.patchValue({ category: 'external' });
+      
+      // 申請種別を設定
+      this.applicationTypeForm.patchValue({ type: applicationType.id });
+      
+      // 申請種別とカテゴリのフォームコントロールを無効化（固定）
+      this.applicationTypeForm.get('category')?.disable();
+      this.applicationTypeForm.get('type')?.disable();
+      
+      // 申請種別選択処理を実行（フォーム初期化）
+      await this.onTypeSelect(true); // trueを渡して自動選択であることを示す
+      
+      // 計算履歴のデータをフォームに自動入力（フォーム初期化後に実行される）
+    } catch (error) {
+      console.error('申請種別の自動選択に失敗しました:', error);
+    }
   }
 
   /**
@@ -631,6 +700,11 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     // 選択された内部申請の情報を自動入力（フォーム初期化後に実行）
     if (this.selectedInternalApplicationId && this.selectedApplicationType.category === 'external') {
       await this.autoFillFromInternalApplications();
+    }
+    
+    // 計算履歴の情報を自動入力（フォーム初期化後に実行）
+    if (this.isFromCalculation && this.selectedCalculationId && this.selectedApplicationType.category === 'external') {
+      await this.autoFillFromCalculation();
     }
   }
 
@@ -2953,6 +3027,11 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         };
       }
 
+      // 計算履歴IDを申請データに含める
+      if (this.selectedCalculationId) {
+        applicationData['calculationId'] = this.selectedCalculationId;
+      }
+
       // 申請を作成
       const application: Omit<Application, 'id' | 'createdAt' | 'updatedAt'> = {
         type: this.selectedApplicationType.id,
@@ -2967,6 +3046,19 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       };
 
       const applicationId = await this.applicationService.createApplication(application);
+      
+      // 計算履歴のステータスを「申請済み」に更新し、申請IDを紐付け
+      if (this.selectedCalculationId) {
+        try {
+          await this.standardRewardCalculationService.updateCalculation(this.selectedCalculationId, {
+            status: 'applied',
+            applicationId: applicationId
+          });
+        } catch (error) {
+          console.error('計算履歴の更新に失敗しました:', error);
+          // エラーが発生しても申請作成は続行
+        }
+      }
       
       this.snackBar.open('申請を作成しました', '閉じる', { duration: 3000 });
       this.router.navigate(['/applications', applicationId]);
@@ -4303,6 +4395,236 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     }
     const folderName = getApplicationTypeFolderName(this.selectedApplicationType.code);
     return `/assets/templates/${folderName}/${fileName}`;
+  }
+
+  /**
+   * 計算履歴のデータをフォームに自動入力
+   */
+  private async autoFillFromCalculation(): Promise<void> {
+    if (!this.selectedCalculationId || !this.selectedApplicationType) {
+      return;
+    }
+
+    try {
+      // 計算履歴を読み込む
+      const calculation = await this.standardRewardCalculationService.getCalculation(this.selectedCalculationId);
+      if (!calculation) {
+        console.error('計算履歴の読み込みに失敗しました');
+        return;
+      }
+
+      // 社員情報を取得
+      const employee = await this.employeeService.getEmployee(calculation.employeeId);
+      if (!employee) {
+        console.error('社員情報の読み込みに失敗しました');
+        return;
+      }
+
+      if (calculation.calculationType === 'standard' && this.isRewardBaseForm && this.rewardBaseForm) {
+        // 算定基礎届のフォームに自動入力
+        await this.autoFillRewardBaseFormFromCalculation(calculation, employee);
+      } else if (calculation.calculationType === 'monthly_change' && this.isRewardChangeForm && this.rewardChangeForm) {
+        // 報酬月額変更届のフォームに自動入力
+        await this.autoFillRewardChangeFormFromCalculation(calculation, employee);
+      }
+    } catch (error) {
+      console.error('計算履歴からの自動入力に失敗しました:', error);
+    }
+  }
+
+  /**
+   * 算定基礎届フォームに計算履歴のデータを自動入力
+   */
+  private async autoFillRewardBaseFormFromCalculation(calculation: StandardRewardCalculation, employee: Employee): Promise<void> {
+    if (!this.rewardBaseForm || !this.rewardBasePersonsFormArray) return;
+
+    // 被保険者を追加（既に1人追加されている場合はクリア）
+    this.rewardBasePersonsFormArray.clear();
+    this.addRewardBasePerson();
+
+    const personGroup = this.rewardBasePersonsFormArray.at(0) as FormGroup;
+    if (!personGroup) return;
+
+    // 被保険者情報を設定
+    personGroup.patchValue({
+      insuranceNumber: employee.insuranceInfo?.healthInsuranceNumber || '',
+      name: `${employee.lastName} ${employee.firstName}`,
+      personalNumber: employee.insuranceInfo?.myNumber || ''
+    });
+
+    // 生年月日を設定
+    if (employee.birthDate) {
+      const birthDate = employee.birthDate instanceof Date ? employee.birthDate : new Date((employee.birthDate as any).seconds * 1000);
+      const era = this.getEraFromDate(birthDate);
+      personGroup.get('birthDate')?.patchValue({
+        era: era.era,
+        year: era.year,
+        month: birthDate.getMonth() + 1,
+        day: birthDate.getDate()
+      });
+    }
+
+    // 適用年月を設定（7月）
+    const targetDate = new Date(calculation.targetYear, 6, 1); // 7月1日
+    const era = this.getEraFromDate(targetDate);
+    personGroup.get('applicableDate')?.patchValue({
+      era: era.era,
+      year: era.year,
+      month: 7
+    });
+
+    // 給与データを設定
+    if (calculation.salaryData && calculation.salaryData.length > 0) {
+      const salaryMonthsArray = personGroup.get('salaryMonths') as FormArray;
+      const retroactivePaymentArray = personGroup.get('retroactivePayment') as FormArray;
+
+      calculation.salaryData.forEach((salary, index) => {
+        if (index < salaryMonthsArray.length) {
+          const monthGroup = salaryMonthsArray.at(index) as FormGroup;
+          monthGroup.patchValue({
+            month: this.getMonthName(salary.month),
+            baseDays: salary.baseDays,
+            currency: salary.totalPayment - (salary.retroactivePayment || 0),
+            inKind: 0,
+            total: salary.totalPayment
+          });
+        }
+
+        // 遡及支払額を設定
+        if (salary.retroactivePayment && salary.retroactivePayment > 0 && index < retroactivePaymentArray.length) {
+          const retroGroup = retroactivePaymentArray.at(index) as FormGroup;
+          retroGroup.patchValue({
+            month: this.getMonthName(salary.month),
+            amount: salary.retroactivePayment
+          });
+        }
+      });
+    }
+
+    // 平均額と修正平均額を設定
+    personGroup.patchValue({
+      average: calculation.averageReward,
+      adjustedAverage: calculation.averageReward
+    });
+  }
+
+  /**
+   * 報酬月額変更届フォームに計算履歴のデータを自動入力
+   */
+  private async autoFillRewardChangeFormFromCalculation(calculation: StandardRewardCalculation, employee: Employee): Promise<void> {
+    if (!this.rewardChangeForm || !this.rewardChangePersonsFormArray) return;
+
+    // 被保険者を追加（既に1人追加されている場合はクリア）
+    this.rewardChangePersonsFormArray.clear();
+    this.addRewardChangePerson();
+
+    const personGroup = this.rewardChangePersonsFormArray.at(0) as FormGroup;
+    if (!personGroup) return;
+
+    // 被保険者情報を設定
+    personGroup.patchValue({
+      insuranceNumber: employee.insuranceInfo?.healthInsuranceNumber || '',
+      name: `${employee.lastName} ${employee.firstName}`,
+      personalNumber: employee.insuranceInfo?.myNumber || ''
+    });
+
+    // 生年月日を設定
+    if (employee.birthDate) {
+      const birthDate = employee.birthDate instanceof Date ? employee.birthDate : new Date((employee.birthDate as any).seconds * 1000);
+      const era = this.getEraFromDate(birthDate);
+      personGroup.get('birthDate')?.patchValue({
+        era: era.era,
+        year: era.year,
+        month: birthDate.getMonth() + 1,
+        day: birthDate.getDate()
+      });
+    }
+
+    // 変更年月を設定
+    if (calculation.changeMonth) {
+      const changeDate = new Date(calculation.changeMonth.year, calculation.changeMonth.month - 1, 1);
+      const era = this.getEraFromDate(changeDate);
+      personGroup.get('changeDate')?.patchValue({
+        era: era.era,
+        year: era.year,
+        month: calculation.changeMonth.month
+      });
+      
+      // 初月を設定
+      personGroup.patchValue({
+        firstMonth: calculation.changeMonth.month
+      });
+    }
+
+    // 従前の標準報酬月額を設定
+    if (employee.insuranceInfo?.standardReward) {
+      personGroup.get('previousStandardReward')?.patchValue({
+        healthInsurance: employee.insuranceInfo.standardReward,
+        pensionInsurance: employee.insuranceInfo.standardReward
+      });
+    }
+
+    // 給与データを設定
+    if (calculation.salaryData && calculation.salaryData.length > 0) {
+      const salaryMonthsArray = personGroup.get('salaryMonths') as FormArray;
+      const retroactivePaymentArray = personGroup.get('retroactivePayment') as FormArray;
+
+      calculation.salaryData.forEach((salary, index) => {
+        if (index < salaryMonthsArray.length) {
+          const monthGroup = salaryMonthsArray.at(index) as FormGroup;
+          monthGroup.patchValue({
+            month: salary.month,
+            baseDays: salary.baseDays,
+            currency: salary.totalPayment - (salary.retroactivePayment || 0),
+            inKind: 0,
+            total: salary.totalPayment
+          });
+        }
+
+        // 遡及支払額を設定
+        if (salary.retroactivePayment && salary.retroactivePayment > 0 && index < retroactivePaymentArray.length) {
+          const retroGroup = retroactivePaymentArray.at(index) as FormGroup;
+          retroGroup.patchValue({
+            month: salary.month,
+            amount: salary.retroactivePayment
+          });
+        }
+      });
+    }
+
+    // 平均額と修正平均額を設定
+    personGroup.patchValue({
+      average: calculation.averageReward,
+      adjustedAverage: calculation.averageReward
+    });
+  }
+
+  /**
+   * 日付から元号を取得
+   */
+  private getEraFromDate(date: Date): { era: string; year: number } {
+    const year = date.getFullYear();
+    if (year >= 2019) {
+      return { era: 'reiwa', year: year - 2018 };
+    } else if (year >= 1989) {
+      return { era: 'heisei', year: year - 1988 };
+    } else if (year >= 1926) {
+      return { era: 'showa', year: year - 1925 };
+    } else {
+      return { era: 'taisho', year: year - 1911 };
+    }
+  }
+
+  /**
+   * 月番号から月名を取得
+   */
+  private getMonthName(month: number): string {
+    const monthNames: Record<number, string> = {
+      1: 'january', 2: 'february', 3: 'march', 4: 'april',
+      5: 'may', 6: 'june', 7: 'july', 8: 'august',
+      9: 'september', 10: 'october', 11: 'november', 12: 'december'
+    };
+    return monthNames[month] || 'april';
   }
 }
 

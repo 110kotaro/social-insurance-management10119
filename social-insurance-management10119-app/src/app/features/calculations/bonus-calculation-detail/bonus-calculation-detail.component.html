@@ -1,0 +1,404 @@
+<div class="calculation-detail-container" *ngIf="!isLoading && (calculation || (isNewCalculation && employee))">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>calculate</mat-icon>
+        {{ isNewCalculation ? '賞与保険料計算' : '賞与計算結果詳細' }}
+      </mat-card-title>
+      <div class="header-actions">
+        <button *ngIf="isNewCalculation && isAdmin()" mat-raised-button color="primary" (click)="executeCalculation()">
+          <mat-icon>calculate</mat-icon>
+          計算実行
+        </button>
+        <button *ngIf="!isNewCalculation && isAdmin() && calculation && calculation.status === 'draft'" mat-raised-button color="primary" (click)="confirmCalculation()">
+          <mat-icon>check_circle</mat-icon>
+          確定
+        </button>
+        <button *ngIf="!isNewCalculation && isAdmin() && calculation && (calculation.status === 'confirmed' || calculation.status === 'exported')" mat-raised-button color="accent" (click)="recalculateCalculation()">
+          <mat-icon>refresh</mat-icon>
+          再計算
+        </button>
+        <button *ngIf="!isNewCalculation && isAdmin() && calculation && calculation.status === 'draft'" mat-raised-button color="warn" (click)="deleteCalculation()">
+          <mat-icon>delete</mat-icon>
+          計算結果を削除
+        </button>
+        <button mat-icon-button (click)="goBack()" matTooltip="一覧に戻る">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+      </div>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- 新規計算の場合 -->
+      <div *ngIf="isNewCalculation && employee">
+        <mat-list>
+          <mat-list-item>
+            <span matListItemTitle>計算対象年月</span>
+            <span matListItemLine>{{ calculationYear }}年{{ calculationMonth }}月</span>
+          </mat-list-item>
+          <mat-divider></mat-divider>
+          <mat-list-item>
+            <span matListItemTitle>社員番号</span>
+            <span matListItemLine>{{ employee.employeeNumber }}</span>
+          </mat-list-item>
+          <mat-divider></mat-divider>
+          <mat-list-item>
+            <span matListItemTitle>社員名</span>
+            <span matListItemLine>{{ employee.lastName }} {{ employee.firstName }}</span>
+          </mat-list-item>
+          <mat-divider></mat-divider>
+          <mat-list-item>
+            <span matListItemTitle>部署</span>
+            <span matListItemLine>{{ departmentName || '-' }}</span>
+          </mat-list-item>
+          <mat-divider></mat-divider>
+          <mat-list-item>
+            <span matListItemTitle>標準報酬月額</span>
+            <span matListItemLine>{{ employee.insuranceInfo?.standardReward != null ? formatCurrency(employee.insuranceInfo!.standardReward!) : '-' }}</span>
+          </mat-list-item>
+        </mat-list>
+        <div style="margin-top: 20px; padding: 16px; background-color: #f5f5f5; border-radius: 4px;">
+          <p>計算結果がありません。上記の「計算実行」ボタンをクリックして計算を実行してください。</p>
+        </div>
+      </div>
+
+      <!-- 計算結果がある場合 -->
+      <div *ngIf="!isNewCalculation && calculation">
+      <!-- 基本情報 -->
+      <mat-list>
+        <mat-list-item>
+          <span matListItemTitle>計算対象年月</span>
+          <span matListItemLine>{{ calculation.year }}年{{ calculation.month }}月</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>社員番号</span>
+          <span matListItemLine>{{ calculation.employeeNumber }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>社員名</span>
+          <span matListItemLine>{{ calculation.employeeName }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>部署</span>
+          <span matListItemLine>{{ calculation.departmentName || '-' }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>賞与額</span>
+          <span matListItemLine>{{ formatCurrency(calculation.bonusAmount) }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>標準賞与額</span>
+          <span matListItemLine>{{ formatCurrency(calculation.standardBonusAmount) }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>ステータス</span>
+          <span matListItemLine>
+            <mat-chip [color]="getStatusColor(calculation.status)">
+              {{ getStatusLabel(calculation.status) }}
+            </mat-chip>
+          </span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item>
+          <span matListItemTitle>計算日</span>
+          <span matListItemLine>{{ formatDate(calculation.calculationDate) }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+
+        <mat-list-item *ngIf="calculation.confirmedAt">
+          <span matListItemTitle>確定日時</span>
+          <span matListItemLine>{{ formatDate(calculation.confirmedAt) }}</span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.confirmedAt"></mat-divider>
+
+        <mat-list-item *ngIf="calculation.exportedAt">
+          <span matListItemTitle>出力日時</span>
+          <span matListItemLine>{{ formatDate(calculation.exportedAt) }}</span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.exportedAt"></mat-divider>
+
+        <!-- 過去計算再現用の追加情報 -->
+        <mat-list-item *ngIf="calculation.birthDate">
+          <span matListItemTitle>生年月日</span>
+          <span matListItemLine>{{ formatDate(calculation.birthDate) }}</span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.birthDate"></mat-divider>
+
+        <!-- 他社兼務関連情報 -->
+        <mat-list-item *ngIf="calculation.isOtherCompany">
+          <span matListItemTitle>他社兼務</span>
+          <span matListItemLine>
+            <mat-chip color="accent">はい</mat-chip>
+          </span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.isOtherCompany"></mat-divider>
+
+        <mat-list-item *ngIf="calculation.isOtherCompany && calculation.ownCompanySalary !== undefined">
+          <span matListItemTitle>自社給与（賞与）</span>
+          <span matListItemLine>{{ formatCurrency(calculation.ownCompanySalary) }}</span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.isOtherCompany && calculation.ownCompanySalary !== undefined"></mat-divider>
+
+        <mat-list-item *ngIf="calculation.isOtherCompany && calculation.otherCompanySalaryTotal !== undefined">
+          <span matListItemTitle>他社賞与合算</span>
+          <span matListItemLine>{{ formatCurrency(calculation.otherCompanySalaryTotal) }}</span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.isOtherCompany && calculation.otherCompanySalaryTotal !== undefined"></mat-divider>
+
+        <mat-list-item *ngIf="calculation.joinDate">
+          <span matListItemTitle>入社日</span>
+          <span matListItemLine>{{ formatDate(calculation.joinDate) }}</span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.joinDate"></mat-divider>
+
+        <mat-list-item *ngIf="calculation.healthInsuranceRate !== undefined && calculation.healthInsuranceRate !== null">
+          <span matListItemTitle>健康保険料率</span>
+          <span matListItemLine>
+            {{ calculation.healthInsuranceRate.toFixed(2) }}%
+            <span *ngIf="calculation.healthInsuranceRateWithCare" style="color: #666; font-size: 0.9em;">（介護保険料込）</span>
+            <span *ngIf="!calculation.healthInsuranceRateWithCare" style="color: #666; font-size: 0.9em;">（介護保険料除く）</span>
+          </span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.healthInsuranceRate !== undefined && calculation.healthInsuranceRate !== null"></mat-divider>
+
+        <mat-list-item *ngIf="calculation.pensionInsuranceRate !== undefined && calculation.pensionInsuranceRate !== null">
+          <span matListItemTitle>厚生年金料率</span>
+          <span matListItemLine>{{ calculation.pensionInsuranceRate.toFixed(2) }}%</span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.pensionInsuranceRate !== undefined && calculation.pensionInsuranceRate !== null"></mat-divider>
+      </mat-list>
+
+      <!-- 被扶養者情報 -->
+      <mat-card *ngIf="calculation.dependentInfo && calculation.dependentInfo.length > 0" class="dependent-card">
+        <mat-card-header>
+          <mat-card-title>被扶養者情報</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-list>
+            <mat-list-item *ngFor="let dependent of calculation.dependentInfo">
+              <span matListItemTitle>{{ dependent.name }}（{{ dependent.relationship }}）</span>
+              <span matListItemLine>
+                {{ dependent.nameKana }}
+                <span *ngIf="dependent.birthDate" style="color: #666; font-size: 0.9em;">
+                  （{{ formatDate(dependent.birthDate) }}生まれ）
+                </span>
+              </span>
+            </mat-list-item>
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 保険料詳細 -->
+      <mat-card class="premium-card">
+        <mat-card-header>
+          <mat-card-title>保険料詳細</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-list>
+            <mat-list-item>
+              <span matListItemTitle>健康保険料（介護保険料含む）（全額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.healthInsurancePremium) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>厚生年金料（全額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.pensionInsurancePremium) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item class="total-item">
+              <span matListItemTitle>合計保険料（全額）</span>
+              <span matListItemLine class="total-amount">{{ formatCurrency(calculation.totalPremium) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>想定会社負担額（折半額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.companyShare) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>従業員負担額（折半額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.employeeShare) }}</span>
+            </mat-list-item>
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 差額情報（再計算時のみ表示） -->
+      <mat-card *ngIf="calculation.premiumDifference" class="difference-card">
+        <mat-card-header>
+          <mat-card-title>差額情報</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-list>
+            <mat-list-item>
+              <span matListItemTitle>前回の健康保険料（介護保険料含む）（全額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.premiumDifference.previousHealthInsurancePremium) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>新しい健康保険料（介護保険料含む）（全額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.premiumDifference.newHealthInsurancePremium) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>前回の厚生年金料（全額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.premiumDifference.previousPensionInsurancePremium) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>新しい厚生年金料（全額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.premiumDifference.newPensionInsurancePremium) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>前回の想定会社負担額（折半額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.premiumDifference.previousCompanyShare) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>新しい想定会社負担額（折半額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.premiumDifference.newCompanyShare) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>前回の従業員負担額（折半額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.premiumDifference.previousEmployeeShare) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item>
+              <span matListItemTitle>新しい従業員負担額（折半額）</span>
+              <span matListItemLine>{{ formatCurrency(calculation.premiumDifference.newEmployeeShare) }}</span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item class="diff-item">
+              <span matListItemTitle>健保・介護の差額（全額）</span>
+              <span matListItemLine [class.positive]="calculation.premiumDifference.healthInsurancePremiumDiff > 0" 
+                    [class.negative]="calculation.premiumDifference.healthInsurancePremiumDiff < 0">
+                {{ formatCurrency(calculation.premiumDifference.healthInsurancePremiumDiff) }}
+              </span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item class="diff-item">
+              <span matListItemTitle>厚生年金の差額（全額）</span>
+              <span matListItemLine [class.positive]="calculation.premiumDifference.pensionInsurancePremiumDiff > 0" 
+                    [class.negative]="calculation.premiumDifference.pensionInsurancePremiumDiff < 0">
+                {{ formatCurrency(calculation.premiumDifference.pensionInsurancePremiumDiff) }}
+              </span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item class="diff-item">
+              <span matListItemTitle>想定会社負担額の差額（折半額）</span>
+              <span matListItemLine [class.positive]="calculation.premiumDifference.companyShareDiff > 0" 
+                    [class.negative]="calculation.premiumDifference.companyShareDiff < 0">
+                {{ formatCurrency(calculation.premiumDifference.companyShareDiff) }}
+              </span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+
+            <mat-list-item class="diff-item">
+              <span matListItemTitle>従業員負担額の差額（折半額）</span>
+              <span matListItemLine [class.positive]="calculation.premiumDifference.employeeShareDiff > 0" 
+                    [class.negative]="calculation.premiumDifference.employeeShareDiff < 0">
+                {{ formatCurrency(calculation.premiumDifference.employeeShareDiff) }}
+              </span>
+            </mat-list-item>
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 遡及控除情報 -->
+      <mat-card *ngIf="calculation.retroactiveDeductions && calculation.retroactiveDeductions.length > 0" class="retroactive-deduction-card">
+        <mat-card-header>
+          <mat-card-title>遡及控除情報</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-list>
+            <mat-list-item *ngFor="let deduction of calculation.retroactiveDeductions">
+              <span matListItemTitle>{{ deduction.year }}年{{ deduction.month }}月に適用</span>
+              <span matListItemLine>
+                健保・介護: {{ formatCurrency(deduction.healthInsurancePremiumDiff) }} / 
+                厚生年金: {{ formatCurrency(deduction.pensionInsurancePremiumDiff) }} / 
+                想定会社負担: {{ formatCurrency(deduction.companyShareDiff) }} / 
+                従業員負担: {{ formatCurrency(deduction.employeeShareDiff) }}
+              </span>
+            </mat-list-item>
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 再計算履歴 -->
+      <mat-card *ngIf="calculation.recalculationHistory && calculation.recalculationHistory.length > 0" class="history-card">
+        <mat-card-header>
+          <mat-card-title>再計算履歴</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-accordion>
+            <mat-expansion-panel *ngFor="let history of getSortedRecalculationHistory(); let i = index">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  {{ i + 1 }}回目（{{ formatDate(history.recalculatedAt) }}）
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <div class="history-content">
+                <p *ngIf="history.reason"><strong>再計算理由:</strong> {{ history.reason }}</p>
+                <mat-list>
+                  <mat-list-item *ngIf="history.dataSnapshot.standardBonusAmount">
+                    <span matListItemTitle>標準賞与額</span>
+                    <span matListItemLine>{{ formatCurrency(history.dataSnapshot.standardBonusAmount) }}</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.standardBonusAmount"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.totalPremium">
+                    <span matListItemTitle>合計保険料（全額）</span>
+                    <span matListItemLine>{{ formatCurrency(history.dataSnapshot.totalPremium) }}</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.totalPremium"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.companyShare">
+                    <span matListItemTitle>想定会社負担額</span>
+                    <span matListItemLine>{{ formatCurrency(history.dataSnapshot.companyShare) }}</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.companyShare"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.employeeShare">
+                    <span matListItemTitle>従業員負担額</span>
+                    <span matListItemLine>{{ formatCurrency(history.dataSnapshot.employeeShare) }}</span>
+                  </mat-list-item>
+                </mat-list>
+              </div>
+            </mat-expansion-panel>
+          </mat-accordion>
+        </mat-card-content>
+      </mat-card>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<div *ngIf="isLoading" class="loading">
+  <p>読み込み中...</p>
+</div>
+

@@ -8,7 +8,6 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatListModule } from '@angular/material/list';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -16,7 +15,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address, EmployeeChangeHistory } from '../../../core/models/employee.model';
+import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address, EmployeeChangeHistory, LeaveInfo } from '../../../core/models/employee.model';
 import { Department } from '../../../core/models/department.model';
 
 @Component({
@@ -31,7 +30,6 @@ import { Department } from '../../../core/models/department.model';
     MatListModule,
     MatChipsModule,
     MatSnackBarModule,
-    MatDialogModule,
     MatSelectModule,
     MatFormFieldModule,
     MatTooltipModule,
@@ -47,7 +45,6 @@ export class EmployeeDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
-  private dialog = inject(MatDialog);
 
   employee: Employee | null = null;
   department: Department | null = null;
@@ -257,6 +254,15 @@ export class EmployeeDetailComponent implements OnInit {
   }
 
   /**
+   * 他社給与入力ページに遷移
+   */
+  goToOtherCompanySalaryInput(): void {
+    if (this.employee?.id) {
+      this.router.navigate(['/employees', this.employee.id, 'other-company-salary']);
+    }
+  }
+
+  /**
    * 社員を招待（メール送信）
    */
   async inviteEmployee(): Promise<void> {
@@ -343,5 +349,27 @@ export class EmployeeDetailComponent implements OnInit {
     }
     return String(value);
   }
+
+  /**
+   * 休職種別の表示ラベルを取得
+   */
+  getLeaveTypeLabel(type: string): string {
+    const labels: { [key: string]: string } = {
+      'maternity': '産前産後休業',
+      'childcare': '育児休業'
+    };
+    return labels[type] || type;
+  }
+
+  /**
+   * 日付をDateオブジェクトに変換
+   */
+  convertToDate(date: Date | any): Date | null {
+    if (!date) return null;
+    if (date instanceof Date) return date;
+    if (date?.toDate) return date.toDate();
+    return new Date(date);
+  }
+
 }
 

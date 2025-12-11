@@ -162,17 +162,47 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>標準報酬月額</mat-label>
-                <input matInput type="number" formControlName="standardReward">
+                <mat-label>平均報酬月額</mat-label>
+                <input matInput type="number" formControlName="averageReward" (blur)="onAverageRewardBlur()">
+                <mat-hint>入力すると等級と標準報酬月額が自動計算されます</mat-hint>
               </mat-form-field>
             </div>
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
+                <mat-label>健康保険等級</mat-label>
+                <input matInput type="number" formControlName="grade" (blur)="onGradeBlur()">
+                <mat-hint>入力すると標準報酬月額が自動計算されます</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>厚生年金等級</mat-label>
+                <input matInput type="number" formControlName="pensionGrade">
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>標準報酬月額</mat-label>
+                <input matInput type="number" formControlName="standardReward" (blur)="onStandardRewardBlur()">
+                <mat-hint>入力すると等級が自動計算されます</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
                 <mat-label>保険適用開始日</mat-label>
                 <input matInput [matDatepicker]="picker2" formControlName="insuranceStartDate">
                 <mat-datepicker-toggle matIconSuffix [for]="picker2"></mat-datepicker-toggle>
                 <mat-datepicker #picker2></mat-datepicker>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>等級・標準報酬月額適用年月日</mat-label>
+                <input matInput [matDatepicker]="pickerEffectiveDate" formControlName="gradeAndStandardRewardEffectiveDate">
+                <mat-datepicker-toggle matIconSuffix [for]="pickerEffectiveDate"></mat-datepicker-toggle>
+                <mat-datepicker #pickerEffectiveDate></mat-datepicker>
+                <mat-hint>算定基礎届の適用年月日または報酬月額変更届の改定年月日</mat-hint>
               </mat-form-field>
             </div>
 
@@ -243,6 +273,15 @@
                         <mat-checkbox formControlName="livingTogether">同一世帯</mat-checkbox>
                       </div>
 
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>被扶養者になった年月日</mat-label>
+                          <input matInput [matDatepicker]="pickerDependentDate" formControlName="becameDependentDate">
+                          <mat-datepicker-toggle matIconSuffix [for]="pickerDependentDate"></mat-datepicker-toggle>
+                          <mat-datepicker #pickerDependentDate></mat-datepicker>
+                        </mat-form-field>
+                      </div>
+
                       <div class="dependent-actions">
                         <button mat-icon-button type="button" (click)="removeDependent(i)" color="warn">
                           <mat-icon>delete</mat-icon>
@@ -270,19 +309,47 @@
         <mat-step>
           <ng-template matStepLabel>他社勤務情報</ng-template>
           <form [formGroup]="otherCompanyForm">
-            <mat-checkbox formControlName="isOtherCompany">
-              他社勤務あり
-            </mat-checkbox>
+            <div class="other-company-section">
+              <div class="section-header">
+                <h3>他社勤務情報</h3>
+                <button mat-raised-button type="button" (click)="addOtherCompany()">
+                  <mat-icon>add</mat-icon>
+                  他社を追加
+                </button>
+              </div>
 
-            <div *ngIf="otherCompanyForm.get('isOtherCompany')?.value" class="other-company-details">
-              <mat-form-field appearance="outline" class="form-field">
-                <mat-label>会社名</mat-label>
-                <input matInput formControlName="companyName">
-              </mat-form-field>
+              <div formArrayName="companies" class="other-company-list">
+                <div *ngFor="let company of otherCompanyFormArray.controls; let i = index" 
+                     [formGroupName]="i" class="other-company-item">
+                  <mat-card>
+                    <mat-card-content>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>会社名 *</mat-label>
+                          <input matInput formControlName="companyName" required>
+                          <mat-error *ngIf="company.get('companyName')?.hasError('required')">
+                            会社名を入力してください
+                          </mat-error>
+                        </mat-form-field>
 
-              <mat-checkbox formControlName="isPrimary">
-                主たる勤務先
-              </mat-checkbox>
+                        <mat-checkbox formControlName="isPrimary">
+                          主たる勤務先
+                        </mat-checkbox>
+                      </div>
+
+                      <div class="other-company-actions">
+                        <button mat-icon-button type="button" (click)="removeOtherCompany(i)" color="warn">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </div>
+                    </mat-card-content>
+                  </mat-card>
+                </div>
+
+                <div *ngIf="otherCompanyFormArray.length === 0" class="no-other-company">
+                  <p>他社勤務情報が登録されていません</p>
+                </div>
+              </div>
             </div>
 
             <div class="button-group">
@@ -343,7 +410,73 @@
             <div class="button-group">
               <button mat-button type="button" (click)="stepper.previous()">戻る</button>
               <button mat-button type="button" (click)="cancel()">キャンセル</button>
-              <button mat-raised-button color="primary" (click)="onStep5Submit()" [disabled]="isLoading">
+              <button mat-raised-button color="primary" (click)="onStep5Submit()">次へ</button>
+            </div>
+          </form>
+        </mat-step>
+
+        <!-- ステップ6: 休職情報 -->
+        <mat-step>
+          <ng-template matStepLabel>休職情報</ng-template>
+          <form [formGroup]="leaveInfoForm">
+            <div formArrayName="leaveInfo">
+              <div *ngFor="let leave of leaveInfoFormArray.controls; let i = index" [formGroupName]="i" class="leave-info-item" style="margin-bottom: 24px; padding: 16px; border: 1px solid #e0e0e0; border-radius: 4px;">
+                <h4 style="margin-bottom: 16px;">休職情報 {{ i + 1 }}</h4>
+                
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="form-field">
+                    <mat-label>休職種別 *</mat-label>
+                    <mat-select formControlName="type" required>
+                      <mat-option value="maternity">産前産後休業</mat-option>
+                      <mat-option value="childcare">育児休業</mat-option>
+                      <mat-option value="other">その他</mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="leave.get('type')?.hasError('required')">
+                      休職種別を選択してください
+                    </mat-error>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="form-field">
+                    <mat-label>休職開始（予定）日 *</mat-label>
+                    <input matInput [matDatepicker]="startPicker" formControlName="startDate" required>
+                    <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+                    <mat-datepicker #startPicker></mat-datepicker>
+                    <mat-error *ngIf="leave.get('startDate')?.hasError('required')">
+                      休職開始（予定）日を入力してください
+                    </mat-error>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="form-field">
+                    <mat-label>休職終了（予定）日</mat-label>
+                    <input matInput [matDatepicker]="endPicker" formControlName="endDate">
+                    <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+                    <mat-datepicker #endPicker></mat-datepicker>
+                  </mat-form-field>
+                </div>
+
+                <div class="form-row">
+                  <mat-checkbox formControlName="isApproved">申請承認済み</mat-checkbox>
+                </div>
+
+                <div class="button-group" style="margin-top: 8px;">
+                  <button mat-icon-button type="button" color="warn" (click)="removeLeaveInfo(i)" *ngIf="leaveInfoFormArray.length > 1">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="button-group" style="margin-top: 16px;">
+              <button mat-raised-button type="button" (click)="addLeaveInfo()">
+                <mat-icon>add</mat-icon>
+                休職情報を追加
+              </button>
+            </div>
+
+            <div class="button-group" style="margin-top: 24px;">
+              <button mat-button type="button" (click)="stepper.previous()">戻る</button>
+              <button mat-button type="button" (click)="cancel()">キャンセル</button>
+              <button mat-raised-button color="primary" (click)="onStep6Submit()" [disabled]="isLoading">
                 <mat-icon *ngIf="isLoading">hourglass_empty</mat-icon>
                 {{ isLoading ? '更新中...' : '更新' }}
               </button>

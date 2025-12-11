@@ -1,0 +1,394 @@
+<div class="calculation-list-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>calculate</mat-icon>
+        保険料計算
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- 給与情報入力ボタン -->
+      <div class="action-bar" style="margin-bottom: 16px;">
+        <button mat-raised-button color="primary" (click)="navigateToSalaryInput()">
+          <mat-icon>edit</mat-icon>
+          給与情報入力
+        </button>
+      </div>
+
+      <!-- タブ -->
+      <mat-tab-group [(selectedIndex)]="selectedTabIndex" (selectedIndexChange)="onTabChange($event)">
+        <!-- 月次タブ -->
+        <mat-tab label="月次">
+          <div class="tab-content" style="margin-top: 16px;">
+            <!-- 検索・フィルタ -->
+            <form [formGroup]="searchForm" class="search-form">
+        <div class="search-row">
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>年</mat-label>
+            <mat-select formControlName="year" (selectionChange)="onSearch()">
+              <mat-option *ngFor="let year of years" [value]="year">
+                {{ year }}年
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>月</mat-label>
+            <mat-select formControlName="month" (selectionChange)="onSearch()">
+              <mat-option *ngFor="let month of months" [value]="month">
+                {{ month }}月
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>ステータス</mat-label>
+            <mat-select formControlName="status" (selectionChange)="onFilterChange()">
+              <mat-option value="">すべて</mat-option>
+              <mat-option value="not_calculated">未計算</mat-option>
+              <mat-option value="draft">下書き</mat-option>
+              <mat-option value="confirmed">確定</mat-option>
+              <mat-option value="exported">出力済み</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <button mat-raised-button color="accent" (click)="exportToCsv()" [disabled]="filteredRows.length === 0 || !canExport()" class="export-button">
+            <mat-icon>download</mat-icon>
+            CSV出力
+          </button>
+        </div>
+      </form>
+
+      <!-- フィルタ条件表示 -->
+      <div class="filter-info" style="margin-bottom: 16px; padding: 12px; background-color: #f5f5f5; border-radius: 4px;">
+        <div style="font-weight: bold; margin-bottom: 8px;">表示対象の条件:</div>
+        <div style="font-size: 0.9em; color: #666;">
+          <div>• 標準報酬月額が設定されている</div>
+          <div>• 該当月に在籍していた（入社日が該当月の月末以前 かつ 退職日の翌日が含まれる月より前）</div>
+          <div>• 75歳未満であること（75歳以上は計算対象外）</div>
+          <div style="margin-top: 8px; color: #d32f2f; font-weight: bold;">※ 申請承認済みの休職者は全額免除（計算自体をスキップ）</div>
+        </div>
+      </div>
+
+      <!-- 一括操作ボタン -->
+      <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+        <button mat-raised-button color="primary" (click)="executeCalculation()" [disabled]="selectedEmployees.size === 0">
+          <mat-icon>play_arrow</mat-icon>
+          一括計算実行
+        </button>
+        <button mat-raised-button color="primary" (click)="confirmSelected()" [disabled]="selectedCalculations.size === 0">
+          <mat-icon>check_circle</mat-icon>
+          一括確定
+        </button>
+      </div>
+
+      <!-- 計算結果テーブル -->
+      <div class="table-container">
+        <table mat-table [dataSource]="dataSource" class="calculation-table">
+          <!-- 選択列 -->
+          <ng-container matColumnDef="select">
+            <th mat-header-cell *matHeaderCellDef>
+              <mat-checkbox
+                (change)="$event ? toggleAll() : null"
+                [checked]="isAllSelected()"
+                [indeterminate]="isSomeSelected()">
+              </mat-checkbox>
+            </th>
+            <td mat-cell *matCellDef="let row">
+              <mat-checkbox
+                (click)="$event.stopPropagation()"
+                (change)="$event ? toggleSelection(row) : null"
+                [checked]="isSelected(row)"
+                [disabled]="row.calculation && row.calculation.status !== 'draft'">
+              </mat-checkbox>
+            </td>
+          </ng-container>
+
+          <!-- 年列 -->
+          <ng-container matColumnDef="year">
+            <th mat-header-cell *matHeaderCellDef>年</th>
+            <td mat-cell *matCellDef="let row">{{ searchForm.value.year || currentYear }}</td>
+          </ng-container>
+
+          <!-- 月列 -->
+          <ng-container matColumnDef="month">
+            <th mat-header-cell *matHeaderCellDef>月</th>
+            <td mat-cell *matCellDef="let row">{{ searchForm.value.month || currentMonth }}</td>
+          </ng-container>
+
+          <!-- 社員番号列 -->
+          <ng-container matColumnDef="employeeNumber">
+            <th mat-header-cell *matHeaderCellDef>社員番号</th>
+            <td mat-cell *matCellDef="let row">{{ row.employeeNumber }}</td>
+          </ng-container>
+
+          <!-- 社員名列 -->
+          <ng-container matColumnDef="employeeName">
+            <th mat-header-cell *matHeaderCellDef>社員名</th>
+            <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
+          </ng-container>
+
+          <!-- 部署名列 -->
+          <ng-container matColumnDef="departmentName">
+            <th mat-header-cell *matHeaderCellDef>部署</th>
+            <td mat-cell *matCellDef="let row">{{ row.departmentName || '-' }}</td>
+          </ng-container>
+
+          <!-- 会社負担額列 -->
+          <ng-container matColumnDef="companyShare">
+            <th mat-header-cell *matHeaderCellDef>想定会社負担額</th>
+            <td mat-cell *matCellDef="let row">
+              {{ row.calculation ? formatCurrency(row.calculation.companyShare) : '-' }}
+            </td>
+          </ng-container>
+
+          <!-- 従業員負担額列 -->
+          <ng-container matColumnDef="employeeShare">
+            <th mat-header-cell *matHeaderCellDef>従業員負担額</th>
+            <td mat-cell *matCellDef="let row">
+              {{ row.calculation ? formatCurrency(row.calculation.employeeShare) : '-' }}
+            </td>
+          </ng-container>
+
+          <!-- ステータス列 -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>ステータス</th>
+            <td mat-cell *matCellDef="let row">
+              <mat-chip [color]="getStatusColor(getStatus(row))">
+                {{ getStatusLabel(getStatus(row)) }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <!-- 操作列 -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>操作</th>
+            <td mat-cell *matCellDef="let row">
+              <button mat-icon-button (click)="viewDetail(row)" matTooltip="詳細を表示">
+                <mat-icon>visibility</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+
+        <!-- 合計行 -->
+        <div *ngIf="filteredRows.length > 0" class="summary-section" style="margin-top: 16px; padding: 16px; background-color: #f5f5f5; border-radius: 4px;">
+          <div style="font-weight: bold; margin-bottom: 8px;">合計（計算済みのみ）</div>
+          <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+            <div>
+              <span style="color: #666;">想定合計保険料（全額）:</span>
+              <span style="font-weight: bold; margin-left: 8px;">{{ formatCurrency(getTotalPremium()) }}</span>
+            </div>
+            <div>
+              <span style="color: #666;">社員負担額合計（折半額）:</span>
+              <span style="font-weight: bold; margin-left: 8px;">{{ formatCurrency(getTotalEmployeeShare()) }}</span>
+            </div>
+            <div>
+              <span style="color: #666;">想定会社負担額総額（全額 - 社員負担額）:</span>
+              <span style="font-weight: bold; margin-left: 8px; color: #1976d2;">{{ formatCurrency(getTotalCompanyShare()) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- データがない場合 -->
+        <div *ngIf="filteredRows.length === 0" class="no-data">
+          <p>該当する社員がいません</p>
+        </div>
+      </div>
+
+      <!-- ページネーション -->
+      <mat-paginator
+        *ngIf="filteredRows.length > 0"
+        [length]="filteredRows.length"
+        [pageSize]="pageSize"
+        [pageIndex]="pageIndex"
+        [pageSizeOptions]="pageSizeOptions"
+        [showFirstLastButtons]="true"
+        (page)="onPageChange($event)">
+      </mat-paginator>
+          </div>
+        </mat-tab>
+
+        <!-- 賞与タブ -->
+        <mat-tab label="賞与">
+          <div class="tab-content" style="margin-top: 16px;">
+            <!-- 検索・フィルタ -->
+            <form [formGroup]="bonusSearchForm" class="search-form">
+              <div class="search-row">
+                <mat-form-field appearance="outline" class="filter-field">
+                  <mat-label>年</mat-label>
+                  <mat-select formControlName="year" (selectionChange)="onBonusSearch()">
+                    <mat-option *ngFor="let year of years" [value]="year">
+                      {{ year }}年
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="filter-field">
+                  <mat-label>月</mat-label>
+                  <mat-select formControlName="month" (selectionChange)="onBonusSearch()">
+                    <mat-option *ngFor="let month of months" [value]="month">
+                      {{ month }}月
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="filter-field">
+                  <mat-label>ステータス</mat-label>
+                  <mat-select formControlName="status" (selectionChange)="onBonusFilterChange()">
+                    <mat-option value="">すべて</mat-option>
+                    <mat-option value="not_calculated">未計算</mat-option>
+                    <mat-option value="draft">下書き</mat-option>
+                    <mat-option value="confirmed">確定</mat-option>
+                    <mat-option value="exported">出力済み</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <button mat-raised-button color="accent" (click)="exportBonusToCsv()" [disabled]="bonusFilteredRows.length === 0 || !canBonusExport()" class="export-button">
+                  <mat-icon>download</mat-icon>
+                  CSV出力
+                </button>
+              </div>
+            </form>
+
+            <!-- フィルタ条件表示 -->
+            <div class="filter-info" style="margin-bottom: 16px; padding: 12px; background-color: #f5f5f5; border-radius: 4px;">
+              <div style="font-weight: bold; margin-bottom: 8px;">表示対象の条件:</div>
+              <div style="font-size: 0.9em; color: #666;">
+                <div>• 標準報酬月額が設定されている</div>
+                <div>• 該当月に在籍していた（入社日が該当月の月末以前 かつ 退職日の翌日が含まれる月より前）</div>
+                <div>• 75歳未満であること（75歳以上は計算対象外）</div>
+                <div style="margin-top: 8px; color: #d32f2f; font-weight: bold;">※ 申請承認済みの休職者は全額免除（計算自体をスキップ）</div>
+              </div>
+            </div>
+
+            <!-- 一括操作ボタン -->
+            <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+              <button mat-raised-button color="primary" (click)="executeBonusCalculation()" [disabled]="selectedBonusEmployees.size === 0">
+                <mat-icon>play_arrow</mat-icon>
+                一括計算実行
+              </button>
+              <button mat-raised-button color="primary" (click)="confirmSelectedBonusCalculations()" [disabled]="selectedBonusCalculations.size === 0">
+                <mat-icon>check_circle</mat-icon>
+                一括確定
+              </button>
+            </div>
+
+            <!-- 計算結果テーブル -->
+            <div class="table-container">
+              <table mat-table [dataSource]="bonusDataSource" class="calculation-table">
+                <!-- 選択列 -->
+                <ng-container matColumnDef="select">
+                  <th mat-header-cell *matHeaderCellDef>
+                    <mat-checkbox
+                      (change)="$event ? toggleAllBonus() : null"
+                      [checked]="isAllBonusSelected()"
+                      [indeterminate]="isSomeBonusSelected()">
+                    </mat-checkbox>
+                  </th>
+                  <td mat-cell *matCellDef="let row">
+                    <mat-checkbox
+                      (click)="$event.stopPropagation()"
+                      (change)="$event ? toggleBonusSelection(row) : null"
+                      [checked]="isBonusSelected(row)"
+                      [disabled]="row.calculation && row.calculation.status !== 'draft'">
+                    </mat-checkbox>
+                  </td>
+                </ng-container>
+
+                <!-- 年列 -->
+                <ng-container matColumnDef="year">
+                  <th mat-header-cell *matHeaderCellDef>年</th>
+                  <td mat-cell *matCellDef="let row">{{ bonusSearchForm.value.year || currentYear }}</td>
+                </ng-container>
+
+                <!-- 月列 -->
+                <ng-container matColumnDef="month">
+                  <th mat-header-cell *matHeaderCellDef>月</th>
+                  <td mat-cell *matCellDef="let row">{{ bonusSearchForm.value.month || currentMonth }}</td>
+                </ng-container>
+
+                <!-- 社員番号列 -->
+                <ng-container matColumnDef="employeeNumber">
+                  <th mat-header-cell *matHeaderCellDef>社員番号</th>
+                  <td mat-cell *matCellDef="let row">{{ row.employeeNumber }}</td>
+                </ng-container>
+
+                <!-- 社員名列 -->
+                <ng-container matColumnDef="employeeName">
+                  <th mat-header-cell *matHeaderCellDef>社員名</th>
+                  <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
+                </ng-container>
+
+                <!-- 部署名列 -->
+                <ng-container matColumnDef="departmentName">
+                  <th mat-header-cell *matHeaderCellDef>部署</th>
+                  <td mat-cell *matCellDef="let row">{{ row.departmentName || '-' }}</td>
+                </ng-container>
+
+                <!-- 会社負担額列 -->
+                <ng-container matColumnDef="companyShare">
+                  <th mat-header-cell *matHeaderCellDef>想定会社負担額</th>
+                  <td mat-cell *matCellDef="let row">
+                    {{ row.calculation ? formatCurrency(row.calculation.companyShare) : '-' }}
+                  </td>
+                </ng-container>
+
+                <!-- 従業員負担額列 -->
+                <ng-container matColumnDef="employeeShare">
+                  <th mat-header-cell *matHeaderCellDef>従業員負担額</th>
+                  <td mat-cell *matCellDef="let row">
+                    {{ row.calculation ? formatCurrency(row.calculation.employeeShare) : '-' }}
+                  </td>
+                </ng-container>
+
+                <!-- ステータス列 -->
+                <ng-container matColumnDef="status">
+                  <th mat-header-cell *matHeaderCellDef>ステータス</th>
+                  <td mat-cell *matCellDef="let row">
+                    <mat-chip [color]="getStatusColor(getBonusStatus(row))">
+                      {{ getStatusLabel(getBonusStatus(row)) }}
+                    </mat-chip>
+                  </td>
+                </ng-container>
+
+                <!-- 操作列 -->
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef>操作</th>
+                  <td mat-cell *matCellDef="let row">
+                    <button mat-icon-button (click)="viewBonusDetail(row)" matTooltip="詳細を表示">
+                      <mat-icon>visibility</mat-icon>
+                    </button>
+                  </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="bonusDisplayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: bonusDisplayedColumns;"></tr>
+              </table>
+
+              <!-- データがない場合 -->
+              <div *ngIf="bonusFilteredRows.length === 0" class="no-data">
+                <p>該当する社員がいません</p>
+              </div>
+            </div>
+
+            <!-- ページネーション -->
+            <mat-paginator
+              *ngIf="bonusFilteredRows.length > 0"
+              [length]="bonusFilteredRows.length"
+              [pageSize]="pageSize"
+              [pageIndex]="bonusPageIndex"
+              [pageSizeOptions]="pageSizeOptions"
+              [showFirstLastButtons]="true"
+              (page)="onBonusPageChange($event)">
+            </mat-paginator>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </mat-card-content>
+  </mat-card>
+</div>
+

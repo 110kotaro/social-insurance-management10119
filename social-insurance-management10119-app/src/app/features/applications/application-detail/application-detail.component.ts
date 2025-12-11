@@ -20,6 +20,8 @@ import { EmployeeService } from '../../../core/services/employee.service';
 import { OrganizationService } from '../../../core/services/organization.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ModeService } from '../../../core/services/mode.service';
+import { InsuranceRateTableService } from '../../../core/services/insurance-rate-table.service';
+import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.model';
 import { Application, ApplicationStatus, ApplicationCategory, ExternalApplicationStatus, Comment, Attachment, ApplicationHistory, ApplicationReturnHistory } from '../../../core/models/application.model';
 import { Employee, EmployeeChangeHistory, DependentInfo } from '../../../core/models/employee.model';
 import { Organization } from '../../../core/models/organization.model';
@@ -73,6 +75,7 @@ export class ApplicationDetailComponent implements OnInit {
   private organizationService = inject(OrganizationService);
   private authService = inject(AuthService);
   private modeService = inject(ModeService);
+  private insuranceRateTableService = inject(InsuranceRateTableService);
   private route = inject(ActivatedRoute);
   router = inject(Router); // テンプレートで使用するためpublic
   private snackBar = inject(MatSnackBar);
@@ -2302,13 +2305,17 @@ export class ApplicationDetailComponent implements OnInit {
 
       if (changeType === 'applicable') {
         // 追加
+        const dependentStartDate = spouseDependent['dependentStartDate'];
+        const becameDependentDate = dependentStartDate ? this.convertEraDateToDate(dependentStartDate) : undefined;
+        
         const newSpouse: DependentInfo = {
           name: `${spouseDependent['lastName'] || ''} ${spouseDependent['firstName'] || ''}`.trim(),
           nameKana: `${spouseDependent['lastNameKana'] || ''} ${spouseDependent['firstNameKana'] || ''}`.trim(),
           birthDate: this.convertEraDateToDate(spouseDependent['birthDate']),
           relationship: spouseDependent['relationship'] || 'spouse',
           income: spouseDependent['income'] || undefined,
-          livingTogether: spouseDependent['address']?.livingTogether === 'living_together'
+          livingTogether: spouseDependent['address']?.livingTogether === 'living_together',
+          becameDependentDate: becameDependentDate
         };
         updatedDependentInfo.push(newSpouse);
         changes.push({
@@ -2364,6 +2371,9 @@ export class ApplicationDetailComponent implements OnInit {
 
         if (changeType === 'applicable') {
           // 追加
+          const dependentStartDate = otherDep['dependentStartDate'] || otherDep['changeDate'];
+          const becameDependentDate = dependentStartDate ? this.convertEraDateToDate(dependentStartDate) : undefined;
+          
           const newDependent: DependentInfo = {
             name: `${otherDep['lastName'] || ''} ${otherDep['firstName'] || ''}`.trim(),
             nameKana: `${otherDep['lastNameKana'] || ''} ${otherDep['firstNameKana'] || ''}`.trim(),
@@ -2371,7 +2381,8 @@ export class ApplicationDetailComponent implements OnInit {
             relationship: otherDep['relationship'] || '',
             income: otherDep['income'] || undefined,
             livingTogether: otherDep['address']?.livingTogether === 'living_together',
-            dependentId: dependentId
+            dependentId: dependentId,
+            becameDependentDate: becameDependentDate
           };
           updatedDependentInfo.push(newDependent);
         } else if (changeType === 'not_applicable') {
@@ -2507,53 +2518,240 @@ export class ApplicationDetailComponent implements OnInit {
     beforeData: any,
     insuredPerson?: any
   ): Promise<void> {
-    // insuredPersonが渡されている場合は、その被保険者の情報を使用
+    // 申請データから平均月額を取得
+    let averageReward: number | null = null;
+    
     if (insuredPerson) {
-      const standardReward = insuredPerson['adjustedAverage'] || insuredPerson['average'];
-      if (standardReward && employee.insuranceInfo) {
-        const beforeReward = employee.insuranceInfo.standardReward;
-        employee.insuranceInfo.standardReward = standardReward;
+      // insuredPersonが渡されている場合は、その被保険者の情報を使用
+      averageReward = insuredPerson['adjustedAverage'] || insuredPerson['average'] || null;
+    } else {
+      // 後方互換性のため、従来の方法も残す
+      const data = application.data;
+      if (!data) {
+        return;
+      }
+
+      const insuredPersons = data['insuredPersons'];
+      if (!insuredPersons || !Array.isArray(insuredPersons)) {
+        return;
+      }
+
+      // 申請のemployeeIdに該当する被保険者を探す
+      const employeeInsuranceNumber = employee.insuranceInfo?.healthInsuranceNumber;
+      if (!employeeInsuranceNumber) {
+        return;
+      }
+
+      for (const person of insuredPersons) {
+        if (person['insuranceNumber'] === employeeInsuranceNumber) {
+          averageReward = person['adjustedAverage'] || person['average'] || null;
+          break;
+        }
+      }
+    }
+
+    if (!averageReward || !employee.insuranceInfo) {
+      return;
+    }
+
+    // 申請された平均月額を保存
+    const beforeAverageReward = employee.insuranceInfo.averageReward;
+    employee.insuranceInfo.averageReward = averageReward;
+    if (beforeAverageReward !== averageReward) {
+      changes.push({
+        field: 'insuranceInfo.averageReward',
+        before: beforeAverageReward,
+        after: averageReward
+      });
+    }
+
+    // 保険料率テーブルを取得（申請の承認日時点で有効なテーブルを使用）
+    const approvalDate = application.history?.find(h => h.action === 'approve')?.createdAt || new Date();
+    const targetDate = approvalDate instanceof Date ? approvalDate : (approvalDate.toDate ? approvalDate.toDate() : new Date());
+    
+    // 保険料率テーブルを取得（組織固有のテーブルのみ使用）
+    const rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(employee.organizationId);
+    // 全組織共通のテーブルは現在使用しない（将来的に必要になった場合はコメントアウトを解除）
+    // const commonRateTables = await this.insuranceRateTableService.getCommonRateTables();
+    // const allRateTables = [...rateTables, ...commonRateTables];
+    const allRateTables = rateTables;
+
+    // 適用期間でフィルタリング
+    const validRateTables = allRateTables.filter(table => {
+      const effectiveFrom = this.convertTimestampToDate(table.effectiveFrom);
+      const effectiveTo = table.effectiveTo ? this.convertTimestampToDate(table.effectiveTo) : null;
+      
+      if (!effectiveFrom) {
+        return false;
+      }
+      
+      const fromDate = new Date(effectiveFrom.getFullYear(), effectiveFrom.getMonth(), 1);
+      const toDate = effectiveTo ? new Date(effectiveTo.getFullYear(), effectiveTo.getMonth(), 1) : null;
+      
+      return targetDate >= fromDate && (!toDate || targetDate <= toDate);
+    });
+
+    if (validRateTables.length === 0) {
+      console.warn(`申請承認日時点で適用される保険料率テーブルが見つかりません`);
+      return;
+    }
+
+    // 平均月額から等級を判定
+    const grade = this.getGradeFromAverageReward(averageReward, validRateTables);
+    const pensionGrade = this.getPensionGradeFromAverageReward(averageReward, validRateTables);
+
+    if (!grade) {
+      console.warn(`平均月額 ${averageReward} 円に対応する等級が見つかりません`);
+      return;
+    }
+
+    // 等級に対応する標準報酬月額の規定値を取得
+    const rateTable = validRateTables.find(t => t.grade === grade);
+    if (!rateTable) {
+      console.warn(`等級 ${grade} の料率テーブルが見つかりません`);
+      return;
+    }
+
+    const standardRewardAmount = rateTable.standardRewardAmount;
+
+    // 修正12: 他社兼務者の場合は標準報酬月額の反映をスキップ（手入力のみ）
+    const beforeStandardReward = employee.insuranceInfo.standardReward;
+    const beforeGrade = employee.insuranceInfo.grade;
+    const beforePensionGrade = employee.insuranceInfo.pensionGrade;
+
+    // 他社兼務者の場合は標準報酬月額・等級の反映をスキップ
+    if (employee.otherCompanyInfo && employee.otherCompanyInfo.length > 0) {
+      // 標準報酬月額・等級は手入力のみのため、申請承認時の反映をスキップ
+      // averageRewardのみ反映
+      if (averageReward !== undefined) {
+        employee.insuranceInfo.averageReward = averageReward;
+      }
+      return; // 標準報酬月額・等級の反映をスキップして終了
+    }
+
+    employee.insuranceInfo.standardReward = standardRewardAmount;
+    employee.insuranceInfo.grade = grade;
+    if (pensionGrade) {
+      employee.insuranceInfo.pensionGrade = pensionGrade;
+    }
+
+    // 変更履歴に追加
+    if (beforeStandardReward !== standardRewardAmount) {
+      changes.push({
+        field: 'insuranceInfo.standardReward',
+        before: beforeStandardReward,
+        after: standardRewardAmount
+      });
+    }
+    if (beforeGrade !== grade) {
+      changes.push({
+        field: 'insuranceInfo.grade',
+        before: beforeGrade,
+        after: grade
+      });
+    }
+    if (beforePensionGrade !== pensionGrade) {
+      changes.push({
+        field: 'insuranceInfo.pensionGrade',
+        before: beforePensionGrade,
+        after: pensionGrade
+      });
+    }
+
+    // 適用年月日を反映
+    let effectiveDate: Date | null = null;
+    const data = application.data;
+    
+    if (insuredPerson) {
+      // insuredPersonが渡されている場合
+      if (applicationTypeCode === 'REWARD_BASE' && insuredPerson['applicableDate']) {
+        // 算定基礎届の適用年月日
+        effectiveDate = this.convertEraDateToDate(insuredPerson['applicableDate']);
+      } else if (applicationTypeCode === 'REWARD_CHANGE' && insuredPerson['changeDate']) {
+        // 報酬月額変更届の改定年月日
+        effectiveDate = this.convertEraDateToDate(insuredPerson['changeDate']);
+      }
+    } else if (data) {
+      // 従来の方法
+      const insuredPersons = data['insuredPersons'];
+      if (insuredPersons && Array.isArray(insuredPersons)) {
+        const employeeInsuranceNumber = employee.insuranceInfo?.healthInsuranceNumber;
+        if (employeeInsuranceNumber) {
+          for (const person of insuredPersons) {
+            if (person['insuranceNumber'] === employeeInsuranceNumber) {
+              if (applicationTypeCode === 'REWARD_BASE' && person['applicableDate']) {
+                effectiveDate = this.convertEraDateToDate(person['applicableDate']);
+              } else if (applicationTypeCode === 'REWARD_CHANGE' && person['changeDate']) {
+                effectiveDate = this.convertEraDateToDate(person['changeDate']);
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (effectiveDate) {
+      const beforeEffectiveDate = employee.insuranceInfo.gradeAndStandardRewardEffectiveDate;
+      employee.insuranceInfo.gradeAndStandardRewardEffectiveDate = effectiveDate;
+      if (beforeEffectiveDate !== effectiveDate) {
         changes.push({
-          field: 'insuranceInfo.standardReward',
-          before: beforeReward,
-          after: standardReward
+          field: 'insuranceInfo.gradeAndStandardRewardEffectiveDate',
+          before: beforeEffectiveDate,
+          after: effectiveDate
         });
       }
-      return;
     }
+  }
 
-    // 後方互換性のため、従来の方法も残す
-    const data = application.data;
-    if (!data) {
-      return;
-    }
-
-    const insuredPersons = data['insuredPersons'];
-    if (!insuredPersons || !Array.isArray(insuredPersons)) {
-      return;
-    }
-
-    // 申請のemployeeIdに該当する被保険者を探す
-    const employeeInsuranceNumber = employee.insuranceInfo?.healthInsuranceNumber;
-    if (!employeeInsuranceNumber) {
-      return;
-    }
-
-    for (const person of insuredPersons) {
-      if (person['insuranceNumber'] === employeeInsuranceNumber) {
-        const standardReward = person['adjustedAverage'] || person['average'];
-        if (standardReward && employee.insuranceInfo) {
-          const beforeReward = employee.insuranceInfo.standardReward;
-          employee.insuranceInfo.standardReward = standardReward;
-          changes.push({
-            field: 'insuranceInfo.standardReward',
-            before: beforeReward,
-            after: standardReward
-          });
-        }
-        break;
+  /**
+   * 平均月額から等級を判定
+   */
+  private getGradeFromAverageReward(averageReward: number, rateTables: InsuranceRateTable[]): number | null {
+    for (const table of rateTables) {
+      const minOk = averageReward >= table.minAmount;
+      const maxOk = table.maxAmount === 0 || table.maxAmount === null || averageReward <= table.maxAmount;
+      if (minOk && maxOk) {
+        return table.grade;
       }
     }
+    return null;
+  }
+
+  /**
+   * 平均月額から厚生年金等級を判定
+   */
+  private getPensionGradeFromAverageReward(averageReward: number, rateTables: InsuranceRateTable[]): number | null {
+    for (const table of rateTables) {
+      if (table.pensionGrade !== null && table.pensionGrade !== undefined) {
+        const minOk = averageReward >= table.minAmount;
+        const maxOk = table.maxAmount === 0 || table.maxAmount === null || averageReward <= table.maxAmount;
+        if (minOk && maxOk) {
+          return table.pensionGrade;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * FirestoreのTimestampまたはDateをDateオブジェクトに変換
+   */
+  private convertTimestampToDate(value: any): Date | null {
+    if (!value) {
+      return null;
+    }
+    if (value instanceof Date) {
+      return value;
+    }
+    if (value && typeof value.toDate === 'function') {
+      return value.toDate();
+    }
+    // Firestoreのplain object形式（{seconds: number, nanoseconds: number}）の場合
+    if (value && typeof value.seconds === 'number') {
+      return new Date(value.seconds * 1000);
+    }
+    return null;
   }
 
   /**

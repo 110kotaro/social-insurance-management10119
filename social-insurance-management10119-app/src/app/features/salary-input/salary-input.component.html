@@ -1,0 +1,181 @@
+<div class="salary-input-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>給与情報入力</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- 年月選択 -->
+      <div class="year-month-selector">
+        <mat-form-field appearance="outline">
+          <mat-label>年</mat-label>
+          <mat-select [(ngModel)]="selectedYear" (selectionChange)="onYearMonthChange()">
+            <mat-option *ngFor="let year of years" [value]="year">{{ year }}年</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>月</mat-label>
+          <mat-select [(ngModel)]="selectedMonth" (selectionChange)="onYearMonthChange()">
+            <mat-option *ngFor="let month of months" [value]="month">{{ month }}月</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- フィルタ -->
+      <div class="filter-section">
+        <form [formGroup]="filterForm" (ngSubmit)="onFilterChange()">
+          <mat-form-field appearance="outline">
+            <mat-label>部署</mat-label>
+            <mat-select formControlName="departmentId" (selectionChange)="onFilterChange()">
+              <mat-option [value]="null">すべて</mat-option>
+              <mat-option *ngFor="let dept of departments" [value]="dept.id">{{ dept.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>社員名・社員番号</mat-label>
+            <input matInput formControlName="employeeName" (input)="onFilterChange()">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>確定状態</mat-label>
+            <mat-select formControlName="confirmed" (selectionChange)="onFilterChange()">
+              <mat-option value="all">すべて</mat-option>
+              <mat-option value="confirmed">確定済み</mat-option>
+              <mat-option value="unconfirmed">未確定</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </form>
+      </div>
+
+      <!-- アクションボタン -->
+      <div class="action-buttons">
+        <button mat-raised-button color="primary" (click)="importFromExcel()">
+          <mat-icon>upload</mat-icon>
+          Excel/CSVインポート
+        </button>
+        <button mat-raised-button (click)="exportToExcel()">
+          <mat-icon>download</mat-icon>
+          Excel出力
+        </button>
+      </div>
+
+      <!-- テーブル -->
+      <div class="table-container" *ngIf="!isLoading">
+        <table mat-table [dataSource]="dataSource" class="salary-table">
+          <!-- 社員番号 -->
+          <ng-container matColumnDef="employeeNumber">
+            <th mat-header-cell *matHeaderCellDef>社員番号</th>
+            <td mat-cell *matCellDef="let row">{{ row.employeeNumber }}</td>
+          </ng-container>
+
+          <!-- 社員名 -->
+          <ng-container matColumnDef="employeeName">
+            <th mat-header-cell *matHeaderCellDef>社員名</th>
+            <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
+          </ng-container>
+
+          <!-- 部署名 -->
+          <ng-container matColumnDef="departmentName">
+            <th mat-header-cell *matHeaderCellDef>部署名</th>
+            <td mat-cell *matCellDef="let row">{{ row.departmentName }}</td>
+          </ng-container>
+
+          <!-- 基礎日数 -->
+          <ng-container matColumnDef="baseDays">
+            <th mat-header-cell *matHeaderCellDef>基礎日数</th>
+            <td mat-cell *matCellDef="let row">
+              <input 
+                type="number" 
+                [(ngModel)]="row.baseDays" 
+                (blur)="updateSalaryData(row, 'baseDays', row.baseDays)"
+                min="0" 
+                max="31"
+                class="number-input">
+            </td>
+          </ng-container>
+
+          <!-- 固定賃金 -->
+          <ng-container matColumnDef="fixedSalary">
+            <th mat-header-cell *matHeaderCellDef>固定賃金</th>
+            <td mat-cell *matCellDef="let row">
+              <input 
+                type="number" 
+                [(ngModel)]="row.fixedSalary" 
+                (blur)="updateSalaryData(row, 'fixedSalary', row.fixedSalary)"
+                min="0"
+                class="number-input">
+            </td>
+          </ng-container>
+
+          <!-- 総支給 -->
+          <ng-container matColumnDef="totalPayment">
+            <th mat-header-cell *matHeaderCellDef>総支給</th>
+            <td mat-cell *matCellDef="let row">
+              <input 
+                type="number" 
+                [(ngModel)]="row.totalPayment" 
+                (blur)="updateSalaryData(row, 'totalPayment', row.totalPayment)"
+                min="0"
+                class="number-input">
+            </td>
+          </ng-container>
+
+          <!-- 遡及支払額 -->
+          <ng-container matColumnDef="retroactivePayment">
+            <th mat-header-cell *matHeaderCellDef>遡及支払額</th>
+            <td mat-cell *matCellDef="let row">
+              <input 
+                type="number" 
+                [(ngModel)]="row.retroactivePayment" 
+                (blur)="updateSalaryData(row, 'retroactivePayment', row.retroactivePayment)"
+                min="0"
+                class="number-input">
+            </td>
+          </ng-container>
+
+          <!-- 賞与 -->
+          <ng-container matColumnDef="bonus">
+            <th mat-header-cell *matHeaderCellDef>賞与</th>
+            <td mat-cell *matCellDef="let row">
+              <input 
+                type="number" 
+                [(ngModel)]="row.bonus" 
+                (blur)="updateSalaryData(row, 'bonus', row.bonus)"
+                min="0"
+                class="number-input">
+            </td>
+          </ng-container>
+
+          <!-- 確定状態 -->
+          <ng-container matColumnDef="isConfirmed">
+            <th mat-header-cell *matHeaderCellDef>確定状態</th>
+            <td mat-cell *matCellDef="let row">
+              <mat-checkbox [checked]="row.isConfirmed" disabled></mat-checkbox>
+            </td>
+          </ng-container>
+
+          <!-- 操作 -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>操作</th>
+            <td mat-cell *matCellDef="let row">
+              <button mat-icon-button color="primary" (click)="saveSalaryData(row)" [disabled]="isSaving">
+                <mat-icon>save</mat-icon>
+              </button>
+              <button mat-icon-button color="accent" (click)="confirmSalaryData(row)" [disabled]="isConfirming || row.isConfirmed">
+                <mat-icon>check_circle</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
+
+      <!-- ローディング -->
+      <div class="loading-container" *ngIf="isLoading">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>読み込み中...</p>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
+

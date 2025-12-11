@@ -1,0 +1,44 @@
+<h2 mat-dialog-title>遡及控除月の選択</h2>
+<mat-dialog-content>
+  <p>差額を適用する月を選択してください（複数選択可能、基本は1ヶ月）</p>
+  
+  <div class="difference-summary">
+    <h3>差額</h3>
+    <mat-list>
+      <mat-list-item>
+        <span matListItemTitle>健保・介護の差額（全額）</span>
+        <span matListItemLine>{{ formatCurrency(data.premiumDifference.healthInsurancePremiumDiff) }}</span>
+      </mat-list-item>
+      <mat-list-item>
+        <span matListItemTitle>厚生年金の差額（全額）</span>
+        <span matListItemLine>{{ formatCurrency(data.premiumDifference.pensionInsurancePremiumDiff) }}</span>
+      </mat-list-item>
+      <mat-list-item>
+        <span matListItemTitle>会社負担額の差額（折半額）</span>
+        <span matListItemLine>{{ formatCurrency(data.premiumDifference.companyShareDiff) }}</span>
+      </mat-list-item>
+      <mat-list-item>
+        <span matListItemTitle>従業員負担額の差額（折半額）</span>
+        <span matListItemLine>{{ formatCurrency(data.premiumDifference.employeeShareDiff) }}</span>
+      </mat-list-item>
+    </mat-list>
+  </div>
+
+  <form [formGroup]="form">
+    <h3>適用月の選択</h3>
+    <mat-list>
+      <mat-list-item *ngFor="let month of months; let i = index">
+        <mat-checkbox [formControl]="getFormControl(i)">
+          {{ month.year }}年{{ month.month }}月
+        </mat-checkbox>
+      </mat-list-item>
+    </mat-list>
+  </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">キャンセル</button>
+  <button mat-raised-button color="primary" (click)="confirm()" [disabled]="selectedMonths.length === 0">
+    確定
+  </button>
+</mat-dialog-actions>
+

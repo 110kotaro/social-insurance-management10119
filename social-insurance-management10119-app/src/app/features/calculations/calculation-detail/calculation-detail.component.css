@@ -1,0 +1,61 @@
+.calculation-detail-container {
+  padding: 20px;
+}
+
+.header-actions {
+  margin-left: auto;
+}
+
+.premium-card {
+  margin-top: 20px;
+}
+
+.difference-card {
+  margin-top: 20px;
+}
+
+.diff-item {
+  background-color: #f5f5f5;
+}
+
+.diff-item .positive {
+  color: #d32f2f;
+}
+
+.diff-item .negative {
+  color: #1976d2;
+}
+
+.dependent-card {
+  margin-top: 20px;
+}
+
+.history-card {
+  margin-top: 20px;
+}
+
+.history-content {
+  padding: 16px 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.total-item {
+  font-weight: bold;
+}
+
+.total-amount {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #1976d2;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+}
+

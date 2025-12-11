@@ -45,7 +45,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
     { label: '社員管理', icon: 'people', route: '/employees', roles: ['owner', 'admin'] },
     { label: '部署管理', icon: 'business', route: '/departments', roles: ['owner', 'admin'] },
     { label: '申請管理', icon: 'description', route: '/applications', roles: ['owner', 'admin'] },
-    { label: '月次計算', icon: 'calculate', route: '/calculations', roles: ['owner', 'admin'] },
+    { label: '算定／月変計算', icon: 'assessment', route: '/standard-reward-calculations', roles: ['owner', 'admin'] },
+    { label: '保険料計算', icon: 'calculate', route: '/calculations', roles: ['owner', 'admin'] },
     { label: '分析', icon: 'analytics', route: '/analytics', roles: ['owner', 'admin'] },
     { label: '設定', icon: 'settings', route: '/settings', roles: ['owner', 'admin'] }
   ];

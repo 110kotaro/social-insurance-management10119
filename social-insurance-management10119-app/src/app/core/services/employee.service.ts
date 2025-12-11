@@ -326,6 +326,17 @@ export class EmployeeService {
       };
     }
 
+    // salaryDataの変換処理
+    let salaryData = data['salaryData'];
+    if (salaryData && Array.isArray(salaryData)) {
+      salaryData = salaryData.map((sd: any) => ({
+        ...sd,
+        createdAt: this.convertToDate(sd.createdAt) || new Date(),
+        updatedAt: this.convertToDate(sd.updatedAt) || new Date(),
+        confirmedAt: sd.confirmedAt ? (this.convertToDate(sd.confirmedAt) || undefined) : undefined
+      }));
+    }
+
     // 後方互換性: name/nameKanaがある場合はfirstName/lastNameに分割
     let firstName = data['firstName'];
     let lastName = data['lastName'];
@@ -357,6 +368,7 @@ export class EmployeeService {
       otherCompanyInfo: data['otherCompanyInfo'],
       address: data['address'],
       changeHistory: data['changeHistory'],
+      salaryData: salaryData,
       organizationId: data['organizationId'],
       role: data['role'] || 'employee', // デフォルト: 'employee'
       invitationEmailSent: data['invitationEmailSent'],

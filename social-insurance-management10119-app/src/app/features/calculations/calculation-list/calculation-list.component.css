@@ -1,0 +1,49 @@
+.calculation-list-container {
+  padding: 20px;
+}
+
+.search-form {
+  margin-bottom: 20px;
+}
+
+.search-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-field {
+  min-width: 120px;
+}
+
+.execute-button {
+  margin-left: auto;
+}
+
+.export-button {
+  margin-left: 8px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.calculation-table {
+  width: 100%;
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.no-data p {
+  margin-bottom: 20px;
+}
+
+mat-paginator {
+  margin-top: 20px;
+}
+
