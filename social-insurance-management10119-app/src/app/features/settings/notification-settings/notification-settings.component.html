@@ -6,7 +6,53 @@
     </mat-card-title>
   </mat-card-header>
   <mat-card-content>
-    <form [formGroup]="reminderForm" (ngSubmit)="saveReminderSettings()">
+    <form [formGroup]="notificationForm" (ngSubmit)="saveNotificationSettings()">
+      <h3>通知対象設定</h3>
+      
+      <div class="checkbox-group">
+        <mat-checkbox formControlName="notifyApplicant">
+          申請者への通知
+        </mat-checkbox>
+        <p class="hint">申請者に通知を送信するかどうかを設定します</p>
+      </div>
+
+      <div class="checkbox-group">
+        <mat-checkbox formControlName="notifyAdmin">
+          管理者への通知
+        </mat-checkbox>
+        <p class="hint">管理者に通知を送信するかどうかを設定します</p>
+      </div>
+
+      <h3>通知タイミング設定</h3>
+      
+      <div class="checkbox-group">
+        <mat-checkbox formControlName="notifyOnSubmit">
+          申請提出時の通知
+        </mat-checkbox>
+        <p class="hint">申請が提出されたときに通知を送信します</p>
+      </div>
+
+      <div class="checkbox-group">
+        <mat-checkbox formControlName="notifyOnApprove">
+          承認時の通知
+        </mat-checkbox>
+        <p class="hint">申請が承認されたときに通知を送信します</p>
+      </div>
+
+      <div class="checkbox-group">
+        <mat-checkbox formControlName="notifyOnReturn">
+          差戻し時の通知
+        </mat-checkbox>
+        <p class="hint">申請が差戻しされたときに通知を送信します</p>
+      </div>
+
+      <div class="checkbox-group">
+        <mat-checkbox formControlName="notifyOnReject">
+          却下時の通知
+        </mat-checkbox>
+        <p class="hint">申請が却下されたときに通知を送信します</p>
+      </div>
+
       <h3>期限リマインダー設定</h3>
       
       <mat-form-field appearance="outline">
@@ -40,7 +86,7 @@
       </div>
 
       <div class="button-group">
-        <button mat-raised-button color="primary" type="submit" [disabled]="reminderForm.invalid || isLoading">
+        <button mat-raised-button color="primary" type="submit" [disabled]="notificationForm.invalid || isLoading">
           <mat-icon>save</mat-icon>
           保存
         </button>

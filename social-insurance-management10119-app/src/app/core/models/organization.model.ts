@@ -4,6 +4,7 @@ export interface Organization {
   corporateNumber?: string;
   officeNumber?: string; // 事業所番号
   address: {
+    postalCode?: string; // 郵便番号
     prefecture: string;
     city: string;
     street: string;
@@ -13,6 +14,7 @@ export interface Organization {
   email?: string;
   industry?: string;
   logoUrl?: string;
+  payrollDate?: number; // 給与支払日（1-31の日付、月次計算日の通知用）
   insuranceSettings?: {
     healthInsurance?: {
       type: 'kyokai' | 'kumiai';

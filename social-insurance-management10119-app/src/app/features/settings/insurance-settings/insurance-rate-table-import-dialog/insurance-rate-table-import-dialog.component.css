@@ -1,0 +1,47 @@
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.import-section {
+  min-width: 500px;
+}
+
+.file-name {
+  margin-top: 16px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.preview-section {
+  margin-top: 24px;
+}
+
+.preview-section h3 {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.preview-table th,
+.preview-table td {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 8px;
+  text-align: left;
+}
+
+.preview-table th {
+  background-color: rgba(0, 0, 0, 0.04);
+  font-weight: 500;
+}
+
+mat-progress-bar {
+  margin-top: 16px;
+}
+

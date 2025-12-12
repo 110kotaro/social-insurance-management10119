@@ -1,0 +1,45 @@
+<h2 mat-dialog-title>
+  <mat-icon>upload</mat-icon>
+  CSV/Excelインポート
+</h2>
+
+<mat-dialog-content>
+  <div class="import-section">
+    <input type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" #fileInput style="display: none;">
+    <button mat-raised-button (click)="fileInput.click()" [disabled]="isImporting">
+      <mat-icon>folder_open</mat-icon>
+      ファイルを選択
+    </button>
+    
+    <p *ngIf="selectedFile" class="file-name">
+      選択されたファイル: {{ selectedFile.name }}
+    </p>
+
+    <div *ngIf="previewData.length > 0" class="preview-section">
+      <h3>プレビュー（最初の5行）</h3>
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th *ngFor="let key of getKeys(previewData[0])">{{ key }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of previewData">
+            <td *ngFor="let key of getKeys(row)">{{ row[key] }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <mat-progress-bar *ngIf="isImporting" mode="indeterminate"></mat-progress-bar>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()" [disabled]="isImporting">キャンセル</button>
+  <button mat-raised-button color="primary" (click)="import()" [disabled]="!selectedFile || isImporting">
+    <mat-icon>upload</mat-icon>
+    インポート
+  </button>
+</mat-dialog-actions>
+

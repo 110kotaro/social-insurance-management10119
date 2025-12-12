@@ -1,0 +1,49 @@
+mat-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.filter-section {
+  margin-bottom: 24px;
+}
+
+.filter-section mat-form-field {
+  width: 200px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.insurance-rate-table {
+  width: 100%;
+}
+
+.insurance-rate-table th {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.insurance-rate-table td {
+  white-space: nowrap;
+}
+
+.insurance-rate-table small {
+  display: block;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.6);
+}
+

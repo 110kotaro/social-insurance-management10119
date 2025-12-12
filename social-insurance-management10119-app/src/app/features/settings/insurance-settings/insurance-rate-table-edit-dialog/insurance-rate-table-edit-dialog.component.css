@@ -1,0 +1,37 @@
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+mat-dialog-content {
+  min-width: 600px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+h3 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+h3:first-child {
+  margin-top: 0;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-row mat-form-field {
+  flex: 1;
+}
+
+mat-dialog-actions {
+  margin-top: 24px;
+}
+

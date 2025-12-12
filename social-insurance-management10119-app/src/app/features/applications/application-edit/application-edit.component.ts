@@ -3260,7 +3260,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const postalCode = si.postalCode || (this.organization?.address as any)?.postalCode || '';
       const address = si.officeAddress || si.address || '';
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
-      submitterItems.push({ label: '住所', value: addressWithPostalCode, isEmpty: !address });
+      submitterItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       submitterItems.push({ label: '事業所名', value: si.officeName || si.name || '', isEmpty: !si.officeName && !si.name });
       submitterItems.push({ label: '電話番号', value: si.phoneNumber || '', isEmpty: !si.phoneNumber });
@@ -3341,7 +3341,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const postalCode = si.postalCode || (this.organization?.address as any)?.postalCode || '';
       const address = si.officeAddress || si.address || '';
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
-      submitterItems.push({ label: '住所', value: addressWithPostalCode, isEmpty: !address });
+      submitterItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       submitterItems.push({ label: '事業所名', value: si.officeName || si.name || '', isEmpty: !si.officeName && !si.name });
       submitterItems.push({ label: '電話番号', value: si.phoneNumber || '', isEmpty: !si.phoneNumber });
@@ -3573,7 +3573,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
       const address = bi.address || bi.officeAddress || '';
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
-      biItems.push({ label: '住所', value: addressWithPostalCode, isEmpty: !address });
+      biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });
@@ -3653,7 +3653,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
       const address = bi.address || bi.officeAddress || '';
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
-      biItems.push({ label: '住所', value: addressWithPostalCode, isEmpty: !address });
+      biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });
@@ -3710,7 +3710,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
       const address = bi.address || bi.officeAddress || '';
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
-      biItems.push({ label: '住所', value: addressWithPostalCode, isEmpty: !address });
+      biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });
@@ -3782,7 +3782,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
       const address = bi.address || bi.officeAddress || '';
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
-      biItems.push({ label: '住所', value: addressWithPostalCode, isEmpty: !address });
+      biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });
@@ -3848,7 +3848,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
       const address = bi.address || bi.officeAddress || '';
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
-      biItems.push({ label: '住所', value: addressWithPostalCode, isEmpty: !address });
+      biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });

@@ -1,0 +1,66 @@
+<mat-card>
+  <mat-card-header>
+    <mat-card-title>
+      <mat-icon>admin_panel_settings</mat-icon>
+      権限設定
+    </mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <p class="info-text">
+      社員の権限を管理します。オーナーは権限変更できません。
+    </p>
+
+    <div class="table-container">
+      <table mat-table [dataSource]="dataSource" matSort (matSortChange)="sortData($event)" class="permission-table">
+        <ng-container matColumnDef="employeeNumber">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>社員番号</th>
+          <td mat-cell *matCellDef="let row">{{ row.employeeNumber }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="employeeName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>氏名</th>
+          <td mat-cell *matCellDef="let row">{{ row.employeeName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="email">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>メールアドレス</th>
+          <td mat-cell *matCellDef="let row">{{ row.email }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="currentRole">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>現在の権限</th>
+          <td mat-cell *matCellDef="let row">
+            <mat-chip [color]="getRoleColor(row.currentRole)">
+              {{ getRoleLabel(row.currentRole) }}
+            </mat-chip>
+            <span *ngIf="row.isOwner" class="owner-badge">（オーナー）</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>操作</th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-icon-button 
+                    (click)="openPermissionChangeDialog(row)" 
+                    [disabled]="!canEditRole(row)"
+                    matTooltip="権限を変更">
+              <mat-icon>edit</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    </div>
+
+    <mat-paginator 
+      [length]="permissionRows.length"
+      [pageSize]="pageSize"
+      [pageIndex]="pageIndex"
+      [pageSizeOptions]="pageSizeOptions"
+      (page)="onPageChange($event)">
+    </mat-paginator>
+  </mat-card-content>
+</mat-card>
+

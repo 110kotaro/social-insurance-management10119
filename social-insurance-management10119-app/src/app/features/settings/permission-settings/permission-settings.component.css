@@ -1,0 +1,36 @@
+mat-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-text {
+  margin-bottom: 24px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.table-container {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.permission-table {
+  width: 100%;
+}
+
+.owner-badge {
+  margin-left: 8px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+mat-chip {
+  margin-right: 8px;
+}
+

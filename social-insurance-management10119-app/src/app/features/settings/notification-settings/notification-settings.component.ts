@@ -37,11 +37,20 @@ export class NotificationSettingsComponent implements OnInit {
   private authService = inject(AuthService);
   private snackBar = inject(MatSnackBar);
   
-  reminderForm: FormGroup;
+  notificationForm: FormGroup;
   isLoading = false;
 
   constructor() {
-    this.reminderForm = this.fb.group({
+    this.notificationForm = this.fb.group({
+      // 通知対象設定
+      notifyApplicant: [true],
+      notifyAdmin: [true],
+      // 通知タイミング設定
+      notifyOnSubmit: [true],
+      notifyOnApprove: [true],
+      notifyOnReturn: [true],
+      notifyOnReject: [true],
+      // 期限リマインダー設定
       adminDaysBeforeLegalDeadline: [7, [Validators.required, Validators.min(1)]],
       employeeDaysBeforeAdminDeadline: [3, [Validators.required, Validators.min(1)]],
       notifyOnOverdue: [true],
@@ -51,20 +60,32 @@ export class NotificationSettingsComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.organization?.applicationFlowSettings?.notificationSettings?.reminderSettings) {
-      const settings = this.organization.applicationFlowSettings.notificationSettings.reminderSettings;
-      this.reminderForm.patchValue({
-        adminDaysBeforeLegalDeadline: settings.adminDaysBeforeLegalDeadline ?? 7,
-        employeeDaysBeforeAdminDeadline: settings.employeeDaysBeforeAdminDeadline ?? 3,
-        notifyOnOverdue: settings.notifyOnOverdue ?? true,
-        notifyOnDeadlineDay: settings.notifyOnDeadlineDay ?? true,
-        notifyBeforeDeadline: settings.notifyBeforeDeadline ?? true
+    const notificationSettings = this.organization?.applicationFlowSettings?.notificationSettings;
+    
+    if (notificationSettings) {
+      const reminderSettings = notificationSettings.reminderSettings;
+      
+      this.notificationForm.patchValue({
+        // 通知対象設定
+        notifyApplicant: notificationSettings.notifyApplicant ?? true,
+        notifyAdmin: notificationSettings.notifyAdmin ?? true,
+        // 通知タイミング設定
+        notifyOnSubmit: notificationSettings.notifyOnSubmit ?? true,
+        notifyOnApprove: notificationSettings.notifyOnApprove ?? true,
+        notifyOnReturn: notificationSettings.notifyOnReturn ?? true,
+        notifyOnReject: notificationSettings.notifyOnReject ?? true,
+        // 期限リマインダー設定
+        adminDaysBeforeLegalDeadline: reminderSettings?.adminDaysBeforeLegalDeadline ?? 7,
+        employeeDaysBeforeAdminDeadline: reminderSettings?.employeeDaysBeforeAdminDeadline ?? 3,
+        notifyOnOverdue: reminderSettings?.notifyOnOverdue ?? true,
+        notifyOnDeadlineDay: reminderSettings?.notifyOnDeadlineDay ?? true,
+        notifyBeforeDeadline: reminderSettings?.notifyBeforeDeadline ?? true
       });
     }
   }
 
-  async saveReminderSettings(): Promise<void> {
-    if (!this.organization?.id || this.reminderForm.invalid) {
+  async saveNotificationSettings(): Promise<void> {
+    if (!this.organization?.id || this.notificationForm.invalid) {
       return;
     }
 
@@ -76,6 +97,8 @@ export class NotificationSettingsComponent implements OnInit {
         return;
       }
 
+      const formValue = this.notificationForm.value;
+
       // 組織情報を更新
       const updatedOrganization: Organization = {
         ...this.organization,
@@ -83,12 +106,18 @@ export class NotificationSettingsComponent implements OnInit {
           ...this.organization.applicationFlowSettings,
           notificationSettings: {
             ...this.organization.applicationFlowSettings?.notificationSettings,
+            notifyApplicant: formValue.notifyApplicant,
+            notifyAdmin: formValue.notifyAdmin,
+            notifyOnSubmit: formValue.notifyOnSubmit,
+            notifyOnApprove: formValue.notifyOnApprove,
+            notifyOnReturn: formValue.notifyOnReturn,
+            notifyOnReject: formValue.notifyOnReject,
             reminderSettings: {
-              adminDaysBeforeLegalDeadline: this.reminderForm.value.adminDaysBeforeLegalDeadline,
-              employeeDaysBeforeAdminDeadline: this.reminderForm.value.employeeDaysBeforeAdminDeadline,
-              notifyOnOverdue: this.reminderForm.value.notifyOnOverdue,
-              notifyOnDeadlineDay: this.reminderForm.value.notifyOnDeadlineDay,
-              notifyBeforeDeadline: this.reminderForm.value.notifyBeforeDeadline
+              adminDaysBeforeLegalDeadline: formValue.adminDaysBeforeLegalDeadline,
+              employeeDaysBeforeAdminDeadline: formValue.employeeDaysBeforeAdminDeadline,
+              notifyOnOverdue: formValue.notifyOnOverdue,
+              notifyOnDeadlineDay: formValue.notifyOnDeadlineDay,
+              notifyBeforeDeadline: formValue.notifyBeforeDeadline
             }
           }
         }
@@ -97,10 +126,10 @@ export class NotificationSettingsComponent implements OnInit {
       if (updatedOrganization.id) {
         await this.organizationService.updateOrganization(updatedOrganization.id, updatedOrganization);
       }
-      this.snackBar.open('リマインダー設定を保存しました', '閉じる', { duration: 3000 });
+      this.snackBar.open('通知設定を保存しました', '閉じる', { duration: 3000 });
     } catch (error) {
-      console.error('リマインダー設定の保存に失敗しました:', error);
-      this.snackBar.open('リマインダー設定の保存に失敗しました', '閉じる', { duration: 3000 });
+      console.error('通知設定の保存に失敗しました:', error);
+      this.snackBar.open('通知設定の保存に失敗しました', '閉じる', { duration: 3000 });
     } finally {
       this.isLoading = false;
     }

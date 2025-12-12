@@ -51,6 +51,11 @@ export class OrganizationService {
       street: organization.address.street
     };
     
+    // address.postalCodeがundefinedでない場合のみ追加
+    if (organization.address.postalCode !== undefined) {
+      addressData.postalCode = organization.address.postalCode;
+    }
+    
     // address.buildingがundefinedでない場合のみ追加
     if (organization.address.building !== undefined) {
       addressData.building = organization.address.building;
@@ -114,6 +119,9 @@ export class OrganizationService {
         city: updates.address.city,
         street: updates.address.street
       };
+      if (updates.address.postalCode !== undefined) {
+        addressData.postalCode = updates.address.postalCode;
+      }
       if (updates.address.building !== undefined) {
         addressData.building = updates.address.building;
       }
@@ -123,6 +131,7 @@ export class OrganizationService {
     if (updates.email !== undefined) updateData.email = updates.email;
     if (updates.industry !== undefined) updateData.industry = updates.industry;
     if (updates.logoUrl !== undefined) updateData.logoUrl = updates.logoUrl;
+    if (updates.payrollDate !== undefined) updateData.payrollDate = updates.payrollDate;
     if (updates.insuranceSettings !== undefined) {
       // insuranceSettings内のundefined値を削除
       updateData.insuranceSettings = this.removeUndefinedValues(updates.insuranceSettings);

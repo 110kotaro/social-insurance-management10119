@@ -1,0 +1,36 @@
+<h2 mat-dialog-title>
+  <mat-icon>admin_panel_settings</mat-icon>
+  権限変更
+</h2>
+
+<mat-dialog-content>
+  <p class="employee-info">
+    <strong>{{ data.employeeName }}</strong> の権限を変更します。
+  </p>
+
+  <p class="current-role">
+    現在の権限: <strong>{{ getRoleLabel(data.currentRole) }}</strong>
+  </p>
+
+  <mat-form-field appearance="outline">
+    <mat-label>新しい権限</mat-label>
+    <mat-select [(ngModel)]="selectedRole">
+      <mat-option value="employee">一般社員</mat-option>
+      <mat-option value="admin">管理者</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <div class="warning" *ngIf="selectedRole === 'admin'">
+    <mat-icon>warning</mat-icon>
+    <span>管理者権限を付与すると、設定変更や社員管理などの機能にアクセスできるようになります。</span>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">キャンセル</button>
+  <button mat-raised-button color="primary" (click)="save()">
+    <mat-icon>save</mat-icon>
+    変更
+  </button>
+</mat-dialog-actions>
+

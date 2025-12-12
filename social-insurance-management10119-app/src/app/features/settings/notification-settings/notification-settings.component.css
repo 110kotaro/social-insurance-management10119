@@ -27,6 +27,14 @@ mat-form-field {
 
 .checkbox-group {
   margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.hint {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+  margin-top: 4px;
+  margin-left: 32px;
 }
 
 .button-group {

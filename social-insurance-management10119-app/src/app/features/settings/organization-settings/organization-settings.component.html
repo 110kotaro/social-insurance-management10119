@@ -1,0 +1,137 @@
+<mat-card>
+  <mat-card-header>
+    <mat-card-title>
+      <mat-icon>business</mat-icon>
+      組織設定
+    </mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <form [formGroup]="organizationForm" (ngSubmit)="saveOrganizationSettings()">
+      <h3>基本情報</h3>
+      
+      <mat-form-field appearance="outline">
+        <mat-label>組織名</mat-label>
+        <input matInput formControlName="name" required>
+        <mat-error *ngIf="organizationForm.get('name')?.hasError('required')">
+          組織名は必須です
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>法人番号</mat-label>
+        <input matInput formControlName="corporateNumber">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>事業所番号</mat-label>
+        <input matInput formControlName="officeNumber">
+      </mat-form-field>
+
+      <h3>所在地</h3>
+
+      <mat-form-field appearance="outline">
+        <mat-label>郵便番号</mat-label>
+        <input matInput formControlName="postalCode" placeholder="123-4567" maxlength="8">
+        <mat-hint>例: 123-4567（ハイフンなしでも可）</mat-hint>
+        <mat-error *ngIf="organizationForm.get('postalCode')?.hasError('pattern')">
+          正しい郵便番号の形式で入力してください（例: 123-4567）
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>都道府県</mat-label>
+        <mat-select formControlName="prefecture" required>
+          <mat-option *ngFor="let prefecture of prefectures" [value]="prefecture">
+            {{ prefecture }}
+          </mat-option>
+        </mat-select>
+        <mat-error *ngIf="organizationForm.get('prefecture')?.hasError('required')">
+          都道府県は必須です
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>市区町村</mat-label>
+        <input matInput formControlName="city" required>
+        <mat-error *ngIf="organizationForm.get('city')?.hasError('required')">
+          市区町村は必須です
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>番地</mat-label>
+        <input matInput formControlName="street" required>
+        <mat-error *ngIf="organizationForm.get('street')?.hasError('required')">
+          番地は必須です
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>建物名</mat-label>
+        <input matInput formControlName="building">
+      </mat-form-field>
+
+      <h3>連絡先</h3>
+
+      <mat-form-field appearance="outline">
+        <mat-label>電話番号</mat-label>
+        <input matInput formControlName="phoneNumber">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>メールアドレス</mat-label>
+        <input matInput type="email" formControlName="email">
+        <mat-error *ngIf="organizationForm.get('email')?.hasError('email')">
+          有効なメールアドレスを入力してください
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>業種</mat-label>
+        <input matInput formControlName="industry">
+      </mat-form-field>
+
+      <h3>ロゴ</h3>
+
+      <div class="logo-section">
+        <div *ngIf="logoPreviewUrl" class="logo-preview">
+          <img [src]="logoPreviewUrl" alt="ロゴプレビュー">
+          <button mat-icon-button type="button" (click)="removeLogo()" matTooltip="ロゴを削除">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        
+        <div class="logo-upload">
+          <input type="file" accept="image/*" (change)="onLogoSelected($event)" #logoInput style="display: none;">
+          <button mat-raised-button type="button" (click)="logoInput.click()" [disabled]="isUploadingLogo">
+            <mat-icon>upload</mat-icon>
+            {{ logoPreviewUrl ? 'ロゴを変更' : 'ロゴをアップロード' }}
+          </button>
+          <mat-progress-bar *ngIf="isUploadingLogo" mode="indeterminate"></mat-progress-bar>
+        </div>
+        <p class="hint">対応形式: PNG, JPG, GIF（最大5MB）</p>
+      </div>
+
+      <h3>給与支払日設定</h3>
+
+      <mat-form-field appearance="outline">
+        <mat-label>給与支払日</mat-label>
+        <mat-select formControlName="payrollDate">
+          <mat-option [value]="null">未設定</mat-option>
+          <mat-option *ngFor="let date of payrollDates" [value]="date">
+            {{ date }}日
+          </mat-option>
+        </mat-select>
+        <mat-hint>月次計算日の通知に使用されます</mat-hint>
+      </mat-form-field>
+
+      <div class="button-group">
+        <button mat-raised-button color="primary" type="submit" [disabled]="organizationForm.invalid || isLoading">
+          <mat-icon>save</mat-icon>
+          保存
+        </button>
+      </div>
+    </form>
+  </mat-card-content>
+</mat-card>
+

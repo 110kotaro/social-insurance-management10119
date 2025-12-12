@@ -1,0 +1,137 @@
+<h2 mat-dialog-title>
+  <mat-icon>{{ isEditMode ? 'edit' : 'add' }}</mat-icon>
+  {{ isEditMode ? '保険料率テーブル編集' : '保険料率テーブル新規追加' }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="rateTableForm">
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>等級</mat-label>
+        <input matInput type="number" formControlName="grade" required>
+        <mat-error *ngIf="rateTableForm.get('grade')?.hasError('required')">
+          等級は必須です
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>厚生年金等級</mat-label>
+        <input matInput type="number" formControlName="pensionGrade">
+      </mat-form-field>
+    </div>
+
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>標準報酬月額</mat-label>
+        <input matInput type="number" formControlName="standardRewardAmount" required>
+        <span matPrefix>¥&nbsp;</span>
+        <mat-error *ngIf="rateTableForm.get('standardRewardAmount')?.hasError('required')">
+          標準報酬月額は必須です
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>最小値</mat-label>
+        <input matInput type="number" formControlName="minAmount" required>
+        <span matPrefix>¥&nbsp;</span>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>最大値</mat-label>
+        <input matInput type="number" formControlName="maxAmount" required>
+        <span matPrefix>¥&nbsp;</span>
+      </mat-form-field>
+    </div>
+
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>適用開始日</mat-label>
+        <input matInput [matDatepicker]="effectiveFromPicker" formControlName="effectiveFrom" required>
+        <mat-datepicker-toggle matIconSuffix [for]="effectiveFromPicker"></mat-datepicker-toggle>
+        <mat-datepicker #effectiveFromPicker></mat-datepicker>
+        <mat-error *ngIf="rateTableForm.get('effectiveFrom')?.hasError('required')">
+          適用開始日は必須です
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>適用終了日</mat-label>
+        <input matInput [matDatepicker]="effectiveToPicker" formControlName="effectiveTo">
+        <mat-datepicker-toggle matIconSuffix [for]="effectiveToPicker"></mat-datepicker-toggle>
+        <mat-datepicker #effectiveToPicker></mat-datepicker>
+      </mat-form-field>
+    </div>
+
+    <h3>健保（介護なし）</h3>
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>料率（%）</mat-label>
+        <input matInput type="number" formControlName="healthInsuranceWithoutCareRate" step="0.01" required>
+        <span matSuffix>%</span>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>全額</mat-label>
+        <input matInput type="number" formControlName="healthInsuranceWithoutCareTotal" required>
+        <span matPrefix>¥&nbsp;</span>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>折半額</mat-label>
+        <input matInput type="number" formControlName="healthInsuranceWithoutCareHalf" required>
+        <span matPrefix>¥&nbsp;</span>
+      </mat-form-field>
+    </div>
+
+    <h3>健保（介護あり）</h3>
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>料率（%）</mat-label>
+        <input matInput type="number" formControlName="healthInsuranceWithCareRate" step="0.01" required>
+        <span matSuffix>%</span>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>全額</mat-label>
+        <input matInput type="number" formControlName="healthInsuranceWithCareTotal" required>
+        <span matPrefix>¥&nbsp;</span>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>折半額</mat-label>
+        <input matInput type="number" formControlName="healthInsuranceWithCareHalf" required>
+        <span matPrefix>¥&nbsp;</span>
+      </mat-form-field>
+    </div>
+
+    <h3>厚生年金</h3>
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>料率（%）</mat-label>
+        <input matInput type="number" formControlName="pensionInsuranceRate" step="0.01" required>
+        <span matSuffix>%</span>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>全額</mat-label>
+        <input matInput type="number" formControlName="pensionInsuranceTotal" required>
+        <span matPrefix>¥&nbsp;</span>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>折半額</mat-label>
+        <input matInput type="number" formControlName="pensionInsuranceHalf" required>
+        <span matPrefix>¥&nbsp;</span>
+      </mat-form-field>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">キャンセル</button>
+  <button mat-raised-button color="primary" (click)="save()" [disabled]="rateTableForm.invalid">
+    <mat-icon>save</mat-icon>
+    保存
+  </button>
+</mat-dialog-actions>
+

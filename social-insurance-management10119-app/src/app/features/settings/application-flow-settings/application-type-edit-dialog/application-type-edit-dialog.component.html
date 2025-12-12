@@ -1,0 +1,47 @@
+<h2 mat-dialog-title>
+  <mat-icon>{{ isEditMode ? 'edit' : 'add' }}</mat-icon>
+  {{ isEditMode ? '申請種別編集' : '申請種別新規追加' }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="applicationTypeForm">
+    <mat-form-field appearance="outline">
+      <mat-label>申請種別名</mat-label>
+      <input matInput formControlName="name" required>
+      <mat-error *ngIf="applicationTypeForm.get('name')?.hasError('required')">
+        申請種別名は必須です
+      </mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>コード</mat-label>
+      <input matInput formControlName="code" required [disabled]="!isEditMode || !data.applicationType?.isCustom">
+      <mat-hint *ngIf="!isEditMode || data.applicationType?.isCustom">
+        申請種別を識別するためのコード（英数字、アンダースコア）
+      </mat-hint>
+      <mat-error *ngIf="applicationTypeForm.get('code')?.hasError('required')">
+        コードは必須です
+      </mat-error>
+    </mat-form-field>
+
+    <div class="checkbox-group">
+      <mat-checkbox formControlName="enabled">
+        有効にする
+      </mat-checkbox>
+    </div>
+
+    <mat-form-field appearance="outline">
+      <mat-label>説明</mat-label>
+      <textarea matInput formControlName="description" rows="3"></textarea>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">キャンセル</button>
+  <button mat-raised-button color="primary" (click)="save()" [disabled]="applicationTypeForm.invalid">
+    <mat-icon>save</mat-icon>
+    保存
+  </button>
+</mat-dialog-actions>
+
