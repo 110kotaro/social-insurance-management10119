@@ -1,0 +1,237 @@
+﻿<h2 mat-dialog-title>料率・標準報酬等級テーブルの管理</h2>
+
+<div mat-dialog-content class="dialog-content">
+  <p class="step-description">
+    CSV/Excelインポートまたは手動入力で健康・介護保険料率、厚生年金料率、標準報酬等級テーブルを管理します。
+  </p>
+
+  <div class="effective-date-section">
+    <div class="effective-date-row">
+      <mat-form-field appearance="outline" class="effective-date-field">
+        <mat-label>適用開始日</mat-label>
+        <input
+          type="date"
+          matInput
+          [value]="formatDateForInput(tableEffectiveFrom)"
+          (change)="onTableEffectiveFromChange($event)"
+        >
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="effective-date-field">
+        <mat-label>適用終了日（空欄の場合は現在も有効）</mat-label>
+        <input
+          type="date"
+          matInput
+          [value]="tableEffectiveTo ? formatDateForInput(tableEffectiveTo) : ''"
+          (change)="onTableEffectiveToChange($event)"
+        >
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="file-upload-field full-width">
+      <label>CSV/Excelファイルを選択（インポート）</label>
+      <input type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)">
+      <span class="hint">適用開始日・終了日は上記で設定してください。Excel（.xlsx/.xls）とCSVに対応しています。</span>
+    </div>
+  </div>
+
+  <div *ngIf="csvFile" class="file-info">
+    <p>選択中のファイル: {{ csvFile.name }}</p>
+    <p *ngIf="importedCount > 0">読み込み件数: {{ importedCount }}件</p>
+    <p *ngIf="rateTables.length > 0">有効件数: {{ rateTables.length }}件</p>
+  </div>
+
+  <div *ngIf="importErrors.length > 0" class="error-list">
+    <h4>エラー一覧</h4>
+    <ul>
+      <li *ngFor="let error of importErrors">{{ error }}</li>
+    </ul>
+  </div>
+
+  <div class="success-message" *ngIf="successMessage">
+    {{ successMessage }}
+  </div>
+  <div class="error-message" *ngIf="errorMessage">
+    {{ errorMessage }}
+  </div>
+
+  <div class="table-container" *ngIf="rateTables.length > 0; else emptyState">
+    <div class="table-header">
+      <h3>料率・標準報酬等級テーブル</h3>
+      <button mat-raised-button color="primary" (click)="addNewRow()" [disabled]="editingRow !== null">
+        <mat-icon>add</mat-icon>
+        テーブル行の新規追加
+      </button>
+    </div>
+
+    <table class="rate-table">
+      <thead>
+        <tr class="header-row-1">
+          <th rowspan="3" colspan="2" class="rowspan-header">等級</th>
+          <th rowspan="4" class="rowspan-header">標準報酬月額<br>規定値</th>
+          <th rowspan="4" class="rowspan-header">報酬月額<br>最小</th>
+          <th rowspan="4" class="rowspan-header">報酬月額<br>最大</th>
+          <th colspan="4" class="group-header">全国健康保険協会管掌健康保険料</th>
+          <th colspan="2" class="group-header">厚生年金保険料</th>
+          <th rowspan="2" class="rowspan-header">操作</th>
+        </tr>
+        <tr class="header-row-2">
+          <th colspan="2" class="subgroup-header">介護保険第2号被保険者に該当しない場合</th>
+          <th colspan="2" class="subgroup-header">介護保険第2号被保険者に該当する場合</th>
+          <th colspan="2" class="subgroup-header">一般、坑内員・船員</th>
+        </tr>
+        <tr class="header-row-3">
+          <th colspan="2" class="rate-header">
+            <div class="rate-header-content">
+              <label>料率</label>
+              <ng-container *ngIf="!isEditingHeaderRates">
+                <span class="rate-value">{{ headerRates.healthWithoutCare }}%</span>
+              </ng-container>
+              <ng-container *ngIf="isEditingHeaderRates">
+                <input type="number" [(ngModel)]="editingHeaderRates.healthWithoutCare" [ngModelOptions]="{standalone: true}" step="0.01" min="0" max="100" placeholder="料率" class="rate-input">
+              </ng-container>
+            </div>
+          </th>
+          <th colspan="2" class="rate-header">
+            <div class="rate-header-content">
+              <label>料率</label>
+              <ng-container *ngIf="!isEditingHeaderRates">
+                <span class="rate-value">{{ headerRates.healthWithCare }}%</span>
+              </ng-container>
+              <ng-container *ngIf="isEditingHeaderRates">
+                <input type="number" [(ngModel)]="editingHeaderRates.healthWithCare" [ngModelOptions]="{standalone: true}" step="0.01" min="0" max="100" placeholder="料率" class="rate-input">
+              </ng-container>
+            </div>
+          </th>
+          <th colspan="2" class="rate-header">
+            <div class="rate-header-content">
+              <label>料率</label>
+              <ng-container *ngIf="!isEditingHeaderRates">
+                <span class="rate-value">{{ headerRates.pension }}%</span>
+              </ng-container>
+              <ng-container *ngIf="isEditingHeaderRates">
+                <input type="number" [(ngModel)]="editingHeaderRates.pension" [ngModelOptions]="{standalone: true}" step="0.01" min="0" max="100" placeholder="料率" class="rate-input">
+              </ng-container>
+            </div>
+          </th>
+          <th class="rate-header-actions">
+            <ng-container *ngIf="!isEditingHeaderRates">
+              <button mat-icon-button color="primary" (click)="editHeaderRates()" [disabled]="editingRow !== null || isEditingHeaderRates" matTooltip="料率を編集">
+                <mat-icon>edit</mat-icon>
+              </button>
+            </ng-container>
+            <ng-container *ngIf="isEditingHeaderRates">
+              <button mat-icon-button color="primary" (click)="saveHeaderRates()" [disabled]="isLoading" matTooltip="保存">
+                <mat-icon>check</mat-icon>
+              </button>
+              <button mat-icon-button (click)="cancelHeaderRatesEdit()" [disabled]="isLoading" matTooltip="キャンセル">
+                <mat-icon>close</mat-icon>
+              </button>
+            </ng-container>
+          </th>
+        </tr>
+        <tr class="header-row-4">
+          <th class="subgroup-header">健保／介護</th>
+          <th class="subgroup-header">厚生年金</th>
+          <th class="amount-header">全額</th>
+          <th class="amount-header">折半額</th>
+          <th class="amount-header">全額</th>
+          <th class="amount-header">折半額</th>
+          <th class="amount-header">全額</th>
+          <th class="amount-header">折半額</th>
+          <th class="rowspan-header">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rateTables; let i = index" class="data-row">
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.grade }}</ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.grade" [ngModelOptions]="{standalone: true}" min="1">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">
+              <span *ngIf="row.pensionGrade !== null && row.pensionGrade !== undefined">{{ row.pensionGrade }}</span>
+              <span *ngIf="row.pensionGrade === null || row.pensionGrade === undefined">-</span>
+            </ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.pensionGrade" [ngModelOptions]="{standalone: true}" min="1" placeholder="-">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.standardRewardAmount | number }}</ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.standardRewardAmount" [ngModelOptions]="{standalone: true}" min="0">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">
+              <span *ngIf="row.minAmount > 0">{{ row.minAmount | number }}</span>
+            </ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.minAmount" [ngModelOptions]="{standalone: true}" min="0">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">
+              <span *ngIf="row.maxAmount && row.maxAmount > 0">{{ row.maxAmount | number }}</span>
+            </ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.maxAmount" [ngModelOptions]="{standalone: true}" min="0">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.healthInsuranceWithoutCare.total | number }}</ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.healthInsuranceWithoutCare.total" [ngModelOptions]="{standalone: true}" min="0">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.healthInsuranceWithoutCare.half | number }}</ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.healthInsuranceWithoutCare.half" [ngModelOptions]="{standalone: true}" min="0">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.healthInsuranceWithCare.total | number }}</ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.healthInsuranceWithCare.total" [ngModelOptions]="{standalone: true}" min="0">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.healthInsuranceWithCare.half | number }}</ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.healthInsuranceWithCare.half" [ngModelOptions]="{standalone: true}" min="0">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.pensionInsurance.total | number }}</ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.pensionInsurance.total" [ngModelOptions]="{standalone: true}" min="0">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">{{ row.pensionInsurance.half | number }}</ng-container>
+            <input *ngIf="editingRow && editingRowIndex === i" type="number" [(ngModel)]="editingRow.pensionInsurance.half" [ngModelOptions]="{standalone: true}" min="0">
+          </td>
+          <td>
+            <ng-container *ngIf="!editingRow || editingRowIndex !== i">
+              <button mat-icon-button color="primary" (click)="editRow(row)" [disabled]="editingRow !== null" matTooltip="行を編集">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteRow(row)" [disabled]="editingRow !== null || isLoading" matTooltip="行を削除">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </ng-container>
+            <ng-container *ngIf="editingRow && editingRowIndex === i">
+              <button mat-icon-button color="primary" (click)="saveRow()" [disabled]="isLoading" matTooltip="保存">
+                <mat-icon>check</mat-icon>
+              </button>
+              <button mat-icon-button (click)="cancelEdit()" [disabled]="isLoading" matTooltip="キャンセル">
+                <mat-icon>close</mat-icon>
+              </button>
+            </ng-container>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ng-template #emptyState>
+    <p class="empty-state">
+      CSV/Excelインポートまたは「テーブル行の新規追加」で等級表を作成してください。
+    </p>
+  </ng-template>
+</div>
+
+<div mat-dialog-actions class="dialog-actions">
+  <span class="flex-spacer"></span>
+  <button mat-button (click)="close()" [disabled]="isLoading">キャンセル</button>
+  <button mat-raised-button color="primary" (click)="saveAll()" [disabled]="isLoading || rateTables.length === 0">
+    <span *ngIf="!isLoading">保存</span>
+    <span *ngIf="isLoading">保存中...</span>
+  </button>
+</div>
+

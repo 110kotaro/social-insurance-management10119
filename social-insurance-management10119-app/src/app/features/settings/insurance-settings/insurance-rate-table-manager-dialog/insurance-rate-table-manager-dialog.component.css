@@ -1,0 +1,191 @@
+﻿.dialog-content {
+  width: 100%;
+  max-height: 70vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.step-description {
+  margin-bottom: 16px;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.file-upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-upload-field label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.file-upload-field input[type="file"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.38);
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.file-upload-field .hint {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.file-info {
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.error-list {
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #ffebee;
+  border-radius: 4px;
+  border-left: 4px solid #f44336;
+}
+
+.error-list h4 {
+  margin: 0 0 8px 0;
+  color: #c62828;
+  font-size: 14px;
+}
+
+.error-list ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.success-message {
+  color: #2e7d32;
+  background-color: #e8f5e9;
+  border: 1px solid #4caf50;
+  border-radius: 4px;
+  padding: 12px;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.error-message {
+  color: #f44336;
+  font-size: 14px;
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #ffebee;
+  border-radius: 4px;
+}
+
+.effective-date-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.effective-date-row {
+  display: flex;
+  gap: 16px;
+}
+
+.effective-date-field {
+  flex: 1;
+}
+
+.table-container {
+  margin: 24px 0;
+  overflow: auto;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.rate-table {
+  width: 100%;
+  min-width: 1400px;
+  border-collapse: collapse;
+}
+
+.rate-table th,
+.rate-table td {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  text-align: center;
+  padding: 4px;
+  font-size: 12px;
+}
+
+.rate-table th {
+  background-color: #f5f5f5;
+  font-weight: 500;
+}
+
+.rate-table th.group-header {
+  background-color: #e3f2fd;
+}
+
+.rate-table th.rate-header,
+.rate-table th.rate-header-actions {
+  background-color: #fff9c4;
+}
+
+.rate-table th.rate-header .rate-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+.rate-table th.rate-header .rate-input {
+  width: 70px;
+  text-align: center;
+  padding: 2px 4px;
+}
+
+.rate-table tbody tr.data-row:hover {
+  background-color: #fafafa;
+}
+
+.rate-table tbody td input[type="number"] {
+  width: 100%;
+  padding: 2px 4px;
+  border: 1px solid rgba(0, 0, 0, 0.38);
+  border-radius: 4px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.empty-state {
+  margin: 16px 0;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
+
+.flex-spacer {
+  flex: 1 1 auto;
+}

@@ -18,6 +18,7 @@ import { InsuranceRateTableService } from '../../../core/services/insurance-rate
 import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.model';
 import { InsuranceRateTableEditDialogComponent } from './insurance-rate-table-edit-dialog/insurance-rate-table-edit-dialog.component';
 import { InsuranceRateTableImportDialogComponent } from './insurance-rate-table-import-dialog/insurance-rate-table-import-dialog.component';
+import { InsuranceRateTableManagerDialogComponent } from './insurance-rate-table-manager-dialog/insurance-rate-table-manager-dialog.component';
 
 @Component({
   selector: 'app-insurance-settings',
@@ -166,6 +167,24 @@ export class InsuranceSettingsComponent implements OnInit {
       width: '800px',
       data: {
         rateTable: rateTable || null,
+        organizationId: this.organizationId
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadRateTables();
+      }
+    });
+  }
+
+  openRateTableManager(): void {
+    const dialogRef = this.dialog.open(InsuranceRateTableManagerDialogComponent, {
+      width: '95vw',
+      maxWidth: '1200px',
+      height: '90vh',
+      maxHeight: '95vh',
+      data: {
         organizationId: this.organizationId
       }
     });
