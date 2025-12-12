@@ -19,97 +19,103 @@
 
     <div class="filter-section">
       <mat-form-field appearance="outline">
-        <mat-label>適用開始年でフィルタ</mat-label>
+        <mat-label>適用年</mat-label>
         <mat-select [(value)]="selectedEffectiveYear" (selectionChange)="onYearFilterChange($event.value)">
-          <mat-option [value]="null">すべて</mat-option>
+          <mat-option [value]="null">年を選択</mat-option>
           <mat-option *ngFor="let year of effectiveYears" [value]="year">
             {{ year }}年
           </mat-option>
         </mat-select>
       </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>適用月</mat-label>
+        <mat-select [(value)]="selectedEffectiveMonth"
+                    (selectionChange)="onMonthFilterChange($event.value)"
+                    [disabled]="selectedEffectiveYear === null">
+          <mat-option [value]="null">月を選択</mat-option>
+          <mat-option *ngFor="let month of months" [value]="month">
+            {{ month }}月
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
     </div>
 
-    <div class="table-container">
+    <div class="table-container" *ngIf="isFilterActive(); else filterPlaceholder">
       <table mat-table [dataSource]="dataSource" class="insurance-rate-table">
-        <!-- 等級列 -->
+        <!-- 等級 -->
         <ng-container matColumnDef="grade">
           <th mat-header-cell *matHeaderCellDef>等級</th>
           <td mat-cell *matCellDef="let table">{{ table.grade }}</td>
         </ng-container>
 
-        <!-- 厚生年金等級列 -->
+        <!-- 厚生年金等級 -->
         <ng-container matColumnDef="pensionGrade">
           <th mat-header-cell *matHeaderCellDef>厚生年金等級</th>
           <td mat-cell *matCellDef="let table">{{ table.pensionGrade ?? '-' }}</td>
         </ng-container>
 
-        <!-- 標準報酬月額列 -->
+        <!-- 標準報酬月額 -->
         <ng-container matColumnDef="standardRewardAmount">
           <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
           <td mat-cell *matCellDef="let table">{{ formatCurrency(table.standardRewardAmount) }}</td>
         </ng-container>
 
-        <!-- 最小値列 -->
+        <!-- 最小値 -->
         <ng-container matColumnDef="minAmount">
           <th mat-header-cell *matHeaderCellDef>最小値</th>
           <td mat-cell *matCellDef="let table">{{ formatCurrency(table.minAmount) }}</td>
         </ng-container>
 
-        <!-- 最大値列 -->
+        <!-- 最大値 -->
         <ng-container matColumnDef="maxAmount">
           <th mat-header-cell *matHeaderCellDef>最大値</th>
           <td mat-cell *matCellDef="let table">{{ formatCurrency(table.maxAmount) }}</td>
         </ng-container>
 
-        <!-- 健保（介護なし）列 -->
+        <!-- 健保（介護なし） -->
         <ng-container matColumnDef="healthInsuranceWithoutCare">
           <th mat-header-cell *matHeaderCellDef>健保（介護なし）</th>
           <td mat-cell *matCellDef="let table">
-            {{ formatPercentage(table.healthInsuranceWithoutCare.rate) }}
-            <br>
-            <small>全額: {{ formatCurrency(table.healthInsuranceWithoutCare.total) }}</small>
-            <br>
-            <small>折半: {{ formatCurrency(table.healthInsuranceWithoutCare.half) }}</small>
+            {{ formatPercentage(table.healthInsuranceWithoutCare?.rate) }}<br>
+            <small>全額: {{ formatCurrency(table.healthInsuranceWithoutCare?.total) }}</small><br>
+            <small>折半: {{ formatCurrency(table.healthInsuranceWithoutCare?.half) }}</small>
           </td>
         </ng-container>
 
-        <!-- 健保（介護あり）列 -->
+        <!-- 健保（介護あり） -->
         <ng-container matColumnDef="healthInsuranceWithCare">
           <th mat-header-cell *matHeaderCellDef>健保（介護あり）</th>
           <td mat-cell *matCellDef="let table">
-            {{ formatPercentage(table.healthInsuranceWithCare.rate) }}
-            <br>
-            <small>全額: {{ formatCurrency(table.healthInsuranceWithCare.total) }}</small>
-            <br>
-            <small>折半: {{ formatCurrency(table.healthInsuranceWithCare.half) }}</small>
+            {{ formatPercentage(table.healthInsuranceWithCare?.rate) }}<br>
+            <small>全額: {{ formatCurrency(table.healthInsuranceWithCare?.total) }}</small><br>
+            <small>折半: {{ formatCurrency(table.healthInsuranceWithCare?.half) }}</small>
           </td>
         </ng-container>
 
-        <!-- 厚生年金列 -->
+        <!-- 厚生年金 -->
         <ng-container matColumnDef="pensionInsurance">
           <th mat-header-cell *matHeaderCellDef>厚生年金</th>
           <td mat-cell *matCellDef="let table">
-            {{ formatPercentage(table.pensionInsurance.rate) }}
-            <br>
-            <small>全額: {{ formatCurrency(table.pensionInsurance.total) }}</small>
-            <br>
-            <small>折半: {{ formatCurrency(table.pensionInsurance.half) }}</small>
+            {{ formatPercentage(table.pensionInsurance?.rate) }}<br>
+            <small>全額: {{ formatCurrency(table.pensionInsurance?.total) }}</small><br>
+            <small>折半: {{ formatCurrency(table.pensionInsurance?.half) }}</small>
           </td>
         </ng-container>
 
-        <!-- 適用開始日列 -->
+        <!-- 適用開始日 -->
         <ng-container matColumnDef="effectiveFrom">
           <th mat-header-cell *matHeaderCellDef>適用開始日</th>
           <td mat-cell *matCellDef="let table">{{ formatDate(table.effectiveFrom) }}</td>
         </ng-container>
 
-        <!-- 適用終了日列 -->
+        <!-- 適用終了日 -->
         <ng-container matColumnDef="effectiveTo">
           <th mat-header-cell *matHeaderCellDef>適用終了日</th>
           <td mat-cell *matCellDef="let table">{{ formatDate(table.effectiveTo) }}</td>
         </ng-container>
 
-        <!-- 操作列 -->
+        <!-- 操作 -->
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef>操作</th>
           <td mat-cell *matCellDef="let table">
@@ -126,6 +132,10 @@
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
       </table>
     </div>
+
+    <ng-template #filterPlaceholder>
+      <p class="filter-placeholder">年と月を選択すると等級表が表示されます。</p>
+    </ng-template>
   </mat-card-content>
 </mat-card>
 

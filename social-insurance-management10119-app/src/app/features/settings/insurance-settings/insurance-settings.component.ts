@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+﻿import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
@@ -51,13 +51,25 @@ export class InsuranceSettingsComponent implements OnInit {
   rateTables: InsuranceRateTable[] = [];
   filteredRateTables: InsuranceRateTable[] = [];
   dataSource = new MatTableDataSource<InsuranceRateTable>([]);
-  
+
   selectedEffectiveYear: number | null = null;
+  selectedEffectiveMonth: number | null = null;
   effectiveYears: number[] = [];
-  
-  displayedColumns: string[] = ['grade', 'pensionGrade', 'standardRewardAmount', 'minAmount', 'maxAmount', 
-                                'healthInsuranceWithoutCare', 'healthInsuranceWithCare', 'pensionInsurance', 
-                                'effectiveFrom', 'effectiveTo', 'actions'];
+  readonly months: number[] = Array.from({ length: 12 }, (_, index) => index + 1);
+
+  displayedColumns: string[] = [
+    'grade',
+    'pensionGrade',
+    'standardRewardAmount',
+    'minAmount',
+    'maxAmount',
+    'healthInsuranceWithoutCare',
+    'healthInsuranceWithCare',
+    'pensionInsurance',
+    'effectiveFrom',
+    'effectiveTo',
+    'actions'
+  ];
 
   isLoading = false;
 
@@ -76,16 +88,11 @@ export class InsuranceSettingsComponent implements OnInit {
 
     this.isLoading = true;
     try {
-      // 組織固有のテーブルと全組織共通のテーブルを取得
       const orgRateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId);
       const commonRateTables = await this.insuranceRateTableService.getCommonRateTables();
-      
-      // 組織固有のテーブルを優先（重複する場合は組織固有のものを使用）
+
       const orgGradeMap = new Map<number, InsuranceRateTable>();
-      orgRateTables.forEach(table => {
-        orgGradeMap.set(table.grade, table);
-      });
-      
+      orgRateTables.forEach(table => orgGradeMap.set(table.grade, table));
       commonRateTables.forEach(table => {
         if (!orgGradeMap.has(table.grade)) {
           orgGradeMap.set(table.grade, table);
@@ -93,8 +100,7 @@ export class InsuranceSettingsComponent implements OnInit {
       });
 
       this.rateTables = Array.from(orgGradeMap.values()).sort((a, b) => a.grade - b.grade);
-      
-      // 適用開始年のリストを生成
+
       const years = new Set<number>();
       this.rateTables.forEach(table => {
         if (table.effectiveFrom) {
@@ -102,7 +108,7 @@ export class InsuranceSettingsComponent implements OnInit {
         }
       });
       this.effectiveYears = Array.from(years).sort((a, b) => b - a);
-      
+
       this.applyFilter();
     } catch (error) {
       console.error('保険料率テーブルの読み込みに失敗しました:', error);
@@ -113,23 +119,46 @@ export class InsuranceSettingsComponent implements OnInit {
   }
 
   applyFilter(): void {
-    if (this.selectedEffectiveYear === null) {
-      this.filteredRateTables = this.rateTables;
-    } else {
-      this.filteredRateTables = this.rateTables.filter(table => {
-        if (!table.effectiveFrom) {
-          return false;
-        }
-        const effectiveYear = table.effectiveFrom.getFullYear();
-        return effectiveYear === this.selectedEffectiveYear;
-      });
+    if (this.selectedEffectiveYear === null || this.selectedEffectiveMonth === null) {
+      this.filteredRateTables = [];
+      this.dataSource.data = this.filteredRateTables;
+      return;
     }
+
+    const { startOfMonth, endOfMonth } = this.getMonthRange(this.selectedEffectiveYear, this.selectedEffectiveMonth);
+
+    this.filteredRateTables = this.rateTables.filter(table => {
+      if (!table.effectiveFrom) {
+        return false;
+      }
+
+      const effectiveFromTime = table.effectiveFrom.getTime();
+      const effectiveToTime = table.effectiveTo ? table.effectiveTo.getTime() : Number.POSITIVE_INFINITY;
+      return effectiveFromTime <= endOfMonth.getTime() && effectiveToTime >= startOfMonth.getTime();
+    });
+
     this.dataSource.data = this.filteredRateTables;
   }
 
   onYearFilterChange(year: number | null): void {
     this.selectedEffectiveYear = year;
+    this.selectedEffectiveMonth = null;
     this.applyFilter();
+  }
+
+  onMonthFilterChange(month: number | null): void {
+    this.selectedEffectiveMonth = month;
+    this.applyFilter();
+  }
+
+  isFilterActive(): boolean {
+    return this.selectedEffectiveYear !== null && this.selectedEffectiveMonth !== null;
+  }
+
+  private getMonthRange(year: number, month: number): { startOfMonth: Date; endOfMonth: Date } {
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0);
+    return { startOfMonth, endOfMonth };
   }
 
   openEditDialog(rateTable?: InsuranceRateTable): void {
@@ -189,12 +218,17 @@ export class InsuranceSettingsComponent implements OnInit {
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   }
 
-  formatCurrency(amount: number): string {
+  formatCurrency(amount: number | null | undefined): string {
+    if (amount === null || amount === undefined || Number.isNaN(amount)) {
+      return '-';
+    }
     return `¥${amount.toLocaleString()}`;
   }
 
-  formatPercentage(rate: number): string {
+  formatPercentage(rate: number | null | undefined): string {
+    if (rate === null || rate === undefined || Number.isNaN(rate)) {
+      return '-';
+    }
     return `${rate.toFixed(2)}%`;
   }
 }
-
