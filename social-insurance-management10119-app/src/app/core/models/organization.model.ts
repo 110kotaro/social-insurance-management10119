@@ -2,6 +2,7 @@ export interface Organization {
   id?: string;
   name: string;
   corporateNumber?: string;
+  officeSymbol?: string; // 事業所整理記号
   officeNumber?: string; // 事業所番号
   address: {
     postalCode?: string; // 郵便番号
@@ -14,7 +15,8 @@ export interface Organization {
   email?: string;
   industry?: string;
   logoUrl?: string;
-  payrollDate?: number; // 給与支払日（1-31の日付、月次計算日の通知用）
+  payrollDate?: number; // 月次計算予定日（1-31の日付、月末処理あり、月次計算日の通知用）
+  leaveInsuranceCollectionMethod?: 'postpaid' | 'direct_transfer'; // 休職中の保険料徴収方法（後払い/本人振込）
   insuranceSettings?: {
     healthInsurance?: {
       type: 'kyokai' | 'kumiai';

@@ -43,24 +43,6 @@
       </mat-form-field>
     </div>
 
-    <div class="form-row">
-      <mat-form-field appearance="outline">
-        <mat-label>適用開始日</mat-label>
-        <input matInput [matDatepicker]="effectiveFromPicker" formControlName="effectiveFrom" required>
-        <mat-datepicker-toggle matIconSuffix [for]="effectiveFromPicker"></mat-datepicker-toggle>
-        <mat-datepicker #effectiveFromPicker></mat-datepicker>
-        <mat-error *ngIf="rateTableForm.get('effectiveFrom')?.hasError('required')">
-          適用開始日は必須です
-        </mat-error>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>適用終了日</mat-label>
-        <input matInput [matDatepicker]="effectiveToPicker" formControlName="effectiveTo">
-        <mat-datepicker-toggle matIconSuffix [for]="effectiveToPicker"></mat-datepicker-toggle>
-        <mat-datepicker #effectiveToPicker></mat-datepicker>
-      </mat-form-field>
-    </div>
 
     <h3>健保（介護なし）</h3>
     <div class="form-row">

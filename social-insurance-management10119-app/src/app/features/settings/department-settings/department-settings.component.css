@@ -1,0 +1,89 @@
+.description {
+  margin-bottom: 24px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.add-department-form {
+  margin-bottom: 32px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.half-width {
+  flex: 1;
+  max-width: 400px;
+}
+
+.full-width {
+  width: 100%;
+  max-width: 400px;
+}
+
+.button-group {
+  margin-top: 16px;
+  display: flex;
+  gap: 16px;
+}
+
+.departments-list {
+  margin-top: 32px;
+}
+
+.departments-list h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.department-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  width: 100%;
+}
+
+.department-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.department-name {
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.department-code {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.department-email {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.department-parent {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.empty-message {
+  margin-top: 32px;
+  padding: 16px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.loading-message {
+  margin-top: 32px;
+  padding: 16px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.6);
+}

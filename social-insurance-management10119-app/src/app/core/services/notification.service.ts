@@ -14,6 +14,7 @@ import { Application } from '../models/application.model';
 import { EmployeeService } from './employee.service';
 import { DeadlineCalculationService } from './deadline-calculation.service';
 import { OrganizationService } from './organization.service';
+import { CalculationService } from './calculation.service';
 
 @Injectable({
   providedIn: 'root'
@@ -1539,6 +1540,181 @@ export class NotificationService {
           }]);
         }
       }
+    }
+  }
+
+  /**
+   * うるう年かどうかを判定
+   */
+  private isLeapYear(year: number): boolean {
+    return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+  }
+
+  /**
+   * 指定年月の月末日を取得
+   */
+  private getLastDayOfMonth(year: number, month: number): number {
+    if (month === 2) {
+      return this.isLeapYear(year) ? 29 : 28;
+    }
+    if ([4, 6, 9, 11].includes(month)) {
+      return 30;
+    }
+    return 31;
+  }
+
+  /**
+   * 実際の月次計算予定日を取得（月末処理を考慮）
+   */
+  private getActualCalculationDay(year: number, month: number, settingDay: number): number {
+    const lastDay = this.getLastDayOfMonth(year, month);
+    return Math.min(settingDay, lastDay);
+  }
+
+  /**
+   * 月次計算のリマインダー通知を作成
+   */
+  async createMonthlyCalculationReminder(params: {
+    organizationId: string;
+    targetYear: number;
+    targetMonth: number;
+    uncalculatedEmployees: Employee[];
+    skipDuplicateCheck?: boolean;
+  }): Promise<void> {
+    const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
+    const adminUids = await this.getAdminUserUids(params.organizationId);
+
+    // 未計算の社員名を取得
+    const employeeNames = params.uncalculatedEmployees
+      .map(emp => `${emp.lastName} ${emp.firstName}`)
+      .slice(0, 5); // 最大5名まで表示
+    
+    const employeeList = employeeNames.length > 0 
+      ? employeeNames.join('、')
+      : '';
+    
+    const moreCount = params.uncalculatedEmployees.length > 5 
+      ? `他${params.uncalculatedEmployees.length - 5}名`
+      : '';
+    
+    const employeeInfo = employeeList + (moreCount ? `、${moreCount}` : '');
+    
+    const message = `${params.targetYear}年${params.targetMonth}月の月次計算を実行してください。未計算の社員がいます（${employeeInfo}）。`;
+
+    // 各ユーザーごとに重複チェックを行う
+    for (const adminUid of adminUids) {
+      // 重複チェック（手動送信時はスキップ）
+      if (!params.skipDuplicateCheck) {
+        // 該当ユーザーの既存通知を取得
+        const userNotifications = await this.getUserNotifications(adminUid, params.organizationId, {
+          type: 'reminder',
+          limitCount: 100
+        });
+
+        // 既に通知が送信されているかチェック（該当ユーザーの通知のみをチェック）
+        const hasNotification = userNotifications.some(notification => {
+          if (notification.title !== '月次計算の実行時期です') {
+            return false;
+          }
+          const notificationDate = this.convertTimestampToDate(notification.createdAt);
+          if (!notificationDate) {
+            return false;
+          }
+          // 同じ年月の通知が既にあるかチェック
+          const notificationYear = notificationDate.getFullYear();
+          const notificationMonth = notificationDate.getMonth() + 1;
+          return notificationYear === params.targetYear && 
+                 notificationMonth === params.targetMonth &&
+                 notification.message.includes(`${params.targetYear}年${params.targetMonth}月`);
+        });
+
+        if (hasNotification) {
+          continue; // このユーザーには送信しない
+        }
+      }
+
+      // 重複がない場合のみ通知を追加
+      notifications.push({
+        userId: adminUid,
+        applicationId: null,
+        type: 'reminder',
+        title: '月次計算の実行時期です',
+        message: message,
+        read: false,
+        priority: 'high',
+        organizationId: params.organizationId
+      });
+    }
+
+    if (notifications.length > 0) {
+      await this.createNotifications(notifications);
+    }
+  }
+
+  /**
+   * 月次計算のリマインダーをチェックして送信（月次計算予定日になったら通知）
+   * 未計算の社員がいる場合のみ通知を送信
+   */
+  async checkAndSendMonthlyCalculationReminders(organizationId: string, skipDuplicateCheck: boolean = false): Promise<void> {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-12
+    const currentDay = now.getDate();
+
+    // 組織情報を取得
+    const organization = await this.organizationService.getOrganization(organizationId);
+    if (!organization || !organization.payrollDate) {
+      return; // 月次計算予定日が未設定の場合は終了
+    }
+
+    const payrollDate = organization.payrollDate;
+
+    // 実際の月次計算予定日を取得（月末処理を考慮）
+    const actualCalculationDay = this.getActualCalculationDay(currentYear, currentMonth, payrollDate);
+
+    // 現在日が月次計算予定日かどうかを判定
+    if (currentDay !== actualCalculationDay) {
+      return; // 月次計算予定日ではない場合は終了
+    }
+
+    const adminUids = await this.getAdminUserUids(organizationId);
+    if (adminUids.length === 0) {
+      return;
+    }
+
+    // 循環依存を避けるため、メソッド内で遅延注入
+    const calculationService = this.injector.get(CalculationService);
+
+    // 計算対象社員を取得
+    const targetEmployees = await calculationService.getCalculationTargetEmployees(organizationId, currentYear, currentMonth);
+    
+    // 該当月の計算結果を取得
+    const existingCalculations = await calculationService.getCalculationsByMonth(organizationId, currentYear, currentMonth);
+    
+    // 計算済みの社員IDを取得
+    const calculatedEmployeeIds = new Set(
+      existingCalculations
+        .filter(calc => calc.status === 'confirmed' || calc.status === 'exported')
+        .map(calc => calc.employeeId)
+    );
+    
+    // 未計算の社員を抽出
+    const uncalculatedEmployees = targetEmployees.filter(employee => {
+      if (!employee.id) {
+        return false;
+      }
+      return !calculatedEmployeeIds.has(employee.id);
+    });
+
+    // 未計算の社員がいる場合のみ通知を送信
+    if (uncalculatedEmployees.length > 0) {
+      await this.createMonthlyCalculationReminder({
+        organizationId,
+        targetYear: currentYear,
+        targetMonth: currentMonth,
+        uncalculatedEmployees,
+        skipDuplicateCheck
+      });
     }
   }
 }

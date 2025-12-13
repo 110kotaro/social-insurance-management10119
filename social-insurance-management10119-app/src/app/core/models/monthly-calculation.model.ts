@@ -49,6 +49,18 @@ export interface RetroactiveDeduction {
 }
 
 /**
+ * 休職中後払い分の情報（復職月に追記する分）
+ */
+export interface PostpaidLeaveAmount {
+  year: number; // 休職期間中の年
+  month: number; // 休職期間中の月
+  employeeShare: number; // その月の社員負担分（後払い分）
+  companyShare: number; // その月の会社負担分（建て替え分）
+  totalPremium: number; // その月の保険料全額（建て替え分の計算用）
+  leaveType: string; // 休職種別
+}
+
+/**
  * 月次計算結果モデル
  */
 export interface MonthlyCalculation {
@@ -94,6 +106,14 @@ export interface MonthlyCalculation {
   // 再計算時の差額情報
   premiumDifference?: PremiumDifference; // 保険料差額情報
   retroactiveDeductions?: RetroactiveDeduction[]; // 遡及控除情報（複数月対応）
+  // 休職中後払い分の情報（復職月に追記する分）
+  postpaidLeaveAmounts?: PostpaidLeaveAmount[]; // 休職期間中の各月の未徴収分
+  postpaidLeaveTotal?: number; // 休職中未徴収分の合計（社員負担分）
+  postpaidLeaveCompanyTotal?: number; // 休職中建て替え分の合計（会社負担分）
+  // 休職期間中の計算結果用（その月が休職期間中の場合）
+  isOnLeave?: boolean; // 休職中かどうか
+  postpaidLeaveAmount?: number; // 後払い分の金額（社員負担分）
+  postpaidLeaveCompanyAmount?: number; // 建て替え分の金額（会社負担分、折半前の全額）
   createdAt: Date | Timestamp;
   updatedAt: Date | Timestamp;
 }

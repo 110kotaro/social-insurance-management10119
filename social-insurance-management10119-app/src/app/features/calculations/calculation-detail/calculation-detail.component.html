@@ -239,13 +239,61 @@
 
             <mat-list-item>
               <span matListItemTitle>想定会社負担額（折半額）</span>
-              <span matListItemLine>{{ formatCurrency(calculation.companyShare) }}</span>
+              <span matListItemLine>
+                {{ formatCurrency(calculation.companyShare) }}
+                <span *ngIf="calculation.isOnLeave && calculation.postpaidLeaveCompanyAmount" class="leave-note">
+                  （建て替え分：{{ formatCurrency(calculation.postpaidLeaveCompanyAmount) }}）
+                </span>
+              </span>
             </mat-list-item>
             <mat-divider></mat-divider>
 
             <mat-list-item>
               <span matListItemTitle>従業員負担額（折半額）</span>
-              <span matListItemLine>{{ formatCurrency(calculation.employeeShare) }}</span>
+              <span matListItemLine>
+                <!-- 休職期間中の表示 -->
+                <span *ngIf="calculation.isOnLeave && calculation.postpaidLeaveAmount">
+                  {{ formatCurrency(0) }}（後払い分：{{ formatCurrency(calculation.postpaidLeaveAmount) }}）
+                </span>
+                <!-- 復職月の表示（休職中未徴収分を追記） -->
+                <span *ngIf="calculation.postpaidLeaveTotal && calculation.postpaidLeaveTotal > 0">
+                  {{ formatCurrency(calculation.employeeShare) }}
+                  <span class="leave-note">
+                    <br>通常分：{{ formatCurrency(calculation.employeeShare - calculation.postpaidLeaveTotal) }}
+                    <br>休職中未徴収分：{{ formatCurrency(calculation.postpaidLeaveTotal) }}
+                  </span>
+                </span>
+                <!-- 通常の表示 -->
+                <span *ngIf="!calculation.isOnLeave && (!calculation.postpaidLeaveTotal || calculation.postpaidLeaveTotal === 0)">
+                  {{ formatCurrency(calculation.employeeShare) }}
+                </span>
+              </span>
+            </mat-list-item>
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 休職中未徴収分（復職月の場合のみ表示） -->
+      <mat-card *ngIf="calculation.postpaidLeaveAmounts && calculation.postpaidLeaveAmounts.length > 0" class="leave-amounts-card">
+        <mat-card-header>
+          <mat-card-title>休職中未徴収分</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-list>
+            <mat-list-item *ngFor="let leaveAmount of calculation.postpaidLeaveAmounts">
+              <span matListItemTitle>{{ leaveAmount.year }}年{{ leaveAmount.month }}月分（{{ leaveAmount.leaveType }}）</span>
+              <span matListItemLine>
+                社員負担分：{{ formatCurrency(leaveAmount.employeeShare) }}
+                <span class="leave-note">（建て替え分：{{ formatCurrency(leaveAmount.companyShare) }}）</span>
+              </span>
+            </mat-list-item>
+            <mat-divider></mat-divider>
+            <mat-list-item class="total-item">
+              <span matListItemTitle>休職中未徴収分の合計</span>
+              <span matListItemLine class="total-amount">
+                社員負担分：{{ formatCurrency(calculation.postpaidLeaveTotal || 0) }}
+                <span class="leave-note">（建て替え分：{{ formatCurrency(calculation.postpaidLeaveCompanyTotal || 0) }}）</span>
+              </span>
             </mat-list-item>
           </mat-list>
         </mat-card-content>

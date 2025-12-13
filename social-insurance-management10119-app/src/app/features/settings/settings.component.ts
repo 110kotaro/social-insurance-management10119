@@ -7,9 +7,12 @@ import { AuthService } from '../../core/auth/auth.service';
 import { OrganizationService } from '../../core/services/organization.service';
 import { Organization } from '../../core/models/organization.model';
 import { NotificationSettingsComponent } from './notification-settings/notification-settings.component';
+import { InsuranceInfoSettingsComponent } from './insurance-info-settings/insurance-info-settings.component';
+import { DepartmentSettingsComponent } from './department-settings/department-settings.component';
 import { OrganizationSettingsComponent } from './organization-settings/organization-settings.component';
 import { InsuranceSettingsComponent } from './insurance-settings/insurance-settings.component';
 import { ApplicationFlowSettingsComponent } from './application-flow-settings/application-flow-settings.component';
+import { DocumentSettingsComponent } from './document-settings/document-settings.component';
 import { PermissionSettingsComponent } from './permission-settings/permission-settings.component';
 
 @Component({
@@ -21,9 +24,12 @@ import { PermissionSettingsComponent } from './permission-settings/permission-se
     MatCardModule,
     MatIconModule,
     NotificationSettingsComponent,
+    InsuranceInfoSettingsComponent,
+    DepartmentSettingsComponent,
     OrganizationSettingsComponent,
     InsuranceSettingsComponent,
     ApplicationFlowSettingsComponent,
+    DocumentSettingsComponent,
     PermissionSettingsComponent
   ],
   templateUrl: './settings.component.html',

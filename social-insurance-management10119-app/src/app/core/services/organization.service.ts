@@ -73,8 +73,14 @@ export class OrganizationService {
     if (organization.corporateNumber !== undefined) {
       orgData.corporateNumber = organization.corporateNumber;
     }
+    if (organization.officeSymbol !== undefined) {
+      orgData.officeSymbol = organization.officeSymbol;
+    }
     if (organization.officeNumber !== undefined) {
       orgData.officeNumber = organization.officeNumber;
+    }
+    if (organization.leaveInsuranceCollectionMethod !== undefined) {
+      orgData.leaveInsuranceCollectionMethod = organization.leaveInsuranceCollectionMethod;
     }
     if (organization.phoneNumber !== undefined) {
       orgData.phoneNumber = organization.phoneNumber;
@@ -111,7 +117,9 @@ export class OrganizationService {
 
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.corporateNumber !== undefined) updateData.corporateNumber = updates.corporateNumber;
+    if (updates.officeSymbol !== undefined) updateData.officeSymbol = updates.officeSymbol;
     if (updates.officeNumber !== undefined) updateData.officeNumber = updates.officeNumber;
+    if (updates.leaveInsuranceCollectionMethod !== undefined) updateData.leaveInsuranceCollectionMethod = updates.leaveInsuranceCollectionMethod;
     if (updates.address !== undefined) {
       // addressオブジェクト内のundefinedフィールドを除外
       const addressData: any = {

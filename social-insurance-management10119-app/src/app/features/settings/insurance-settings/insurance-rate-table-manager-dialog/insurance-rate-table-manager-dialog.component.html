@@ -1,28 +1,55 @@
-﻿<h2 mat-dialog-title>料率・標準報酬等級テーブルの管理</h2>
+<h2 mat-dialog-title>料率・標準報酬等級テーブルの管理</h2>
 
 <div mat-dialog-content class="dialog-content">
   <p class="step-description">
     CSV/Excelインポートまたは手動入力で健康・介護保険料率、厚生年金料率、標準報酬等級テーブルを管理します。
   </p>
 
-  <div class="effective-date-section">
+  <div class="effective-date-section" *ngIf="isNew">
     <div class="effective-date-row">
       <mat-form-field appearance="outline" class="effective-date-field">
-        <mat-label>適用開始日</mat-label>
+        <mat-label>適用開始年</mat-label>
         <input
-          type="date"
+          type="number"
           matInput
-          [value]="formatDateForInput(tableEffectiveFrom)"
-          (change)="onTableEffectiveFromChange($event)"
+          [(ngModel)]="effectiveFromYear"
+          (change)="onEffectiveFromYearChange()"
+          min="2000"
+          max="2100"
         >
       </mat-form-field>
       <mat-form-field appearance="outline" class="effective-date-field">
-        <mat-label>適用終了日（空欄の場合は現在も有効）</mat-label>
+        <mat-label>適用開始月</mat-label>
         <input
-          type="date"
+          type="number"
           matInput
-          [value]="tableEffectiveTo ? formatDateForInput(tableEffectiveTo) : ''"
-          (change)="onTableEffectiveToChange($event)"
+          [(ngModel)]="effectiveFromMonth"
+          (change)="onEffectiveFromMonthChange()"
+          min="1"
+          max="12"
+        >
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="effective-date-field">
+        <mat-label>適用終了年（空欄の場合は現在も有効）</mat-label>
+        <input
+          type="number"
+          matInput
+          [(ngModel)]="effectiveToYear"
+          (change)="onEffectiveToYearChange()"
+          min="2000"
+          max="2100"
+        >
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="effective-date-field">
+        <mat-label>適用終了月（空欄の場合は現在も有効）</mat-label>
+        <input
+          type="number"
+          matInput
+          [(ngModel)]="effectiveToMonth"
+          (change)="onEffectiveToMonthChange()"
+          min="1"
+          max="12"
+          [disabled]="!effectiveToYear"
         >
       </mat-form-field>
     </div>
@@ -56,7 +83,7 @@
     {{ errorMessage }}
   </div>
 
-  <div class="table-container" *ngIf="rateTables.length > 0; else emptyState">
+  <div class="table-container" *ngIf="isNew || rateTables.length > 0; else emptyState">
     <div class="table-header">
       <h3>料率・標準報酬等級テーブル</h3>
       <button mat-raised-button color="primary" (click)="addNewRow()" [disabled]="editingRow !== null">

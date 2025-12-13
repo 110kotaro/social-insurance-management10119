@@ -1,19 +1,22 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, Inject, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { InsuranceRateTable } from '../../../../core/models/insurance-rate-table.model';
 import { InsuranceRateTableService } from '../../../../core/services/insurance-rate-table.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 
 export interface InsuranceRateTableManagerDialogData {
   organizationId: string | null;
+  isNew?: boolean; // 新規追加時はtrue
 }
 
 @Component({
@@ -28,7 +31,9 @@ export interface InsuranceRateTableManagerDialogData {
     MatInputModule,
     MatTooltipModule,
     MatSnackBarModule,
-    MatFormFieldModule
+    MatFormFieldModule,
+    MatDatepickerModule,
+    MatNativeDateModule
   ],
   templateUrl: './insurance-rate-table-manager-dialog.component.html',
   styleUrl: './insurance-rate-table-manager-dialog.component.css'
@@ -37,12 +42,20 @@ export class InsuranceRateTableManagerDialogComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private insuranceRateTableService = inject(InsuranceRateTableService);
   private authService = inject(AuthService);
+  private dialog = inject(MatDialog);
 
   readonly organizationId: string | null;
+  readonly isNew: boolean;
 
   rateTables: InsuranceRateTable[] = [];
   tableEffectiveFrom: Date = new Date();
   tableEffectiveTo: Date | null = null;
+  
+  // 月単位の日付入力用
+  effectiveFromYear: number = new Date().getFullYear();
+  effectiveFromMonth: number = new Date().getMonth() + 1;
+  effectiveToYear: number | null = null;
+  effectiveToMonth: number | null = null;
 
   headerRates = {
     healthWithoutCare: 0,
@@ -71,39 +84,12 @@ export class InsuranceRateTableManagerDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) data: InsuranceRateTableManagerDialogData
   ) {
     this.organizationId = data.organizationId ?? this.authService.getCurrentUser()?.organizationId ?? null;
+    this.isNew = data.isNew ?? false;
   }
 
   ngOnInit(): void {
-    this.loadRateTables();
-  }
-
-  async loadRateTables(): Promise<void> {
-    if (!this.organizationId) {
-      this.rateTables = [];
-      return;
-    }
-
-    this.isLoading = true;
-    try {
-      this.rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId);
-      this.rateTables.sort((a, b) => a.grade - b.grade);
-
-      if (this.rateTables.length > 0) {
-        const first = this.rateTables[0];
-        this.headerRates.healthWithoutCare = first.healthInsuranceWithoutCare?.rate ?? this.headerRates.healthWithoutCare;
-        this.headerRates.healthWithCare = first.healthInsuranceWithCare?.rate ?? this.headerRates.healthWithCare;
-        this.headerRates.pension = first.pensionInsurance?.rate ?? this.headerRates.pension;
-        if (first.effectiveFrom) {
-          this.tableEffectiveFrom = new Date(first.effectiveFrom);
-        }
-        this.tableEffectiveTo = first.effectiveTo ? new Date(first.effectiveTo) : null;
-      }
-    } catch (error) {
-      console.error('Failed to load rate tables', error);
-      this.snackBar.open('料率テーブルの読み込みに失敗しました', '閉じる', { duration: 3000 });
-    } finally {
-      this.isLoading = false;
-    }
+    // 新規追加時は既存データを読み込まない（空のテーブルから開始）
+    // 編集時はこのダイアログは使用しない（親ページの編集ボタンから別ダイアログを開く）
   }
 
   formatDateForInput(date: Date | null | undefined): string {
@@ -115,14 +101,56 @@ export class InsuranceRateTableManagerDialogComponent implements OnInit {
     return `${year}-${month}-${day}`;
   }
 
-  onTableEffectiveFromChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.tableEffectiveFrom = input.value ? new Date(input.value) : new Date();
+  // 月単位の日付をDateオブジェクトに変換（月の1日）
+  private getDateFromYearMonth(year: number, month: number): Date {
+    return new Date(year, month - 1, 1);
   }
 
-  onTableEffectiveToChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.tableEffectiveTo = input.value ? new Date(input.value) : null;
+  // Dateオブジェクトから年月を取得
+  private getYearMonthFromDate(date: Date): { year: number; month: number } {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1
+    };
+  }
+
+  // 年月を比較（-1: 前者が小さい、0: 等しい、1: 前者が大きい）
+  private compareYearMonth(year1: number, month1: number, year2: number, month2: number): number {
+    if (year1 < year2) return -1;
+    if (year1 > year2) return 1;
+    if (month1 < month2) return -1;
+    if (month1 > month2) return 1;
+    return 0;
+  }
+
+  onEffectiveFromYearChange(): void {
+    this.updateEffectiveFromDate();
+  }
+
+  onEffectiveFromMonthChange(): void {
+    this.updateEffectiveFromDate();
+  }
+
+  onEffectiveToYearChange(): void {
+    this.updateEffectiveToDate();
+  }
+
+  onEffectiveToMonthChange(): void {
+    this.updateEffectiveToDate();
+  }
+
+  private updateEffectiveFromDate(): void {
+    this.tableEffectiveFrom = this.getDateFromYearMonth(this.effectiveFromYear, this.effectiveFromMonth);
+  }
+
+  private updateEffectiveToDate(): void {
+    if (this.effectiveToYear && this.effectiveToMonth) {
+      // 月の最終日を設定
+      const lastDay = new Date(this.effectiveToYear, this.effectiveToMonth, 0).getDate();
+      this.tableEffectiveTo = new Date(this.effectiveToYear, this.effectiveToMonth - 1, lastDay);
+    } else {
+      this.tableEffectiveTo = null;
+    }
   }
 
   onFileSelected(event: Event): void {
@@ -459,19 +487,29 @@ export class InsuranceRateTableManagerDialogComponent implements OnInit {
   }
 
   saveRow(): void {
-    if (!this.editingRow || this.editingRowIndex === null || this.editingRowIndex < 0) {
+    if (!this.editingRow) {
       return;
     }
 
+    // editingRowIndexがnullの場合はエラー
+    if (this.editingRowIndex === null || this.editingRowIndex < 0) {
+      this.errorMessage = '編集対象の行が見つかりません';
+      return;
+    }
+
+    // ヘッダーの料率を各行に反映（ヘッダー料率が編集されていない場合）
     if (!this.isEditingHeaderRates) {
       this.editingRow.healthInsuranceWithoutCare.rate = this.headerRates.healthWithoutCare;
       this.editingRow.healthInsuranceWithCare.rate = this.headerRates.healthWithCare;
       this.editingRow.pensionInsurance.rate = this.headerRates.pension;
     }
+    // テーブル全体の適用日を各行に反映
     this.editingRow.effectiveFrom = this.tableEffectiveFrom;
     this.editingRow.effectiveTo = this.tableEffectiveTo;
 
+    // rateTablesに反映（Firestoreへの保存は「保存」ボタンで一括実行）
     this.rateTables[this.editingRowIndex] = JSON.parse(JSON.stringify(this.editingRow));
+
     this.editingRow = null;
     this.editingRowIndex = null;
     this.originalRowData = null;
@@ -515,42 +553,301 @@ export class InsuranceRateTableManagerDialogComponent implements OnInit {
       return;
     }
 
+    // 編集中の行がある場合は保存（rateTablesへの反映のみ）
     if (this.editingRow) {
       this.saveRow();
-      if (this.editingRow) {
+      if (this.errorMessage) {
         return;
       }
     }
 
+    // データが存在しない場合は警告
     if (this.rateTables.length === 0) {
       this.errorMessage = '少なくとも1件のデータを追加してください';
       return;
     }
 
+    // 日付を更新（年月からDateオブジェクトに変換）
+    this.updateEffectiveFromDate();
+    this.updateEffectiveToDate();
+
+    // 新規追加時のみ警告チェック
+    if (this.isNew) {
+      const shouldProceed = await this.checkAndHandleConflicts();
+      if (!shouldProceed) {
+        return; // ユーザーがキャンセルした場合
+      }
+    }
+
+    // rateTables全体をFirestoreに一括保存（新規追加時のみ）
     this.isLoading = true;
     this.errorMessage = '';
+    this.successMessage = '';
 
     try {
-      await this.insuranceRateTableService.deleteAllByOrganization(this.organizationId);
+      // 新規追加時：既存テーブルを削除せずに、新しいテーブルを追加するだけ
       const rateTablesToSave = this.rateTables.map(table => ({
         ...table,
         organizationId: this.organizationId,
         effectiveFrom: this.tableEffectiveFrom,
-        effectiveTo: this.tableEffectiveTo,
-        createdAt: table.createdAt || new Date(),
-        updatedAt: new Date()
+        effectiveTo: this.tableEffectiveTo
       }));
 
       await this.insuranceRateTableService.createRateTables(rateTablesToSave);
       this.snackBar.open('料率テーブルを保存しました', '閉じる', { duration: 3000 });
       this.dialogRef.close(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save rate tables', error);
-      this.errorMessage = 'データの保存に失敗しました';
+      this.errorMessage = error.message || 'データの保存に失敗しました';
     } finally {
       this.isLoading = false;
     }
   }
+
+  private async checkAndHandleConflicts(): Promise<boolean> {
+    if (!this.organizationId) {
+      return true;
+    }
+
+    try {
+      // 既存テーブルを取得
+      const existingTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId);
+      
+      if (existingTables.length === 0) {
+        return true; // 既存テーブルがない場合はそのまま進む
+      }
+
+      // 既存テーブルの適用期間を取得（最初のレコードから）
+      const firstExisting = existingTables[0];
+      const existingFrom = this.getYearMonthFromDate(new Date(firstExisting.effectiveFrom));
+      const existingTo = firstExisting.effectiveTo 
+        ? this.getYearMonthFromDate(new Date(firstExisting.effectiveTo))
+        : null;
+
+      const newFrom = { year: this.effectiveFromYear, month: this.effectiveFromMonth };
+      const newTo = this.effectiveToYear && this.effectiveToMonth
+        ? { year: this.effectiveToYear, month: this.effectiveToMonth }
+        : null;
+
+      // ケース1: 新規開始月 > 既存開始月 && 新規開始月 <= 既存終了月（または既存終了月が未設定）
+      const compareNewToExisting = this.compareYearMonth(newFrom.year, newFrom.month, existingFrom.year, existingFrom.month);
+      if (compareNewToExisting > 0) {
+        // 新規開始月が既存開始月より未来
+        if (!existingTo || this.compareYearMonth(newFrom.year, newFrom.month, existingTo.year, existingTo.month) <= 0) {
+          // 既存終了月が未設定、または新規開始月 <= 既存終了月
+          const confirmed = await this.showConfirmDialog(
+            '適用期間の重複',
+            `新規テーブルの適用開始月（${newFrom.year}年${newFrom.month}月）が既存テーブルの適用期間内です。\n既存テーブルの適用終了月を${newFrom.year}年${newFrom.month - 1}月に設定しますか？`,
+            '設定する',
+            'キャンセル'
+          );
+          
+          if (confirmed) {
+            // 既存テーブルの適用終了月を更新（新規開始月の前月の最終日）
+            let prevYear = newFrom.year;
+            let prevMonth = newFrom.month - 1;
+            if (prevMonth < 1) {
+              prevMonth = 12;
+              prevYear--;
+            }
+            const lastDay = new Date(prevYear, prevMonth, 0).getDate();
+            const newExistingTo = new Date(prevYear, prevMonth - 1, lastDay);
+            await this.updateExistingTableEffectiveTo(existingTables, newExistingTo);
+            return true;
+          } else {
+            return false; // キャンセル
+          }
+        }
+      }
+
+      // ケース2-1: 新規開始月 < 既存開始月 && 新規終了月 >= 既存開始月（新規終了月が設定されている場合）
+      if (compareNewToExisting < 0 && newTo) {
+        const compareNewToToExistingFrom = this.compareYearMonth(newTo.year, newTo.month, existingFrom.year, existingFrom.month);
+        if (compareNewToToExistingFrom >= 0) {
+          // 新規終了月 >= 既存開始月
+          const choice = await this.showChoiceDialog(
+            '適用期間の重複',
+            `新規テーブルの適用期間が既存テーブルと重複しています。\n新規の適用終了月を修正するか、既存の適用開始月を${newTo.year}年${newTo.month + 1}月に変更しますか？`,
+            '新規を修正',
+            '既存を修正'
+          );
+          
+          if (choice === 'existing') {
+            // 既存テーブルの適用開始月を更新
+            const confirmed = await this.showConfirmDialog(
+              '確認',
+              `既存テーブルの適用開始月を${newTo.year}年${newTo.month + 1}月に変更しますか？`,
+              '変更する',
+              'キャンセル'
+            );
+            
+            if (confirmed) {
+              // 既存テーブルの適用開始月を更新（新規終了月の翌月の1日）
+              let nextYear = newTo.year;
+              let nextMonth = newTo.month + 1;
+              if (nextMonth > 12) {
+                nextMonth = 1;
+                nextYear++;
+              }
+              const newExistingFrom = new Date(nextYear, nextMonth - 1, 1);
+              await this.updateExistingTableEffectiveFrom(existingTables, newExistingFrom);
+              return true;
+            } else {
+              return false;
+            }
+          } else {
+            return false; // 新規を修正する場合は保存をキャンセル
+          }
+        }
+      }
+
+      // ケース2-2: 新規開始月 < 既存開始月 && 新規終了月が未設定
+      if (compareNewToExisting < 0 && !newTo) {
+        const choice = await this.showChoiceDialog(
+          '適用期間の重複',
+          `新規テーブルの適用開始月（${newFrom.year}年${newFrom.month}月）が既存テーブルの適用開始月より過去で、新規の適用終了月が未設定（現在も有効）のため、既存テーブルと重複しています。\n新規の終了日を設定するか、以降の全てのテーブルを削除して新規に上書きしますか？`,
+          '新規の終了日を設定',
+          '以降の全てのテーブルを削除して上書き'
+        );
+        
+        if (choice === 'overwrite') {
+          // 以降の全てのテーブルを削除して新規に上書き
+          const confirmed = await this.showConfirmDialog(
+            '確認',
+            `新規テーブルの適用開始月（${newFrom.year}年${newFrom.month}月）以降の全ての既存テーブルを削除して、新規テーブルで上書きしますか？`,
+            '削除して上書き',
+            'キャンセル'
+          );
+          
+          if (confirmed) {
+            // 新規開始月以降の既存テーブルを削除
+            await this.deleteTablesFromMonth(existingTables, newFrom.year, newFrom.month);
+            return true;
+          } else {
+            return false;
+          }
+        } else {
+          return false; // 新規の終了日を設定する場合は保存をキャンセル
+        }
+      }
+
+      // ケース3: 新規開始月 = 既存開始月
+      if (compareNewToExisting === 0) {
+        const choice = await this.showChoiceDialog(
+          '適用開始月の重複',
+          `新規テーブルの適用開始月が既存テーブルと同じです。\n既存テーブルを上書きしますか？それとも新規テーブルの適用開始月を修正しますか？`,
+          '新規を修正',
+          '既存を上書き'
+        );
+        
+        if (choice === 'overwrite') {
+          // 既存テーブルを削除して上書き
+          await this.insuranceRateTableService.deleteAllByOrganization(this.organizationId);
+          return true;
+        } else {
+          return false; // 新規を修正する場合は保存をキャンセル
+        }
+      }
+
+      return true; // 重複がない場合はそのまま進む
+    } catch (error) {
+      console.error('Failed to check conflicts', error);
+      return true; // エラーが発生した場合はそのまま進む
+    }
+  }
+
+  private async showConfirmDialog(title: string, message: string, confirmText: string, cancelText: string): Promise<boolean> {
+    // 簡易的な確認ダイアログ（後でMatDialogコンポーネントに置き換え可能）
+    return confirm(`${title}\n\n${message}\n\nOK: ${confirmText}, Cancel: ${cancelText}`);
+  }
+
+  private async showChoiceDialog(title: string, message: string, option1: string, option2: string): Promise<'existing' | 'overwrite' | 'cancel'> {
+    // 簡易的な選択ダイアログ（後でMatDialogコンポーネントに置き換え可能）
+    // option1が「新規を修正」または「新規の終了日を設定」、option2が「既存を修正」または「既存を上書き」または「以降の全てのテーブルを削除して上書き」
+    const messageWithOptions = `${title}\n\n${message}\n\n1: ${option1}\n2: ${option2}`;
+    const userInput = prompt(messageWithOptions + '\n\n1または2を入力してください:');
+    
+    if (userInput === '2') {
+      if (option2.includes('既存を修正')) {
+        return 'existing';
+      } else if (option2.includes('既存を上書き') || option2.includes('削除して上書き')) {
+        return 'overwrite';
+      } else {
+        return 'overwrite'; // デフォルト
+      }
+    } else if (userInput === '1') {
+      return 'cancel';
+    } else {
+      return 'cancel'; // キャンセルまたは無効な入力
+    }
+  }
+
+  private async updateExistingTableEffectiveTo(tables: InsuranceRateTable[], newEffectiveTo: Date): Promise<void> {
+    const promises = tables
+      .filter(table => table.id)
+      .map(table => this.insuranceRateTableService.updateRateTable(table.id!, { effectiveTo: newEffectiveTo }));
+    await Promise.all(promises);
+  }
+
+  private async updateExistingTableEffectiveFrom(tables: InsuranceRateTable[], newEffectiveFrom: Date): Promise<void> {
+    const promises = tables
+      .filter(table => table.id)
+      .map(table => this.insuranceRateTableService.updateRateTable(table.id!, { effectiveFrom: newEffectiveFrom }));
+    await Promise.all(promises);
+  }
+
+  private async deleteTablesFromMonth(tables: InsuranceRateTable[], year: number, month: number): Promise<void> {
+    // 指定された年月以降の既存テーブルを削除
+    const targetDate = new Date(year, month - 1, 1);
+    const tablesToDelete = tables.filter(table => {
+      const effectiveFrom = this.convertToDate(table.effectiveFrom);
+      if (!effectiveFrom) {
+        return false;
+      }
+      // 適用開始月が指定年月以降のテーブルを削除対象とする
+      const tableFromYear = effectiveFrom.getFullYear();
+      const tableFromMonth = effectiveFrom.getMonth() + 1;
+      return this.compareYearMonth(tableFromYear, tableFromMonth, year, month) >= 0;
+    });
+
+    const promises = tablesToDelete
+      .filter(table => table.id)
+      .map(table => this.insuranceRateTableService.deleteRateTable(table.id!));
+    await Promise.all(promises);
+  }
+
+  private convertToDate(value: any): Date | null {
+    if (!value) {
+      return null;
+    }
+    // 既にDateオブジェクトの場合はそのまま返す
+    if (value instanceof Date) {
+      return value;
+    }
+    // Timestampオブジェクトの場合はtoDate()を呼び出す
+    if (value && typeof value.toDate === 'function') {
+      try {
+        return value.toDate();
+      } catch (error) {
+        console.error('Failed to convert Timestamp to Date:', error);
+        return null;
+      }
+    }
+    // seconds と nanoseconds プロパティがある場合（Firestore Timestamp形式）
+    if (value && typeof value.seconds === 'number') {
+      try {
+        // seconds をミリ秒に変換して Date オブジェクトを作成
+        const milliseconds = value.seconds * 1000 + (value.nanoseconds || 0) / 1000000;
+        return new Date(milliseconds);
+      } catch (error) {
+        console.error('Failed to convert Timestamp (seconds/nanoseconds) to Date:', error);
+        return null;
+      }
+    }
+    // その他の場合はnullを返す
+    return null;
+  }
+
 
   close(): void {
     this.dialogRef.close(false);

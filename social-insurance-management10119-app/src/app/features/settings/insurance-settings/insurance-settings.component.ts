@@ -17,7 +17,6 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { InsuranceRateTableService } from '../../../core/services/insurance-rate-table.service';
 import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.model';
 import { InsuranceRateTableEditDialogComponent } from './insurance-rate-table-edit-dialog/insurance-rate-table-edit-dialog.component';
-import { InsuranceRateTableImportDialogComponent } from './insurance-rate-table-import-dialog/insurance-rate-table-import-dialog.component';
 import { InsuranceRateTableManagerDialogComponent } from './insurance-rate-table-manager-dialog/insurance-rate-table-manager-dialog.component';
 
 @Component({
@@ -92,20 +91,38 @@ export class InsuranceSettingsComponent implements OnInit {
       const orgRateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId);
       const commonRateTables = await this.insuranceRateTableService.getCommonRateTables();
 
-      const orgGradeMap = new Map<number, InsuranceRateTable>();
-      orgRateTables.forEach(table => orgGradeMap.set(table.grade, table));
+      // 組織固有のテーブルをすべて追加
+      const allTables: InsuranceRateTable[] = [...orgRateTables];
+
+      // 共通テーブルを追加（組織固有のテーブルに存在しないgradeのみ）
+      // ただし、同じgradeでも適用期間が異なる場合は両方保持する必要があるため、
+      // 組織固有のテーブルに存在するgradeの共通テーブルは追加しない
+      const orgGrades = new Set(orgRateTables.map(table => table.grade));
       commonRateTables.forEach(table => {
-        if (!orgGradeMap.has(table.grade)) {
-          orgGradeMap.set(table.grade, table);
+        if (!orgGrades.has(table.grade)) {
+          allTables.push(table);
         }
       });
 
-      this.rateTables = Array.from(orgGradeMap.values()).sort((a, b) => a.grade - b.grade);
+      // gradeと適用開始日の両方でソート
+      this.rateTables = allTables.sort((a, b) => {
+        if (a.grade !== b.grade) {
+          return a.grade - b.grade;
+        }
+        // 同じgradeの場合は適用開始日でソート（新しい順）
+        const aFrom = this.convertToDate(a.effectiveFrom);
+        const bFrom = this.convertToDate(b.effectiveFrom);
+        if (aFrom && bFrom) {
+          return bFrom.getTime() - aFrom.getTime();
+        }
+        return 0;
+      });
 
       const years = new Set<number>();
       this.rateTables.forEach(table => {
-        if (table.effectiveFrom) {
-          years.add(table.effectiveFrom.getFullYear());
+        const effectiveFrom = this.convertToDate(table.effectiveFrom);
+        if (effectiveFrom) {
+          years.add(effectiveFrom.getFullYear());
         }
       });
       this.effectiveYears = Array.from(years).sort((a, b) => b - a);
@@ -129,12 +146,14 @@ export class InsuranceSettingsComponent implements OnInit {
     const { startOfMonth, endOfMonth } = this.getMonthRange(this.selectedEffectiveYear, this.selectedEffectiveMonth);
 
     this.filteredRateTables = this.rateTables.filter(table => {
-      if (!table.effectiveFrom) {
+      const effectiveFrom = this.convertToDate(table.effectiveFrom);
+      if (!effectiveFrom) {
         return false;
       }
 
-      const effectiveFromTime = table.effectiveFrom.getTime();
-      const effectiveToTime = table.effectiveTo ? table.effectiveTo.getTime() : Number.POSITIVE_INFINITY;
+      const effectiveTo = this.convertToDate(table.effectiveTo);
+      const effectiveFromTime = effectiveFrom.getTime();
+      const effectiveToTime = effectiveTo ? effectiveTo.getTime() : Number.POSITIVE_INFINITY;
       return effectiveFromTime <= endOfMonth.getTime() && effectiveToTime >= startOfMonth.getTime();
     });
 
@@ -162,6 +181,41 @@ export class InsuranceSettingsComponent implements OnInit {
     return { startOfMonth, endOfMonth };
   }
 
+  /**
+   * FirestoreのTimestampまたはDateをDateオブジェクトに変換するヘルパー関数
+   */
+  private convertToDate(value: any): Date | null {
+    if (!value) {
+      return null;
+    }
+    // 既にDateオブジェクトの場合はそのまま返す
+    if (value instanceof Date) {
+      return value;
+    }
+    // Timestampオブジェクトの場合はtoDate()を呼び出す
+    if (value && typeof value.toDate === 'function') {
+      try {
+        return value.toDate();
+      } catch (error) {
+        console.error('Failed to convert Timestamp to Date:', error);
+        return null;
+      }
+    }
+    // seconds と nanoseconds プロパティがある場合（Firestore Timestamp形式）
+    if (value && typeof value.seconds === 'number') {
+      try {
+        // seconds をミリ秒に変換して Date オブジェクトを作成
+        const milliseconds = value.seconds * 1000 + (value.nanoseconds || 0) / 1000000;
+        return new Date(milliseconds);
+      } catch (error) {
+        console.error('Failed to convert Timestamp (seconds/nanoseconds) to Date:', error);
+        return null;
+      }
+    }
+    // その他の場合はnullを返す
+    return null;
+  }
+
   openEditDialog(rateTable?: InsuranceRateTable): void {
     const dialogRef = this.dialog.open(InsuranceRateTableEditDialogComponent, {
       width: '800px',
@@ -185,7 +239,8 @@ export class InsuranceSettingsComponent implements OnInit {
       height: '90vh',
       maxHeight: '95vh',
       data: {
-        organizationId: this.organizationId
+        organizationId: this.organizationId,
+        isNew: true
       }
     });
 
@@ -196,27 +251,24 @@ export class InsuranceSettingsComponent implements OnInit {
     });
   }
 
-  openImportDialog(): void {
-    const dialogRef = this.dialog.open(InsuranceRateTableImportDialogComponent, {
-      width: '600px',
-      data: {
-        organizationId: this.organizationId
-      }
-    });
-
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.loadRateTables();
-      }
-    });
-  }
 
   async deleteRateTable(rateTable: InsuranceRateTable): Promise<void> {
     if (!rateTable.id) {
       return;
     }
 
-    if (!confirm(`等級${rateTable.grade}の保険料率テーブルを削除しますか？`)) {
+    const effectiveFrom = this.convertToDate(rateTable.effectiveFrom);
+    const effectiveTo = this.convertToDate(rateTable.effectiveTo);
+    const effectiveFromStr = effectiveFrom 
+      ? `${effectiveFrom.getFullYear()}年${effectiveFrom.getMonth() + 1}月`
+      : '不明';
+    const effectiveToStr = effectiveTo 
+      ? `${effectiveTo.getFullYear()}年${effectiveTo.getMonth() + 1}月`
+      : '現在も有効';
+
+    const confirmMessage = `等級${rateTable.grade}の保険料率テーブル（適用期間：${effectiveFromStr}～${effectiveToStr}）を削除しますか？\n\nこの操作は取り消せません。`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 

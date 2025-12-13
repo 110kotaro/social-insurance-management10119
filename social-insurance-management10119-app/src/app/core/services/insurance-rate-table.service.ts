@@ -51,7 +51,23 @@ export class InsuranceRateTableService {
     }
     // Timestampオブジェクトの場合はtoDate()を呼び出す
     if (value && typeof value.toDate === 'function') {
-      return value.toDate();
+      try {
+        return value.toDate();
+      } catch (error) {
+        console.error('Failed to convert Timestamp to Date:', error);
+        return null;
+      }
+    }
+    // seconds と nanoseconds プロパティがある場合（Firestore Timestamp形式）
+    if (value && typeof value.seconds === 'number') {
+      try {
+        // seconds をミリ秒に変換して Date オブジェクトを作成
+        const milliseconds = value.seconds * 1000 + (value.nanoseconds || 0) / 1000000;
+        return new Date(milliseconds);
+      } catch (error) {
+        console.error('Failed to convert Timestamp (seconds/nanoseconds) to Date:', error);
+        return null;
+      }
     }
     // その他の場合はnullを返す
     return null;
@@ -72,18 +88,23 @@ export class InsuranceRateTableService {
       healthInsuranceWithoutCare: rateTable.healthInsuranceWithoutCare,
       healthInsuranceWithCare: rateTable.healthInsuranceWithCare,
       pensionInsurance: rateTable.pensionInsurance,
-      effectiveFrom: rateTable.effectiveFrom,
+      effectiveFrom: rateTable.effectiveFrom instanceof Date 
+        ? Timestamp.fromDate(rateTable.effectiveFrom) 
+        : rateTable.effectiveFrom,
       organizationId: rateTable.organizationId,
-      createdAt: now,
-      updatedAt: now
+      createdAt: Timestamp.fromDate(now),
+      updatedAt: Timestamp.fromDate(now)
     };
 
     if (rateTable.pensionGrade !== undefined && rateTable.pensionGrade !== null) {
       rateData.pensionGrade = rateTable.pensionGrade;
     }
 
-    if (rateTable.effectiveTo !== undefined && rateTable.effectiveTo !== null) {
-      rateData.effectiveTo = rateTable.effectiveTo;
+    // effectiveToがnullの場合もnullとして設定（undefinedの場合は設定しない）
+    if (rateTable.effectiveTo !== undefined) {
+      rateData.effectiveTo = rateTable.effectiveTo instanceof Date 
+        ? Timestamp.fromDate(rateTable.effectiveTo) 
+        : rateTable.effectiveTo;
     }
 
     const cleanedData = this.removeUndefinedValues(rateData);
@@ -107,7 +128,7 @@ export class InsuranceRateTableService {
     const rateRef = doc(this.firestore, `${environment.firestorePrefix}insuranceRateTables`, rateTableId);
     
     const updateData: any = {
-      updatedAt: new Date()
+      updatedAt: Timestamp.fromDate(new Date())
     };
 
     if (updates.grade !== undefined) updateData.grade = updates.grade;
@@ -123,8 +144,17 @@ export class InsuranceRateTableService {
     if (updates.pensionInsurance !== undefined) {
       updateData.pensionInsurance = this.removeUndefinedValues(updates.pensionInsurance);
     }
-    if (updates.effectiveFrom !== undefined) updateData.effectiveFrom = updates.effectiveFrom;
-    if (updates.effectiveTo !== undefined) updateData.effectiveTo = updates.effectiveTo;
+    if (updates.effectiveFrom !== undefined) {
+      updateData.effectiveFrom = updates.effectiveFrom instanceof Date 
+        ? Timestamp.fromDate(updates.effectiveFrom) 
+        : updates.effectiveFrom;
+    }
+    // effectiveToがnullの場合もnullとして設定（undefinedの場合は設定しない）
+    if (updates.effectiveTo !== undefined) {
+      updateData.effectiveTo = updates.effectiveTo instanceof Date 
+        ? Timestamp.fromDate(updates.effectiveTo) 
+        : updates.effectiveTo;
+    }
     if (updates.organizationId !== undefined) updateData.organizationId = updates.organizationId;
 
     const cleanedData = this.removeUndefinedValues(updateData);

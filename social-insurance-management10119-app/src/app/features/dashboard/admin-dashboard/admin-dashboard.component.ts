@@ -190,6 +190,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       
       // 期限リマインダーをチェック
       await this.notificationService.checkAndSendDeadlineReminders(organizationId, skipDuplicateCheck);
+      
+      // 月次計算のリマインダーをチェック
+      await this.notificationService.checkAndSendMonthlyCalculationReminders(organizationId, skipDuplicateCheck);
     } catch (error) {
       console.error('リマインダーのチェックに失敗しました:', error);
     }

@@ -10,6 +10,9 @@ import { DepartmentService } from './department.service';
 import { BonusDataService } from './bonus-data.service';
 import { OtherCompanySalaryDataService } from './other-company-salary-data.service';
 import { SalaryDataService } from './salary-data.service';
+import { OrganizationService } from './organization.service';
+import { PostpaidLeaveAmount } from '../models/monthly-calculation.model';
+import { BonusPostpaidLeaveAmount } from '../models/bonus-calculation.model';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -23,6 +26,7 @@ export class CalculationService {
   private bonusDataService = inject(BonusDataService);
   private otherCompanySalaryDataService = inject(OtherCompanySalaryDataService);
   private salaryDataService = inject(SalaryDataService);
+  private organizationService = inject(OrganizationService);
 
   /**
    * オブジェクトからundefined値を再帰的に削除するヘルパー関数
@@ -248,13 +252,17 @@ export class CalculationService {
       }
     }
 
-    // 申請承認済みの休職者の場合、全額免除（計算をスキップ）
+    // 休職者の処理
+    let isOnLeave = false;
+    let leaveTypeLabel = '';
+    let leaveInsuranceCollectionMethod: 'postpaid' | 'direct_transfer' = 'postpaid';
+    
     if (employee.leaveInfo && employee.leaveInfo.length > 0) {
+      // 組織情報を取得して保険料徴収方法を確認
+      const organization = await this.organizationService.getOrganization(employee.organizationId);
+      leaveInsuranceCollectionMethod = organization?.leaveInsuranceCollectionMethod || 'postpaid';
+      
       for (const leave of employee.leaveInfo) {
-        if (!leave.isApproved) {
-          continue; // 申請承認されていない場合はスキップ
-        }
-
         const leaveStartDate = this.convertToDate(leave.startDate);
         const leaveEndDate = leave.endDate ? this.convertToDate(leave.endDate) : null;
         
@@ -280,45 +288,51 @@ export class CalculationService {
           }
         }
 
-        // 計算対象月が免除期間内かチェック
+        // 計算対象月が休職期間内かチェック
         const calculationMonthStart = new Date(year, month - 1, 1);
         
         if (calculationMonthStart >= leaveStartMonth) {
-          // 全額免除（計算をスキップして全額0を返す）
-          const now = new Date();
-          const employeeName = `${employee.lastName} ${employee.firstName}`;
-          const leaveTypeLabel = leave.type === 'maternity' ? '産前産後休業' : leave.type === 'childcare' ? '育児休業' : leave.type;
+          isOnLeave = true;
+          leaveTypeLabel = leave.type === 'maternity' ? '産前産後休業' : leave.type === 'childcare' ? '育児休業' : leave.type;
           
-          return {
-            organizationId: employee.organizationId,
-            year,
-            month,
-            employeeId: employee.id || '',
-            employeeNumber: employee.employeeNumber,
-            employeeName,
-            departmentName: undefined,
-            standardReward: employee.insuranceInfo.standardReward,
-            grade: 0,
-            pensionGrade: null,
-            healthInsurancePremium: 0,
-            pensionInsurancePremium: 0,
-            careInsurancePremium: 0,
-            totalPremium: 0,
-            employeeShare: 0,
-            companyShare: 0,
-            status: 'draft',
-            calculatedBy,
-            calculationDate: now,
-            notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-            dependentInfo: undefined,
-            healthInsuranceRate: 0,
-            healthInsuranceRateWithCare: false,
-            pensionInsuranceRate: 0,
-            birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-            joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-            createdAt: now,
-            updatedAt: now
-          };
+          // 申請承認済みの場合は全額免除（計算をスキップして全額0を返す）
+          if (leave.isApproved) {
+            const now = new Date();
+            const employeeName = `${employee.lastName} ${employee.firstName}`;
+            
+            return {
+              organizationId: employee.organizationId,
+              year,
+              month,
+              employeeId: employee.id || '',
+              employeeNumber: employee.employeeNumber,
+              employeeName,
+              departmentName: undefined,
+              standardReward: employee.insuranceInfo.standardReward,
+              grade: 0,
+              pensionGrade: null,
+              healthInsurancePremium: 0,
+              pensionInsurancePremium: 0,
+              careInsurancePremium: 0,
+              totalPremium: 0,
+              employeeShare: 0,
+              companyShare: 0,
+              status: 'draft',
+              calculatedBy,
+              calculationDate: now,
+              notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+              dependentInfo: undefined,
+              healthInsuranceRate: 0,
+              healthInsuranceRateWithCare: false,
+              pensionInsuranceRate: 0,
+              birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+              joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+              createdAt: now,
+              updatedAt: now
+            };
+          }
+          // 申請承認されていない場合は通常計算を続行（後で処理）
+          break;
         }
       }
     }
@@ -558,6 +572,104 @@ export class CalculationService {
     const now = new Date();
     const employeeName = `${employee.lastName} ${employee.firstName}`;
 
+    // 休職期間中（申請承認されていない）の場合の処理
+    let finalEmployeeShare = employeeShare;
+    let finalCompanyShare = companyShare;
+    let finalNotes: string | undefined = undefined;
+    let finalIsOnLeave = false;
+    let finalPostpaidLeaveAmount: number | undefined = undefined;
+    let finalPostpaidLeaveCompanyAmount: number | undefined = undefined;
+
+    if (isOnLeave) {
+      finalIsOnLeave = true;
+      
+      if (leaveInsuranceCollectionMethod === 'postpaid') {
+        // 後払いの場合：社員負担分を0にして、後払い分の情報を設定
+        finalPostpaidLeaveAmount = employeeShare; // 後払い分（社員負担分）
+        finalPostpaidLeaveCompanyAmount = totalPremium; // 建て替え分（折半前の全額）
+        finalEmployeeShare = 0; // 社員負担分は0（後払い）
+        finalNotes = `休職中特例で復職後徴収（後払い分：${finalPostpaidLeaveAmount.toLocaleString()}円、建て替え分：${finalPostpaidLeaveCompanyAmount.toLocaleString()}円）`;
+      } else if (leaveInsuranceCollectionMethod === 'direct_transfer') {
+        // 本人振込の場合：通常通り計算（端数処理は既に適用済み）
+        finalNotes = `給与天引きではない（本人振込）`;
+      }
+    }
+
+    // 復職月の判定（休職終了日の翌日を含む月）
+    let postpaidLeaveAmounts: PostpaidLeaveAmount[] | undefined = undefined;
+    let postpaidLeaveTotal: number | undefined = undefined;
+    let postpaidLeaveCompanyTotal: number | undefined = undefined;
+
+    if (employee.leaveInfo && employee.leaveInfo.length > 0) {
+      for (const leave of employee.leaveInfo) {
+        if (leave.isApproved) {
+          continue; // 申請承認済みの休職はスキップ
+        }
+
+        const leaveEndDate = leave.endDate ? this.convertToDate(leave.endDate) : null;
+        if (!leaveEndDate) {
+          continue; // 休職終了日が未設定の場合はスキップ
+        }
+
+        // 休職終了日の翌日を含む月を判定
+        const nextDay = new Date(leaveEndDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayYear = nextDay.getFullYear();
+        const nextDayMonth = nextDay.getMonth() + 1;
+
+        // 計算対象月が休職終了日の翌日を含む月の場合、休職期間中の計算結果を取得して追記
+        if (year === nextDayYear && month === nextDayMonth && leaveInsuranceCollectionMethod === 'postpaid') {
+          const leaveStartDate = this.convertToDate(leave.startDate);
+          if (!leaveStartDate) {
+            continue;
+          }
+
+          const leaveStartMonth = new Date(leaveStartDate.getFullYear(), leaveStartDate.getMonth(), 1);
+          const leaveEndMonth = new Date(leaveEndDate.getFullYear(), leaveEndDate.getMonth(), 1);
+          
+          // 休職期間中の各月の計算結果を取得
+          postpaidLeaveAmounts = [];
+          let totalEmployeeShare = 0;
+          let totalCompanyShare = 0;
+
+          for (let y = leaveStartMonth.getFullYear(), m = leaveStartMonth.getMonth() + 1; 
+               y < leaveEndMonth.getFullYear() || (y === leaveEndMonth.getFullYear() && m <= leaveEndMonth.getMonth() + 1); 
+               m === 12 ? (y++, m = 1) : m++) {
+            // 休職終了日の翌日を含む月は除外（復職月なので）
+            if (y === nextDayYear && m === nextDayMonth) {
+              continue;
+            }
+
+            try {
+              const leaveMonthCalculation = await this.getCalculationsByEmployee(employee.id!, y, m);
+              if (leaveMonthCalculation && leaveMonthCalculation.postpaidLeaveAmount !== undefined) {
+                const leaveTypeLabel = leave.type === 'maternity' ? '産前産後休業' : leave.type === 'childcare' ? '育児休業' : leave.type;
+                postpaidLeaveAmounts.push({
+                  year: y,
+                  month: m,
+                  employeeShare: leaveMonthCalculation.postpaidLeaveAmount,
+                  companyShare: leaveMonthCalculation.postpaidLeaveCompanyAmount || 0,
+                  totalPremium: leaveMonthCalculation.totalPremium,
+                  leaveType: leaveTypeLabel
+                });
+                totalEmployeeShare += leaveMonthCalculation.postpaidLeaveAmount;
+                totalCompanyShare += leaveMonthCalculation.postpaidLeaveCompanyAmount || 0;
+              }
+            } catch (error) {
+              console.warn(`休職期間中（${y}年${m}月）の計算結果の取得に失敗しました:`, error);
+            }
+          }
+
+          if (postpaidLeaveAmounts.length > 0) {
+            postpaidLeaveTotal = totalEmployeeShare;
+            postpaidLeaveCompanyTotal = totalCompanyShare;
+            finalEmployeeShare = employeeShare + postpaidLeaveTotal; // 通常分 + 休職中未徴収分
+            finalNotes = `休職中未徴収分を追記`;
+          }
+        }
+      }
+    }
+
     return {
       organizationId: employee.organizationId,
       year,
@@ -573,12 +685,12 @@ export class CalculationService {
       pensionInsurancePremium: pensionPremium,
       careInsurancePremium: 0, // 介護保険料は健康保険料に統合されているため0
       totalPremium,
-      companyShare,
-      employeeShare,
+      companyShare: finalCompanyShare,
+      employeeShare: finalEmployeeShare,
       calculationDate: now,
       calculatedBy,
       status: 'draft',
-      notes: undefined, // 申請承認済みの休職者は既に計算前にチェック済み
+      notes: finalNotes,
       // 過去計算再現用の追加情報
       monthlyPaymentAmount, // その月の支給額（給与データから取得）
       dependentInfo: dependents.length > 0 ? dependents.map(dep => ({
@@ -594,6 +706,13 @@ export class CalculationService {
       isOtherCompany,
       ownCompanySalary,
       otherCompanySalaryTotal,
+      // 休職関連
+      isOnLeave: finalIsOnLeave,
+      postpaidLeaveAmount: finalPostpaidLeaveAmount,
+      postpaidLeaveCompanyAmount: finalPostpaidLeaveCompanyAmount,
+      postpaidLeaveAmounts,
+      postpaidLeaveTotal,
+      postpaidLeaveCompanyTotal,
       createdAt: now,
       updatedAt: now
     };
@@ -744,6 +863,37 @@ export class CalculationService {
       }));
     }
 
+    // 他社兼務関連
+    if (calculation.isOtherCompany !== undefined) {
+      calcData.isOtherCompany = calculation.isOtherCompany;
+    }
+    if (calculation.ownCompanySalary !== undefined) {
+      calcData.ownCompanySalary = calculation.ownCompanySalary;
+    }
+    if (calculation.otherCompanySalaryTotal !== undefined) {
+      calcData.otherCompanySalaryTotal = calculation.otherCompanySalaryTotal;
+    }
+
+    // 休職関連
+    if (calculation.isOnLeave !== undefined) {
+      calcData.isOnLeave = calculation.isOnLeave;
+    }
+    if (calculation.postpaidLeaveAmount !== undefined) {
+      calcData.postpaidLeaveAmount = calculation.postpaidLeaveAmount;
+    }
+    if (calculation.postpaidLeaveCompanyAmount !== undefined) {
+      calcData.postpaidLeaveCompanyAmount = calculation.postpaidLeaveCompanyAmount;
+    }
+    if (calculation.postpaidLeaveAmounts && calculation.postpaidLeaveAmounts.length > 0) {
+      calcData.postpaidLeaveAmounts = calculation.postpaidLeaveAmounts;
+    }
+    if (calculation.postpaidLeaveTotal !== undefined) {
+      calcData.postpaidLeaveTotal = calculation.postpaidLeaveTotal;
+    }
+    if (calculation.postpaidLeaveCompanyTotal !== undefined) {
+      calcData.postpaidLeaveCompanyTotal = calculation.postpaidLeaveCompanyTotal;
+    }
+
     if (calculation.id) {
       await setDoc(doc(this.firestore, `${environment.firestorePrefix}calculations`, calculation.id), calcData, { merge: true });
       return calculation.id;
@@ -849,8 +999,19 @@ export class CalculationService {
         employeeShareDiff: deduction.employeeShareDiff,
         appliedAt: this.convertToDate(deduction.appliedAt) || deduction.appliedAt,
         appliedBy: deduction.appliedBy
-      }))
-    };
+      })) || undefined,
+      // 他社兼務関連
+      isOtherCompany: data['isOtherCompany'],
+      ownCompanySalary: data['ownCompanySalary'],
+      otherCompanySalaryTotal: data['otherCompanySalaryTotal'],
+      // 休職関連
+      isOnLeave: data['isOnLeave'],
+      postpaidLeaveAmount: data['postpaidLeaveAmount'],
+      postpaidLeaveCompanyAmount: data['postpaidLeaveCompanyAmount'],
+      postpaidLeaveAmounts: data['postpaidLeaveAmounts'],
+      postpaidLeaveTotal: data['postpaidLeaveTotal'],
+      postpaidLeaveCompanyTotal: data['postpaidLeaveCompanyTotal']
+    } as MonthlyCalculation;
   }
 
   /**
@@ -1328,13 +1489,17 @@ export class CalculationService {
     month: number,
     calculatedBy: string
   ): Promise<BonusCalculation> {
-    // 申請承認済みの休職者の場合、全額免除（計算をスキップ）
+    // 休職者の処理
+    let isOnLeave = false;
+    let leaveTypeLabel = '';
+    let leaveInsuranceCollectionMethod: 'postpaid' | 'direct_transfer' = 'postpaid';
+    
     if (employee.leaveInfo && employee.leaveInfo.length > 0) {
+      // 組織情報を取得して保険料徴収方法を確認
+      const organization = await this.organizationService.getOrganization(employee.organizationId);
+      leaveInsuranceCollectionMethod = organization?.leaveInsuranceCollectionMethod || 'postpaid';
+      
       for (const leave of employee.leaveInfo) {
-        if (!leave.isApproved) {
-          continue; // 申請承認されていない場合はスキップ
-        }
-
         const leaveStartDate = this.convertToDate(leave.startDate);
         const leaveEndDate = leave.endDate ? this.convertToDate(leave.endDate) : null;
         
@@ -1360,44 +1525,50 @@ export class CalculationService {
           }
         }
 
-        // 計算対象月が免除期間内かチェック
+        // 計算対象月が休職期間内かチェック
         const calculationMonthStart = new Date(year, month - 1, 1);
         
         if (calculationMonthStart >= leaveStartMonth) {
-          // 全額免除（計算をスキップして全額0を返す）
-          const now = new Date();
-          const employeeName = `${employee.lastName} ${employee.firstName}`;
-          const leaveTypeLabel = leave.type === 'maternity' ? '産前産後休業' : leave.type === 'childcare' ? '育児休業' : leave.type;
+          isOnLeave = true;
+          leaveTypeLabel = leave.type === 'maternity' ? '産前産後休業' : leave.type === 'childcare' ? '育児休業' : leave.type;
           
-          return {
-            organizationId: employee.organizationId,
-            year,
-            month,
-            employeeId: employee.id || '',
-            employeeNumber: employee.employeeNumber,
-            employeeName,
-            departmentName: undefined,
-            bonusAmount: 0,
-            standardBonusAmount: 0,
-            healthInsurancePremium: 0,
-            pensionInsurancePremium: 0,
-            careInsurancePremium: 0,
-            totalPremium: 0,
-            employeeShare: 0,
-            companyShare: 0,
-            status: 'draft',
-            calculatedBy,
-            calculationDate: now,
-            notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-            dependentInfo: undefined,
-            healthInsuranceRate: 0,
-            healthInsuranceRateWithCare: false,
-            pensionInsuranceRate: 0,
-            birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-            joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-            createdAt: now,
-            updatedAt: now
-          };
+          // 申請承認済みの場合は全額免除（計算をスキップして全額0を返す）
+          if (leave.isApproved) {
+            const now = new Date();
+            const employeeName = `${employee.lastName} ${employee.firstName}`;
+            
+            return {
+              organizationId: employee.organizationId,
+              year,
+              month,
+              employeeId: employee.id || '',
+              employeeNumber: employee.employeeNumber,
+              employeeName,
+              departmentName: undefined,
+              bonusAmount: 0,
+              standardBonusAmount: 0,
+              healthInsurancePremium: 0,
+              pensionInsurancePremium: 0,
+              careInsurancePremium: 0,
+              totalPremium: 0,
+              employeeShare: 0,
+              companyShare: 0,
+              status: 'draft',
+              calculatedBy,
+              calculationDate: now,
+              notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+              dependentInfo: undefined,
+              healthInsuranceRate: 0,
+              healthInsuranceRateWithCare: false,
+              pensionInsuranceRate: 0,
+              birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+              joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+              createdAt: now,
+              updatedAt: now
+            };
+          }
+          // 申請承認されていない場合は通常計算を続行（後で処理）
+          break;
         }
       }
     }
@@ -1645,6 +1816,105 @@ export class CalculationService {
     const now = new Date();
     const employeeName = `${employee.lastName} ${employee.firstName}`;
 
+    // 休職期間中（申請承認されていない）の場合の処理
+    let finalEmployeeShare = employeeShare;
+    let finalCompanyShare = companyShare;
+    let finalNotes: string | undefined = undefined;
+    let finalIsOnLeave = false;
+    let finalPostpaidLeaveAmount: number | undefined = undefined;
+    let finalPostpaidLeaveCompanyAmount: number | undefined = undefined;
+
+    if (isOnLeave) {
+      finalIsOnLeave = true;
+      
+      if (leaveInsuranceCollectionMethod === 'postpaid') {
+        // 後払いの場合：社員負担分を0にして、後払い分の情報を設定
+        finalPostpaidLeaveAmount = employeeShare; // 後払い分（社員負担分）
+        finalPostpaidLeaveCompanyAmount = totalPremium; // 建て替え分（折半前の全額）
+        finalEmployeeShare = 0; // 社員負担分は0（後払い）
+        finalNotes = `休職中特例で復職後徴収（後払い分：${finalPostpaidLeaveAmount.toLocaleString()}円、建て替え分：${finalPostpaidLeaveCompanyAmount.toLocaleString()}円）`;
+      } else if (leaveInsuranceCollectionMethod === 'direct_transfer') {
+        // 本人振込の場合：通常通り計算（端数処理は既に適用済み）
+        finalNotes = `給与天引きではない（本人振込）`;
+      }
+    }
+
+    // 復職月の判定（休職終了日の翌日を含む月）
+    // 賞与は不定期のため、休職期間中に賞与支払いがある場合のみ追記
+    let postpaidLeaveAmounts: BonusPostpaidLeaveAmount[] | undefined = undefined;
+    let postpaidLeaveTotal: number | undefined = undefined;
+    let postpaidLeaveCompanyTotal: number | undefined = undefined;
+
+    if (employee.leaveInfo && employee.leaveInfo.length > 0) {
+      for (const leave of employee.leaveInfo) {
+        if (leave.isApproved) {
+          continue; // 申請承認済みの休職はスキップ
+        }
+
+        const leaveEndDate = leave.endDate ? this.convertToDate(leave.endDate) : null;
+        if (!leaveEndDate) {
+          continue; // 休職終了日が未設定の場合はスキップ
+        }
+
+        // 休職終了日の翌日を含む月を判定
+        const nextDay = new Date(leaveEndDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayYear = nextDay.getFullYear();
+        const nextDayMonth = nextDay.getMonth() + 1;
+
+        // 計算対象月が休職終了日の翌日を含む月の場合、休職期間中の賞与計算結果を取得して追記
+        if (year === nextDayYear && month === nextDayMonth && leaveInsuranceCollectionMethod === 'postpaid') {
+          const leaveStartDate = this.convertToDate(leave.startDate);
+          if (!leaveStartDate) {
+            continue;
+          }
+
+          const leaveStartMonth = new Date(leaveStartDate.getFullYear(), leaveStartDate.getMonth(), 1);
+          const leaveEndMonth = new Date(leaveEndDate.getFullYear(), leaveEndDate.getMonth(), 1);
+          
+          // 休職期間中の各月の賞与計算結果を取得（賞与は不定期のため、存在する場合のみ）
+          postpaidLeaveAmounts = [];
+          let totalEmployeeShare = 0;
+          let totalCompanyShare = 0;
+
+          for (let y = leaveStartMonth.getFullYear(), m = leaveStartMonth.getMonth() + 1; 
+               y < leaveEndMonth.getFullYear() || (y === leaveEndMonth.getFullYear() && m <= leaveEndMonth.getMonth() + 1); 
+               m === 12 ? (y++, m = 1) : m++) {
+            // 休職終了日の翌日を含む月は除外（復職月なので）
+            if (y === nextDayYear && m === nextDayMonth) {
+              continue;
+            }
+
+            try {
+              const leaveMonthBonusCalculation = await this.getBonusCalculationsByEmployee(employee.id!, y, m);
+              if (leaveMonthBonusCalculation && leaveMonthBonusCalculation.postpaidLeaveAmount !== undefined) {
+                const leaveTypeLabel = leave.type === 'maternity' ? '産前産後休業' : leave.type === 'childcare' ? '育児休業' : leave.type;
+                postpaidLeaveAmounts.push({
+                  year: y,
+                  month: m,
+                  employeeShare: leaveMonthBonusCalculation.postpaidLeaveAmount,
+                  companyShare: leaveMonthBonusCalculation.postpaidLeaveCompanyAmount || 0,
+                  totalPremium: leaveMonthBonusCalculation.totalPremium,
+                  leaveType: leaveTypeLabel
+                });
+                totalEmployeeShare += leaveMonthBonusCalculation.postpaidLeaveAmount;
+                totalCompanyShare += leaveMonthBonusCalculation.postpaidLeaveCompanyAmount || 0;
+              }
+            } catch (error) {
+              console.warn(`休職期間中（${y}年${m}月）の賞与計算結果の取得に失敗しました:`, error);
+            }
+          }
+
+          if (postpaidLeaveAmounts.length > 0) {
+            postpaidLeaveTotal = totalEmployeeShare;
+            postpaidLeaveCompanyTotal = totalCompanyShare;
+            finalEmployeeShare = employeeShare + postpaidLeaveTotal; // 通常分 + 休職中未徴収分
+            finalNotes = `休職中未徴収分を追記`;
+          }
+        }
+      }
+    }
+
     return {
       organizationId: employee.organizationId,
       year,
@@ -1659,12 +1929,12 @@ export class CalculationService {
       pensionInsurancePremium: pensionPremium,
       careInsurancePremium: 0,
       totalPremium,
-      companyShare,
-      employeeShare,
+      companyShare: finalCompanyShare,
+      employeeShare: finalEmployeeShare,
       calculationDate: now,
       calculatedBy,
       status: 'draft',
-      notes: undefined, // 申請承認済みの休職者は既に計算前にチェック済み
+      notes: finalNotes,
       dependentInfo: dependents.length > 0 ? dependents.map(dep => ({
         ...dep,
         birthDate: dep.birthDate instanceof Date ? dep.birthDate : (dep.birthDate?.toDate ? dep.birthDate.toDate() : dep.birthDate)
@@ -1673,6 +1943,13 @@ export class CalculationService {
       isOtherCompany,
       ownCompanySalary,
       otherCompanySalaryTotal,
+      // 休職関連
+      isOnLeave: finalIsOnLeave,
+      postpaidLeaveAmount: finalPostpaidLeaveAmount,
+      postpaidLeaveCompanyAmount: finalPostpaidLeaveCompanyAmount,
+      postpaidLeaveAmounts,
+      postpaidLeaveTotal,
+      postpaidLeaveCompanyTotal,
       healthInsuranceRate,
       healthInsuranceRateWithCare: isCareInsuranceTarget,
       pensionInsuranceRate,
@@ -1757,6 +2034,37 @@ export class CalculationService {
       calcData.joinDate = calculation.joinDate instanceof Date 
         ? Timestamp.fromDate(calculation.joinDate) 
         : calculation.joinDate;
+    }
+
+    // 他社兼務関連
+    if (calculation.isOtherCompany !== undefined) {
+      calcData.isOtherCompany = calculation.isOtherCompany;
+    }
+    if (calculation.ownCompanySalary !== undefined) {
+      calcData.ownCompanySalary = calculation.ownCompanySalary;
+    }
+    if (calculation.otherCompanySalaryTotal !== undefined) {
+      calcData.otherCompanySalaryTotal = calculation.otherCompanySalaryTotal;
+    }
+
+    // 休職関連
+    if (calculation.isOnLeave !== undefined) {
+      calcData.isOnLeave = calculation.isOnLeave;
+    }
+    if (calculation.postpaidLeaveAmount !== undefined) {
+      calcData.postpaidLeaveAmount = calculation.postpaidLeaveAmount;
+    }
+    if (calculation.postpaidLeaveCompanyAmount !== undefined) {
+      calcData.postpaidLeaveCompanyAmount = calculation.postpaidLeaveCompanyAmount;
+    }
+    if (calculation.postpaidLeaveAmounts && calculation.postpaidLeaveAmounts.length > 0) {
+      calcData.postpaidLeaveAmounts = calculation.postpaidLeaveAmounts;
+    }
+    if (calculation.postpaidLeaveTotal !== undefined) {
+      calcData.postpaidLeaveTotal = calculation.postpaidLeaveTotal;
+    }
+    if (calculation.postpaidLeaveCompanyTotal !== undefined) {
+      calcData.postpaidLeaveCompanyTotal = calculation.postpaidLeaveCompanyTotal;
     }
 
     await setDoc(calcRef, calcData);
@@ -2014,6 +2322,13 @@ export class CalculationService {
       exportedBy: data['exportedBy'],
       premiumDifference: data['premiumDifference'],
       retroactiveDeductions: data['retroactiveDeductions'],
+      // 休職関連
+      isOnLeave: data['isOnLeave'],
+      postpaidLeaveAmount: data['postpaidLeaveAmount'],
+      postpaidLeaveCompanyAmount: data['postpaidLeaveCompanyAmount'],
+      postpaidLeaveAmounts: data['postpaidLeaveAmounts'],
+      postpaidLeaveTotal: data['postpaidLeaveTotal'],
+      postpaidLeaveCompanyTotal: data['postpaidLeaveCompanyTotal'],
       createdAt: this.convertToDate(data['createdAt']) || new Date(),
       updatedAt: this.convertToDate(data['updatedAt']) || new Date()
     } as BonusCalculation;

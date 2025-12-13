@@ -53,8 +53,6 @@ export class InsuranceRateTableEditDialogComponent implements OnInit {
       standardRewardAmount: [null, [Validators.required, Validators.min(0)]],
       minAmount: [0, [Validators.required, Validators.min(0)]],
       maxAmount: [null, [Validators.required, Validators.min(0)]],
-      effectiveFrom: [null, [Validators.required]],
-      effectiveTo: [null],
       // 健保（介護なし）
       healthInsuranceWithoutCareRate: [null, [Validators.required, Validators.min(0)]],
       healthInsuranceWithoutCareTotal: [null, [Validators.required, Validators.min(0)]],
@@ -80,8 +78,6 @@ export class InsuranceRateTableEditDialogComponent implements OnInit {
         standardRewardAmount: table.standardRewardAmount,
         minAmount: table.minAmount,
         maxAmount: table.maxAmount,
-        effectiveFrom: table.effectiveFrom,
-        effectiveTo: table.effectiveTo ?? null,
         healthInsuranceWithoutCareRate: table.healthInsuranceWithoutCare.rate,
         healthInsuranceWithoutCareTotal: table.healthInsuranceWithoutCare.total,
         healthInsuranceWithoutCareHalf: table.healthInsuranceWithoutCare.half,
@@ -101,14 +97,15 @@ export class InsuranceRateTableEditDialogComponent implements OnInit {
     }
 
     const formValue = this.rateTableForm.value;
+    // 編集時は既存の適用期間を保持
     const rateTable: Omit<InsuranceRateTable, 'id' | 'createdAt' | 'updatedAt'> = {
       grade: formValue.grade,
       pensionGrade: formValue.pensionGrade || null,
       standardRewardAmount: formValue.standardRewardAmount,
       minAmount: formValue.minAmount,
       maxAmount: formValue.maxAmount,
-      effectiveFrom: formValue.effectiveFrom,
-      effectiveTo: formValue.effectiveTo || null,
+      effectiveFrom: this.data.rateTable?.effectiveFrom || new Date(),
+      effectiveTo: this.data.rateTable?.effectiveTo || null,
       organizationId: this.data.organizationId,
       healthInsuranceWithoutCare: {
         rate: formValue.healthInsuranceWithoutCareRate,

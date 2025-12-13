@@ -757,6 +757,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     const today = new Date();
     
     // 提出者情報を組織情報から取得
+    const submitterOfficeSymbol = this.organization?.officeSymbol || '';
     const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
                                   this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
@@ -767,7 +768,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
     this.insuranceAcquisitionForm = this.fb.group({
       submitterInfo: this.fb.group({
-        officeSymbol: [''], // 事業所整理記号（組織情報にない場合は空）
+        officeSymbol: [submitterOfficeSymbol], // 事業所整理記号（組織設定から自動設定）
         officeNumber: [submitterOfficeNumber, [Validators.required]],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
@@ -1034,6 +1035,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     const today = new Date();
     
     // 提出者情報を組織情報から取得
+    const submitterOfficeSymbol = this.organization?.officeSymbol || '';
     const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
                                   this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
@@ -1044,7 +1046,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
     this.insuranceLossForm = this.fb.group({
       submitterInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [submitterOfficeSymbol],
         officeNumber: [submitterOfficeNumber, [Validators.required]],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
@@ -1323,6 +1325,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   private initializeDependentChangeForm(): void {
     const today = new Date();
     
+    const submitterOfficeSymbol = this.organization?.officeSymbol || '';
     const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
                                   this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
@@ -1333,7 +1336,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
     this.dependentChangeForm = this.fb.group({
       businessOwnerInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [submitterOfficeSymbol],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
         ownerName: [''],
@@ -1891,6 +1894,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   private initializeNameChangeForm(): void {
     const today = new Date();
     
+    const submitterOfficeSymbol = this.organization?.officeSymbol || '';
     const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
                                   this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
@@ -1901,7 +1905,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
     this.nameChangeForm = this.fb.group({
       businessInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [submitterOfficeSymbol],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
         ownerName: [''],
@@ -2175,6 +2179,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   private initializeRewardBaseForm(): void {
     const today = new Date();
     
+    const submitterOfficeSymbol = this.organization?.officeSymbol || '';
     const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
                                   this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
@@ -2185,7 +2190,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
     this.rewardBaseForm = this.fb.group({
       businessInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [submitterOfficeSymbol],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
         ownerName: [''],
@@ -2204,6 +2209,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   private initializeRewardChangeForm(): void {
     const today = new Date();
     
+    const submitterOfficeSymbol = this.organization?.officeSymbol || '';
     const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
                                   this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
@@ -2214,7 +2220,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
     this.rewardChangeForm = this.fb.group({
       businessInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [submitterOfficeSymbol],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
         ownerName: [''],
@@ -2233,6 +2239,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   private initializeBonusPaymentForm(): void {
     const today = new Date();
     
+    const submitterOfficeSymbol = this.organization?.officeSymbol || '';
     const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
                                   this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
@@ -2243,7 +2250,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
     this.bonusPaymentForm = this.fb.group({
       businessInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [submitterOfficeSymbol],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
         ownerName: [''],

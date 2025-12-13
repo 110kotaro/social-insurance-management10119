@@ -69,6 +69,7 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
     this.organizationForm = this.fb.group({
       name: ['', [Validators.required]],
       corporateNumber: [''],
+      officeSymbol: [''],
       officeNumber: [''],
       postalCode: ['', [Validators.pattern(/^\d{3}-?\d{4}$/)]],
       prefecture: ['', [Validators.required]],
@@ -78,7 +79,8 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       phoneNumber: [''],
       email: ['', [Validators.email]],
       industry: [''],
-      payrollDate: [null, [Validators.min(1), Validators.max(31)]]
+      payrollDate: [null, [Validators.min(1), Validators.max(31)]],
+      leaveInsuranceCollectionMethod: ['postpaid'] // デフォルト: 後払い
     });
   }
 
@@ -102,6 +104,7 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
     this.organizationForm.patchValue({
       name: this.organization.name || '',
       corporateNumber: this.organization.corporateNumber || '',
+      officeSymbol: this.organization.officeSymbol || '',
       officeNumber: this.organization.officeNumber || '',
       postalCode: this.organization.address?.postalCode || '',
       prefecture: this.organization.address?.prefecture || '',
@@ -111,7 +114,8 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       phoneNumber: this.organization.phoneNumber || '',
       email: this.organization.email || '',
       industry: this.organization.industry || '',
-      payrollDate: this.organization.payrollDate || null
+      payrollDate: this.organization.payrollDate || null,
+      leaveInsuranceCollectionMethod: this.organization.leaveInsuranceCollectionMethod || 'postpaid'
     });
 
     // ロゴのプレビューURLを設定
@@ -217,6 +221,7 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       const updates: Partial<Organization> = {
         name: formValue.name,
         corporateNumber: formValue.corporateNumber?.trim() || undefined,
+        officeSymbol: formValue.officeSymbol?.trim() || undefined,
         officeNumber: formValue.officeNumber?.trim() || undefined,
         address: {
           postalCode: formValue.postalCode?.trim() || undefined,
@@ -229,7 +234,8 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
         email: formValue.email?.trim() || undefined,
         industry: formValue.industry?.trim() || undefined,
         logoUrl: logoUrl,
-        payrollDate: formValue.payrollDate || undefined
+        payrollDate: formValue.payrollDate || undefined,
+        leaveInsuranceCollectionMethod: formValue.leaveInsuranceCollectionMethod || 'postpaid'
       };
 
       await this.organizationService.updateOrganization(this.organization.id, updates);

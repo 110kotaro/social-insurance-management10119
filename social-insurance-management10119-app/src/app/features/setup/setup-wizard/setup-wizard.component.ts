@@ -126,6 +126,12 @@ export class SetupWizardComponent implements OnInit {
   // テーブル全体の適用期間
   tableEffectiveFrom: Date = new Date();
   tableEffectiveTo: Date | null = null;
+  
+  // 月単位の日付入力用
+  effectiveFromYear: number = new Date().getFullYear();
+  effectiveFromMonth: number = new Date().getMonth() + 1;
+  effectiveToYear: number | null = null;
+  effectiveToMonth: number | null = null;
   // ヘッダー行の料率（共通値）
   headerRates = {
     healthWithoutCare: 0, // 健康保険料（介護非該当）の料率
@@ -156,6 +162,7 @@ export class SetupWizardComponent implements OnInit {
     this.organizationForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       corporateNumber: ['', Validators.required], // 必須項目に変更
+      officeSymbol: [''], // 事業所整理記号
       officeNumber: ['', Validators.required], // 事業所番号（必須項目に変更）
       prefecture: ['', Validators.required],
       city: ['', Validators.required],
@@ -163,7 +170,8 @@ export class SetupWizardComponent implements OnInit {
       building: [''],
       phoneNumber: [''],
       email: ['', Validators.email],
-      industry: ['']
+      industry: [''],
+      leaveInsuranceCollectionMethod: ['postpaid'] // デフォルト: 後払い
     });
 
     // ステップ2: 部署作成フォーム
@@ -397,6 +405,7 @@ export class SetupWizardComponent implements OnInit {
       const organization: Omit<Organization, 'id' | 'createdAt' | 'updatedAt'> = {
         name: formValue.name,
         corporateNumber: formValue.corporateNumber?.trim() || undefined,
+        officeSymbol: formValue.officeSymbol?.trim() || undefined, // 事業所整理記号
         officeNumber: formValue.officeNumber?.trim() || undefined, // 事業所番号
         address: {
           prefecture: formValue.prefecture,
@@ -407,6 +416,7 @@ export class SetupWizardComponent implements OnInit {
         phoneNumber: formValue.phoneNumber?.trim() || undefined,
         email: formValue.email?.trim() || undefined,
         industry: formValue.industry?.trim() || undefined,
+        leaveInsuranceCollectionMethod: formValue.leaveInsuranceCollectionMethod || 'postpaid', // 休職中の保険料徴収方法
         setupCompleted: false
       };
 
@@ -989,21 +999,50 @@ export class SetupWizardComponent implements OnInit {
   }
 
   /**
-   * テーブル全体の適用開始日の変更を処理
+   * 月単位の日付をDateオブジェクトに変換（月の1日）
    */
-  onTableEffectiveFromChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.value) {
-      this.tableEffectiveFrom = new Date(input.value);
-    }
+  private getDateFromYearMonth(year: number, month: number): Date {
+    return new Date(year, month - 1, 1);
   }
 
   /**
-   * テーブル全体の適用終了日の変更を処理
+   * Dateオブジェクトから年月を取得
    */
-  onTableEffectiveToChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.tableEffectiveTo = input.value ? new Date(input.value) : null;
+  private getYearMonthFromDate(date: Date): { year: number; month: number } {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1
+    };
+  }
+
+  onEffectiveFromYearChange(): void {
+    this.updateEffectiveFromDate();
+  }
+
+  onEffectiveFromMonthChange(): void {
+    this.updateEffectiveFromDate();
+  }
+
+  onEffectiveToYearChange(): void {
+    this.updateEffectiveToDate();
+  }
+
+  onEffectiveToMonthChange(): void {
+    this.updateEffectiveToDate();
+  }
+
+  private updateEffectiveFromDate(): void {
+    this.tableEffectiveFrom = this.getDateFromYearMonth(this.effectiveFromYear, this.effectiveFromMonth);
+  }
+
+  private updateEffectiveToDate(): void {
+    if (this.effectiveToYear && this.effectiveToMonth) {
+      // 月の最終日を設定
+      const lastDay = new Date(this.effectiveToYear, this.effectiveToMonth, 0).getDate();
+      this.tableEffectiveTo = new Date(this.effectiveToYear, this.effectiveToMonth - 1, lastDay);
+    } else {
+      this.tableEffectiveTo = null;
+    }
   }
 
   /**

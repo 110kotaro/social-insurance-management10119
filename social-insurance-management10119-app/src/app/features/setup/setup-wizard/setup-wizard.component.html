@@ -32,6 +32,14 @@
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="half-width">
+              <mat-label>事業所整理記号</mat-label>
+              <input matInput formControlName="officeSymbol" placeholder="例: 1234">
+              <mat-hint>各申請の事業所整理記号に使用されます</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="half-width">
               <mat-label>事業所番号</mat-label>
               <input matInput formControlName="officeNumber" placeholder="12345678" required>
               <mat-error *ngIf="organizationForm.get('officeNumber')?.hasError('required')">
@@ -68,10 +76,10 @@
 
           <div class="form-row">
             <mat-form-field appearance="outline" class="half-width">
-              <mat-label>番地・建物名</mat-label>
+              <mat-label>町名・番地</mat-label>
               <input matInput formControlName="street" placeholder="1-1-1" required>
               <mat-error *ngIf="organizationForm.get('street')?.hasError('required')">
-                番地・建物名を入力してください
+                町名・番地は必須です
               </mat-error>
             </mat-form-field>
 
@@ -81,6 +89,19 @@
             </mat-form-field>
           </div>
 
+          <h3>休職中の保険料徴収方法</h3>
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>保険料徴収方法</mat-label>
+              <mat-select formControlName="leaveInsuranceCollectionMethod">
+                <mat-option value="postpaid">後払い（復職後徴収）</mat-option>
+                <mat-option value="direct_transfer">本人振込（給与天引きなし）</mat-option>
+              </mat-select>
+              <mat-hint>休職中の保険料徴収方法を選択してください</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <h3>連絡先</h3>
           <div class="form-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>電話番号</mat-label>
@@ -344,20 +365,49 @@
             <div class="effective-date-section">
               <div class="effective-date-row">
                 <mat-form-field appearance="outline" class="effective-date-field">
-                  <mat-label>適用開始日</mat-label>
-                  <input 
-                    type="date" 
-                    [value]="formatDateForInput(tableEffectiveFrom)"
-                    (change)="onTableEffectiveFromChange($event)"
-                    matInput>
+                  <mat-label>適用開始年</mat-label>
+                  <input
+                    type="number"
+                    matInput
+                    [(ngModel)]="effectiveFromYear"
+                    (change)="onEffectiveFromYearChange()"
+                    min="2000"
+                    max="2100"
+                  >
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="effective-date-field">
-                  <mat-label>適用終了日（未設定の場合は現在有効）</mat-label>
-                  <input 
-                    type="date" 
-                    [value]="tableEffectiveTo ? formatDateForInput(tableEffectiveTo) : ''"
-                    (change)="onTableEffectiveToChange($event)"
-                    matInput>
+                  <mat-label>適用開始月</mat-label>
+                  <input
+                    type="number"
+                    matInput
+                    [(ngModel)]="effectiveFromMonth"
+                    (change)="onEffectiveFromMonthChange()"
+                    min="1"
+                    max="12"
+                  >
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="effective-date-field">
+                  <mat-label>適用終了年（未設定の場合は現在有効）</mat-label>
+                  <input
+                    type="number"
+                    matInput
+                    [(ngModel)]="effectiveToYear"
+                    (change)="onEffectiveToYearChange()"
+                    min="2000"
+                    max="2100"
+                  >
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="effective-date-field">
+                  <mat-label>適用終了月（未設定の場合は現在有効）</mat-label>
+                  <input
+                    type="number"
+                    matInput
+                    [(ngModel)]="effectiveToMonth"
+                    (change)="onEffectiveToMonthChange()"
+                    min="1"
+                    max="12"
+                    [disabled]="!effectiveToYear"
+                  >
                 </mat-form-field>
               </div>
             </div>

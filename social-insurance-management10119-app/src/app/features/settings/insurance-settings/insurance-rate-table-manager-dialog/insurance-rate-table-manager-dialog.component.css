@@ -1,7 +1,7 @@
-﻿.dialog-content {
+.dialog-content {
   width: 100%;
-  max-height: 70vh;
-  overflow: hidden;
+  max-height: 80vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -109,7 +109,11 @@
 
 .table-container {
   margin: 24px 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 500px;
+  max-height: 600px;
 }
 
 .table-header {

@@ -1,0 +1,48 @@
+<mat-card>
+  <mat-card-header>
+    <mat-card-title>
+      <mat-icon>description</mat-icon>
+      ドキュメント設定
+    </mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <p class="description">社員情報に添付する書類の設定を行います。この設定は申請種別ごとの添付書類設定とは独立しています。</p>
+    
+    <div class="settings-section">
+      <h3>ファイル形式制限</h3>
+      <p class="info-text">社員情報に添付する書類で許可するファイル形式を選択してください。何も選択しない場合はすべてのファイル形式が許可されます。</p>
+      <div class="file-format-options">
+        <mat-checkbox *ngFor="let option of fileFormatOptions" 
+          [checked]="documentSettings.allowedFormats.includes(option.value)"
+          (change)="toggleFileFormat(option.value)">
+          {{ option.label }}
+        </mat-checkbox>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>ファイルサイズ制限</h3>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>最大ファイルサイズ（MB）</mat-label>
+        <input matInput type="number" [(ngModel)]="documentSettings.maxFileSize" min="0" required>
+        <mat-hint>デフォルト: 10MB</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <div class="settings-section">
+      <h3>保存期間設定</h3>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>書類の保存期間（年）</mat-label>
+        <input matInput type="number" [(ngModel)]="documentSettings.retentionYears" min="1" required>
+        <mat-hint>保存期間経過後、書類は自動的に削除されます。デフォルト: 6年</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <div class="button-group">
+      <button mat-raised-button color="primary" (click)="saveDocumentSettings()" [disabled]="isLoading">
+        <span *ngIf="!isLoading">保存</span>
+        <span *ngIf="isLoading">保存中...</span>
+      </button>
+    </div>
+  </mat-card-content>
+</mat-card>

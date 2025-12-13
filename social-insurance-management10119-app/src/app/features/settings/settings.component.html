@@ -2,6 +2,13 @@
   <h1>設定</h1>
   
   <mat-tab-group [(selectedIndex)]="selectedTabIndex" (selectedIndexChange)="onTabChange($event)">
+    <!-- 通知設定タブ -->
+    <mat-tab label="通知設定">
+      <ng-template matTabContent>
+        <app-notification-settings [organization]="organization"></app-notification-settings>
+      </ng-template>
+    </mat-tab>
+
     <!-- 組織設定タブ -->
     <mat-tab label="組織設定">
       <ng-template matTabContent>
@@ -9,10 +16,17 @@
       </ng-template>
     </mat-tab>
 
-    <!-- 通知設定タブ -->
-    <mat-tab label="通知設定">
+    <!-- 部署設定タブ -->
+    <mat-tab label="部署設定">
       <ng-template matTabContent>
-        <app-notification-settings [organization]="organization"></app-notification-settings>
+        <app-department-settings></app-department-settings>
+      </ng-template>
+    </mat-tab>
+
+    <!-- 保険情報設定タブ -->
+    <mat-tab label="保険情報設定">
+      <ng-template matTabContent>
+        <app-insurance-info-settings [organization]="organization"></app-insurance-info-settings>
       </ng-template>
     </mat-tab>
 
@@ -27,6 +41,13 @@
     <mat-tab label="申請フロー設定">
       <ng-template matTabContent>
         <app-application-flow-settings [organization]="organization"></app-application-flow-settings>
+      </ng-template>
+    </mat-tab>
+
+    <!-- ドキュメント設定タブ -->
+    <mat-tab label="ドキュメント設定">
+      <ng-template matTabContent>
+        <app-document-settings [organization]="organization"></app-document-settings>
       </ng-template>
     </mat-tab>
 
