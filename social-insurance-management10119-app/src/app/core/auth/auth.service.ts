@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Auth, User as FirebaseUser, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, updateProfile } from '@angular/fire/auth';
-import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe } from '@angular/fire/firestore';
+import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe, updateDoc } from '@angular/fire/firestore';
 import { Observable, BehaviorSubject, from, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { User, UserProfile } from '../models/user.model';
@@ -430,7 +430,9 @@ export class AuthService {
         employeeId: data['employeeId'],
         isActive: data['isActive'] ?? true,
         createdAt: data['createdAt']?.toDate() ?? new Date(),
-        lastLoginAt: data['lastLoginAt']?.toDate()
+        lastLoginAt: data['lastLoginAt']?.toDate(),
+        emailNotificationEnabled: data['emailNotificationEnabled'],
+        inAppNotificationEnabled: data['inAppNotificationEnabled']
       } as User;
     } catch (error) {
       console.error('Error getting user profile:', error);
@@ -505,6 +507,22 @@ export class AuthService {
   /**
    * 社員の権限を更新（employeesコレクションとusersコレクションの両方を更新）
    */
+  /**
+   * ユーザー設定を更新
+   */
+  async updateUserSettings(uid: string, settings: { emailNotificationEnabled?: boolean; inAppNotificationEnabled?: boolean }): Promise<void> {
+    try {
+      const userDocRef = doc(this.firestore, `${environment.firestorePrefix}users`, uid);
+      await updateDoc(userDocRef, {
+        emailNotificationEnabled: settings.emailNotificationEnabled,
+        inAppNotificationEnabled: settings.inAppNotificationEnabled
+      });
+    } catch (error) {
+      console.error('ユーザー設定の更新に失敗しました:', error);
+      throw error;
+    }
+  }
+
   async updateUserRole(employeeId: string, role: 'admin' | 'employee'): Promise<void> {
     // usersコレクションから該当するemployeeIdを持つユーザーを検索
     const usersRef = collection(this.firestore, `${environment.firestorePrefix}users`);

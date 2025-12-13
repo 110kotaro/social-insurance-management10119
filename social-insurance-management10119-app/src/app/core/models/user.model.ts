@@ -9,6 +9,8 @@ export interface User {
   isActive: boolean;
   createdAt: Date;
   lastLoginAt?: Date;
+  emailNotificationEnabled?: boolean; // メール通知設定
+  inAppNotificationEnabled?: boolean; // アプリ内通知設定
 }
 
 export interface UserProfile {

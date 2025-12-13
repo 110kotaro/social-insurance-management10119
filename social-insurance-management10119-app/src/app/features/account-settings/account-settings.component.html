@@ -1,0 +1,96 @@
+<div class="account-settings-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>settings</mat-icon>
+        アカウント設定
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- パスワード変更セクション -->
+      <section class="settings-section">
+        <h3>パスワード変更</h3>
+        <form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>現在のパスワード</mat-label>
+            <input matInput type="password" formControlName="currentPassword" required>
+            <mat-error *ngIf="passwordForm.get('currentPassword')?.hasError('required') && passwordForm.get('currentPassword')?.touched">
+              現在のパスワードを入力してください
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>新しいパスワード</mat-label>
+            <input matInput type="password" formControlName="newPassword" required>
+            <mat-error *ngIf="passwordForm.get('newPassword')?.hasError('required') && passwordForm.get('newPassword')?.touched">
+              新しいパスワードを入力してください
+            </mat-error>
+            <mat-error *ngIf="passwordForm.get('newPassword')?.hasError('minlength') && passwordForm.get('newPassword')?.touched">
+              パスワードは8文字以上である必要があります
+            </mat-error>
+            <mat-hint>8文字以上</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>新しいパスワード（確認）</mat-label>
+            <input matInput type="password" formControlName="confirmPassword" required>
+            <mat-error *ngIf="passwordForm.get('confirmPassword')?.hasError('required') && passwordForm.get('confirmPassword')?.touched">
+              確認用パスワードを入力してください
+            </mat-error>
+            <mat-error *ngIf="getPasswordMismatchError()">
+              パスワードが一致しません
+            </mat-error>
+          </mat-form-field>
+
+          <div class="button-group">
+            <button 
+              mat-raised-button 
+              color="primary" 
+              type="submit"
+              [disabled]="passwordForm.invalid || isChangingPassword">
+              <mat-icon>lock</mat-icon>
+              {{ isChangingPassword ? '変更中...' : 'パスワードを変更' }}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <mat-divider style="margin: 32px 0;"></mat-divider>
+
+      <!-- 通知設定セクション -->
+      <section class="settings-section">
+        <h3>通知設定</h3>
+        <form [formGroup]="notificationForm">
+          <div class="notification-item">
+            <div class="notification-label">
+              <mat-icon>email</mat-icon>
+              <span>メール通知</span>
+            </div>
+            <mat-slide-toggle formControlName="emailNotificationEnabled">
+            </mat-slide-toggle>
+          </div>
+
+          <div class="notification-item">
+            <div class="notification-label">
+              <mat-icon>notifications</mat-icon>
+              <span>アプリ内通知</span>
+            </div>
+            <mat-slide-toggle formControlName="inAppNotificationEnabled">
+            </mat-slide-toggle>
+          </div>
+
+          <div class="button-group">
+            <button 
+              mat-raised-button 
+              color="primary" 
+              (click)="saveNotificationSettings()"
+              [disabled]="isSavingNotifications">
+              <mat-icon>save</mat-icon>
+              {{ isSavingNotifications ? '保存中...' : '通知設定を保存' }}
+            </button>
+          </div>
+        </form>
+      </section>
+    </mat-card-content>
+  </mat-card>
+</div>

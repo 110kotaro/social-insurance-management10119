@@ -92,13 +92,11 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   navigateToMyInfo(): void {
-    // TODO: 自分の情報画面への遷移
-    console.log('自分の情報へ遷移');
+    this.router.navigate(['/my-info']);
   }
 
   navigateToAccountSettings(): void {
-    // TODO: アカウント設定画面への遷移
-    console.log('アカウント設定へ遷移');
+    this.router.navigate(['/account-settings']);
   }
 
   toggleAdminMode(): void {

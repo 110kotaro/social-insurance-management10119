@@ -134,6 +134,14 @@ export const routes: Routes = [
       {
         path: 'analytics',
         loadComponent: () => import('./features/analytics/analytics.component').then(m => m.AnalyticsComponent)
+      },
+      {
+        path: 'my-info',
+        loadComponent: () => import('./features/my-info/my-info.component').then(m => m.MyInfoComponent)
+      },
+      {
+        path: 'account-settings',
+        loadComponent: () => import('./features/account-settings/account-settings.component').then(m => m.AccountSettingsComponent)
       }
       // TODO: 他の認証が必要なルートをここに追加
     ]
