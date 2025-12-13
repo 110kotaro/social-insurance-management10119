@@ -1,0 +1,392 @@
+<div class="analytics-container">
+  <h1>分析</h1>
+
+  <mat-tab-group [(selectedIndex)]="selectedTabIndex">
+    <!-- 保険料集計タブ -->
+    <mat-tab label="保険料集計">
+      <ng-template matTabContent>
+        <div class="tab-content">
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>年月選択</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="filter-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>年</mat-label>
+                  <mat-select [(ngModel)]="selectedYear" (selectionChange)="onYearMonthChange()">
+                    <mat-option *ngFor="let year of years" [value]="year">{{ year }}年</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>月</mat-label>
+                  <mat-select [(ngModel)]="selectedMonth" (selectionChange)="onYearMonthChange()">
+                    <mat-option *ngFor="let month of months" [value]="month">{{ month }}月</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- 会社全体集計 -->
+          <mat-card class="summary-card">
+            <mat-card-header>
+              <mat-card-title>会社全体集計</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="summary-note" style="margin-bottom: 16px; padding: 12px; background-color: #f5f5f5; border-radius: 4px; font-size: 0.9em; color: #666;">
+                ※ 被保険者負担額合計と事業主負担額合計は、保険料計算結果から取得した各社員の負担額（折半額）を合計した値です。
+              </div>
+              <div class="summary-grid">
+                <div class="summary-item">
+                  <span class="label">被保険者負担額合計</span>
+                  <span class="value">{{ formatCurrency(companyTotal.employeeShare) }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">事業主負担額合計</span>
+                  <span class="value">{{ formatCurrency(companyTotal.companyShare) }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">合計保険料</span>
+                  <span class="value">{{ formatCurrency(companyTotal.totalPremium) }}</span>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- 部署別集計 -->
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>部署別集計</mat-card-title>
+              <div class="card-actions">
+                <button mat-raised-button color="primary" (click)="exportDepartmentCsv()" [disabled]="departmentSummaries.length === 0">
+                  <mat-icon>download</mat-icon>
+                  CSV出力
+                </button>
+              </div>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="table-container">
+                <table mat-table [dataSource]="departmentDataSource" class="analytics-table">
+                  <ng-container matColumnDef="departmentName">
+                    <th mat-header-cell *matHeaderCellDef>部署名</th>
+                    <td mat-cell *matCellDef="let dept">{{ dept.departmentName }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="employeeCount">
+                    <th mat-header-cell *matHeaderCellDef>社員数</th>
+                    <td mat-cell *matCellDef="let dept">{{ dept.employeeCount }}名</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="employeeShare">
+                    <th mat-header-cell *matHeaderCellDef>被保険者負担額</th>
+                    <td mat-cell *matCellDef="let dept">{{ formatCurrency(dept.employeeShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="companyShare">
+                    <th mat-header-cell *matHeaderCellDef>事業主負担額</th>
+                    <td mat-cell *matCellDef="let dept">{{ formatCurrency(dept.companyShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="totalPremium">
+                    <th mat-header-cell *matHeaderCellDef>合計保険料</th>
+                    <td mat-cell *matCellDef="let dept">{{ formatCurrency(dept.totalPremium) }}</td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="departmentDisplayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: departmentDisplayedColumns;"></tr>
+                </table>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- 社員別集計 -->
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>社員別集計</mat-card-title>
+              <div class="card-actions">
+                <button mat-raised-button color="primary" (click)="exportEmployeeCsv()" [disabled]="employeeSummaries.length === 0">
+                  <mat-icon>download</mat-icon>
+                  CSV出力
+                </button>
+              </div>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="table-container">
+                <table mat-table [dataSource]="employeeDataSource" class="analytics-table">
+                  <ng-container matColumnDef="employeeNumber">
+                    <th mat-header-cell *matHeaderCellDef>社員番号</th>
+                    <td mat-cell *matCellDef="let emp">{{ emp.employeeNumber }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="employeeName">
+                    <th mat-header-cell *matHeaderCellDef>社員名</th>
+                    <td mat-cell *matCellDef="let emp">{{ emp.employeeName }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="departmentName">
+                    <th mat-header-cell *matHeaderCellDef>部署名</th>
+                    <td mat-cell *matCellDef="let emp">{{ emp.departmentName }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="employeeShare">
+                    <th mat-header-cell *matHeaderCellDef>被保険者負担額</th>
+                    <td mat-cell *matCellDef="let emp">{{ formatCurrency(emp.employeeShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="companyShare">
+                    <th mat-header-cell *matHeaderCellDef>事業主負担額</th>
+                    <td mat-cell *matCellDef="let emp">{{ formatCurrency(emp.companyShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="totalPremium">
+                    <th mat-header-cell *matHeaderCellDef>合計保険料</th>
+                    <td mat-cell *matCellDef="let emp">{{ formatCurrency(emp.totalPremium) }}</td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="employeeDisplayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: employeeDisplayedColumns;"></tr>
+                </table>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </ng-template>
+    </mat-tab>
+
+    <!-- 月次推移タブ -->
+    <mat-tab label="月次推移">
+      <ng-template matTabContent>
+        <div class="tab-content">
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>年選択</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="filter-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>年</mat-label>
+                  <mat-select [(ngModel)]="selectedTrendYear" (selectionChange)="onTrendYearChange()">
+                    <mat-option *ngFor="let year of trendYears" [value]="year">{{ year }}年</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>月次推移</mat-card-title>
+              <div class="card-actions">
+                <button mat-raised-button color="primary" (click)="exportTrendCsv()" [disabled]="monthlyTrends.length === 0">
+                  <mat-icon>download</mat-icon>
+                  CSV出力
+                </button>
+              </div>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="table-container">
+                <table mat-table [dataSource]="trendDataSource" class="analytics-table">
+                  <ng-container matColumnDef="period">
+                    <th mat-header-cell *matHeaderCellDef>年月</th>
+                    <td mat-cell *matCellDef="let trend">{{ trend.year }}年{{ trend.month }}月</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="employeeShare">
+                    <th mat-header-cell *matHeaderCellDef>被保険者負担額合計</th>
+                    <td mat-cell *matCellDef="let trend">{{ formatCurrency(trend.employeeShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="companyShare">
+                    <th mat-header-cell *matHeaderCellDef>事業主負担額合計</th>
+                    <td mat-cell *matCellDef="let trend">{{ formatCurrency(trend.companyShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="totalPremium">
+                    <th mat-header-cell *matHeaderCellDef>合計保険料</th>
+                    <td mat-cell *matCellDef="let trend">{{ formatCurrency(trend.totalPremium) }}</td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="trendDisplayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: trendDisplayedColumns;"></tr>
+                </table>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </ng-template>
+    </mat-tab>
+
+    <!-- 算定・月変の影響確認タブ（後で追加する可能性があるためコメントアウト） -->
+    <!--
+    <mat-tab label="算定・月変の影響確認">
+      <ng-template matTabContent>
+        <div class="tab-content">
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>年選択</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="filter-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>年</mat-label>
+                  <mat-select [(ngModel)]="selectedImpactYear" (selectionChange)="onImpactYearChange()">
+                    <mat-option *ngFor="let year of impactYears" [value]="year">{{ year }}年</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="summary-card">
+            <mat-card-header>
+              <mat-card-title>影響サマリー</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="summary-grid">
+                <div class="summary-item">
+                  <span class="label">標準報酬月額が変わった人数</span>
+                  <span class="value">{{ getStandardRewardImpactSummary().changedCount }}名</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">事業主負担額の増減合計</span>
+                  <span class="value" [class.positive]="getStandardRewardImpactSummary().totalCompanyShareDiff > 0" 
+                        [class.negative]="getStandardRewardImpactSummary().totalCompanyShareDiff < 0">
+                    {{ getStandardRewardImpactSummary().totalCompanyShareDiff >= 0 ? '+' : '' }}{{ formatCurrency(getStandardRewardImpactSummary().totalCompanyShareDiff) }}
+                  </span>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>算定計算の影響</mat-card-title>
+              <div class="card-actions">
+                <button mat-raised-button color="primary" (click)="exportImpactCsv()" 
+                        [disabled]="standardRewardImpacts.length === 0 && monthlyChangeImpacts.length === 0">
+                  <mat-icon>download</mat-icon>
+                  CSV出力
+                </button>
+              </div>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="table-container">
+                <table mat-table [dataSource]="standardRewardImpactDataSource" class="analytics-table">
+                  <ng-container matColumnDef="employeeName">
+                    <th mat-header-cell *matHeaderCellDef>社員名</th>
+                    <td mat-cell *matCellDef="let impact">{{ impact.employeeName }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="previousStandardReward">
+                    <th mat-header-cell *matHeaderCellDef>前標準報酬月額</th>
+                    <td mat-cell *matCellDef="let impact">{{ formatCurrency(impact.previousStandardReward) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="newStandardReward">
+                    <th mat-header-cell *matHeaderCellDef>新標準報酬月額</th>
+                    <td mat-cell *matCellDef="let impact">{{ formatCurrency(impact.newStandardReward) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="standardRewardDiff">
+                    <th mat-header-cell *matHeaderCellDef>標準報酬月額差額</th>
+                    <td mat-cell *matCellDef="let impact" 
+                        [class.positive]="impact.standardRewardDiff > 0" 
+                        [class.negative]="impact.standardRewardDiff < 0">
+                      {{ impact.standardRewardDiff >= 0 ? '+' : '' }}{{ formatCurrency(impact.standardRewardDiff) }}
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="previousCompanyShare">
+                    <th mat-header-cell *matHeaderCellDef>前事業主負担額</th>
+                    <td mat-cell *matCellDef="let impact">{{ formatCurrency(impact.previousCompanyShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="newCompanyShare">
+                    <th mat-header-cell *matHeaderCellDef>新事業主負担額</th>
+                    <td mat-cell *matCellDef="let impact">{{ formatCurrency(impact.newCompanyShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="companyShareDiff">
+                    <th mat-header-cell *matHeaderCellDef>事業主負担額差額</th>
+                    <td mat-cell *matCellDef="let impact" 
+                        [class.positive]="impact.companyShareDiff > 0" 
+                        [class.negative]="impact.companyShareDiff < 0">
+                      {{ impact.companyShareDiff >= 0 ? '+' : '' }}{{ formatCurrency(impact.companyShareDiff) }}
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="impactDisplayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: impactDisplayedColumns;"></tr>
+                </table>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>月変計算の影響</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="table-container">
+                <table mat-table [dataSource]="monthlyChangeImpactDataSource" class="analytics-table">
+                  <ng-container matColumnDef="employeeName">
+                    <th mat-header-cell *matHeaderCellDef>社員名</th>
+                    <td mat-cell *matCellDef="let impact">{{ impact.employeeName }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="previousStandardReward">
+                    <th mat-header-cell *matHeaderCellDef>前標準報酬月額</th>
+                    <td mat-cell *matCellDef="let impact">{{ formatCurrency(impact.previousStandardReward) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="newStandardReward">
+                    <th mat-header-cell *matHeaderCellDef>新標準報酬月額</th>
+                    <td mat-cell *matCellDef="let impact">{{ formatCurrency(impact.newStandardReward) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="standardRewardDiff">
+                    <th mat-header-cell *matHeaderCellDef>標準報酬月額差額</th>
+                    <td mat-cell *matCellDef="let impact" 
+                        [class.positive]="impact.standardRewardDiff > 0" 
+                        [class.negative]="impact.standardRewardDiff < 0">
+                      {{ impact.standardRewardDiff >= 0 ? '+' : '' }}{{ formatCurrency(impact.standardRewardDiff) }}
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="previousCompanyShare">
+                    <th mat-header-cell *matHeaderCellDef>前事業主負担額</th>
+                    <td mat-cell *matCellDef="let impact">{{ formatCurrency(impact.previousCompanyShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="newCompanyShare">
+                    <th mat-header-cell *matHeaderCellDef>新事業主負担額</th>
+                    <td mat-cell *matCellDef="let impact">{{ formatCurrency(impact.newCompanyShare) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="companyShareDiff">
+                    <th mat-header-cell *matHeaderCellDef>事業主負担額差額</th>
+                    <td mat-cell *matCellDef="let impact" 
+                        [class.positive]="impact.companyShareDiff > 0" 
+                        [class.negative]="impact.companyShareDiff < 0">
+                      {{ impact.companyShareDiff >= 0 ? '+' : '' }}{{ formatCurrency(impact.companyShareDiff) }}
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="impactDisplayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: impactDisplayedColumns;"></tr>
+                </table>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </ng-template>
+    </mat-tab>
+    -->
+  </mat-tab-group>
+
+  <div *ngIf="isLoading" class="loading-overlay">
+    <mat-spinner></mat-spinner>
+  </div>
+</div>
