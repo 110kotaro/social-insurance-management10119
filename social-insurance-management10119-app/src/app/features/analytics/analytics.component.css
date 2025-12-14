@@ -2,8 +2,20 @@
   padding: 24px;
 }
 
-h1 {
+mat-card {
+  max-width: 100%;
+}
+
+mat-card-header {
   margin-bottom: 24px;
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 24px;
+  font-weight: 500;
 }
 
 .tab-content {

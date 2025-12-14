@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -54,6 +54,7 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private modeService = inject(ModeService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
   private snackBar = inject(MatSnackBar);
 
@@ -103,6 +104,18 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
     this.isAdmin = currentUser.role === 'admin' || currentUser.role === 'owner';
     this.organizationId = currentUser.organizationId;
     this.employeeId = currentUser.employeeId || null;
+
+    // クエリパラメータからフィルタを読み込む
+    this.route.queryParams.subscribe(params => {
+      if (params['status']) {
+        this.selectedStatus = params['status'] as ApplicationStatus;
+        this.searchForm.patchValue({ status: this.selectedStatus });
+      }
+      if (params['category']) {
+        this.selectedCategory = params['category'] as ApplicationCategory;
+        this.searchForm.patchValue({ category: this.selectedCategory });
+      }
+    });
 
     // モードの変更を監視
     const modeSub = this.modeService.isAdminMode$.subscribe(isAdminMode => {

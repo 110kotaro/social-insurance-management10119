@@ -2,23 +2,19 @@
   padding: 24px;
 }
 
-h1 {
-  margin-bottom: 24px;
-}
-
 mat-card {
-  margin-top: 16px;
+  max-width: 100%;
 }
 
 mat-card-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin-bottom: 24px;
 }
 
 mat-card-title {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 24px;
+  font-weight: 500;
 }
 

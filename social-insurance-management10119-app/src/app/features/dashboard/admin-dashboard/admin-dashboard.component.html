@@ -1,11 +1,4 @@
 <div class="dashboard-container">
-  <h1>ダッシュボード</h1>
-  
-  <div class="welcome-section">
-    <p>ようこそ、{{ currentUser?.displayName || currentUser?.email }}さん</p>
-    <p class="role">ロール: {{ currentUser?.role === 'owner' ? 'オーナー' : currentUser?.role === 'admin' ? '管理者' : '社員' }}</p>
-  </div>
-
   <!-- セットアップガイド -->
   <mat-card *ngIf="showSetupGuide" class="setup-guide-card">
     <mat-card-header>
@@ -33,22 +26,203 @@
     </mat-card-content>
   </mat-card>
 
-  <!-- 通常のダッシュボードコンテンツ（後で実装） -->
-  <div *ngIf="!showSetupGuide" class="dashboard-content">
-    <mat-card *ngIf="currentUser?.role === 'owner' || currentUser?.role === 'admin'">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>settings</mat-icon>
-          開発・テスト用機能
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <button mat-raised-button color="primary" (click)="checkRemindersManually()">
-          <mat-icon>notifications</mat-icon>
-          リマインダーを手動でチェック
-        </button>
-      </mat-card-content>
-    </mat-card>
-  </div>
+  <!-- 通常のダッシュボードコンテンツ -->
+  <mat-card *ngIf="!showSetupGuide">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>dashboard</mat-icon>
+        ダッシュボード
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="welcome-section">
+        <p>ようこそ、{{ currentUser?.displayName || currentUser?.email }}さん</p>
+      </div>
+
+      <div class="dashboard-content">
+    <!-- ローディング表示 -->
+    <div *ngIf="isLoading" class="loading-container">
+      <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+      <p>データを読み込み中...</p>
+    </div>
+
+    <!-- ダッシュボードコンテンツ -->
+    <div *ngIf="!isLoading" class="dashboard-grid">
+      <!-- 必須①：要対応サマリー -->
+      <mat-card class="summary-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>warning</mat-icon>
+            要対応サマリー
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="summary-items">
+            <div 
+              class="summary-item clickable" 
+              (click)="navigateToApplications({ status: 'pending', category: 'internal' })"
+              *ngIf="pendingInternalApplicationsCount > 0">
+              <div class="summary-item-icon pending">
+                <mat-icon>description</mat-icon>
+              </div>
+              <div class="summary-item-content">
+                <div class="summary-item-label">未承認の内部申請</div>
+                <div class="summary-item-value">{{ pendingInternalApplicationsCount }}件</div>
+              </div>
+            </div>
+            
+            <div 
+              class="summary-item clickable" 
+              (click)="navigateToApplications()"
+              *ngIf="overdueOrNearDeadlineApplicationsCount > 0">
+              <div class="summary-item-icon deadline">
+                <mat-icon>schedule</mat-icon>
+              </div>
+              <div class="summary-item-content">
+                <div class="summary-item-label">期限超過・期限間近の申請</div>
+                <div class="summary-item-value">{{ overdueOrNearDeadlineApplicationsCount }}件</div>
+              </div>
+            </div>
+            
+            <div 
+              class="summary-item clickable" 
+              (click)="navigateToCalculations()"
+              *ngIf="unconfirmedCalculationsCount > 0">
+              <div class="summary-item-icon calculation">
+                <mat-icon>calculate</mat-icon>
+              </div>
+              <div class="summary-item-content">
+                <div class="summary-item-label">計算未確定の保険料</div>
+                <div class="summary-item-value">{{ unconfirmedCalculationsCount }}件</div>
+              </div>
+            </div>
+            
+            <div class="summary-item no-items" *ngIf="pendingInternalApplicationsCount === 0 && overdueOrNearDeadlineApplicationsCount === 0 && unconfirmedCalculationsCount === 0">
+              <mat-icon>check_circle</mat-icon>
+              <span>対応が必要な項目はありません</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 必須②：期限・リマインダー系 -->
+      <mat-card class="deadline-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>schedule</mat-icon>
+            期限・リマインダー
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <!-- 直近の期限アラート -->
+          <div *ngIf="recentDeadlineAlerts.length > 0" class="deadline-section">
+            <h4>直近の期限アラート</h4>
+            <mat-list>
+              <mat-list-item 
+                *ngFor="let app of recentDeadlineAlerts" 
+                class="deadline-item clickable"
+                (click)="navigateToApplicationDetail(app.id!)">
+                <mat-icon matListItemIcon>warning</mat-icon>
+                <div matListItemTitle>{{ getApplicationTypeLabel(app.type) }}</div>
+                <div matListItemLine>期限: {{ formatDate(app.deadline) }}</div>
+              </mat-list-item>
+            </mat-list>
+          </div>
+
+          <!-- 被保険者資格取得届の期限 -->
+          <div *ngIf="insuranceAcquisitionDeadlines.length > 0" class="deadline-section">
+            <h4>被保険者資格取得届の期限</h4>
+            <mat-list>
+              <mat-list-item 
+                *ngFor="let app of insuranceAcquisitionDeadlines" 
+                class="deadline-item clickable"
+                (click)="navigateToApplicationDetail(app.id!)">
+                <mat-icon matListItemIcon>person_add</mat-icon>
+                <div matListItemTitle>資格取得届</div>
+                <div matListItemLine>期限: {{ formatDate(app.deadline) }}</div>
+              </mat-list-item>
+            </mat-list>
+          </div>
+
+          <!-- 月額変更届対象者 -->
+          <div *ngIf="hasMonthlyChangeTargets" class="deadline-section">
+            <div class="info-message">
+              <mat-icon>info</mat-icon>
+              <span>月額変更届の対象者がいます</span>
+            </div>
+          </div>
+
+          <div *ngIf="recentDeadlineAlerts.length === 0 && insuranceAcquisitionDeadlines.length === 0 && !hasMonthlyChangeTargets" class="no-items">
+            <mat-icon>check_circle</mat-icon>
+            <span>期限に関するアラートはありません</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 必須③：最近の動き -->
+      <mat-card class="activity-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>history</mat-icon>
+            最近の動き
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-list *ngIf="recentActivities.length > 0">
+            <mat-list-item *ngFor="let activity of recentActivities">
+              <mat-icon matListItemIcon>{{ getActivityIcon(activity.type) }}</mat-icon>
+              <div matListItemTitle>{{ activity.message }}</div>
+              <div matListItemLine>{{ formatDate(activity.date) }}</div>
+            </mat-list-item>
+          </mat-list>
+          <div *ngIf="recentActivities.length === 0" class="no-items">
+            <mat-icon>info</mat-icon>
+            <span>最近の動きはありません</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 任意：今月の概況 -->
+      <mat-card class="summary-card" *ngIf="currentUser?.role === 'owner' || currentUser?.role === 'admin'">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>analytics</mat-icon>
+            今月の概況
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="monthly-summary">
+            <div class="summary-stat">
+              <div class="stat-label">被保険者数</div>
+              <div class="stat-value">{{ currentMonthInsuredCount }}名</div>
+            </div>
+            <mat-divider [vertical]="true"></mat-divider>
+            <div class="summary-stat">
+              <div class="stat-label">保険料合計（概算）</div>
+              <div class="stat-value">{{ currentMonthPremiumTotal | number }}円</div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 開発・テスト用機能 -->
+      <mat-card *ngIf="currentUser?.role === 'owner' || currentUser?.role === 'admin'" class="dev-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>settings</mat-icon>
+            開発・テスト用機能
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <button mat-raised-button color="primary" (click)="checkRemindersManually()">
+            <mat-icon>notifications</mat-icon>
+            リマインダーを手動でチェック
+          </button>
+        </mat-card-content>
+      </mat-card>
+    </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
 </div>
 

@@ -1,7 +1,13 @@
 <div class="settings-container">
-  <h1>設定</h1>
-  
-  <mat-tab-group [(selectedIndex)]="selectedTabIndex" (selectedIndexChange)="onTabChange($event)">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>settings</mat-icon>
+        設定
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-tab-group [(selectedIndex)]="selectedTabIndex" (selectedIndexChange)="onTabChange($event)">
     <!-- 通知設定タブ -->
     <mat-tab label="通知設定">
       <ng-template matTabContent>
@@ -57,6 +63,8 @@
         <app-permission-settings></app-permission-settings>
       </ng-template>
     </mat-tab>
-  </mat-tab-group>
+      </mat-tab-group>
+    </mat-card-content>
+  </mat-card>
 </div>
 

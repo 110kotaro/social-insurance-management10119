@@ -1,7 +1,13 @@
 <div class="analytics-container">
-  <h1>分析</h1>
-
-  <mat-tab-group [(selectedIndex)]="selectedTabIndex">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>analytics</mat-icon>
+        分析
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-tab-group [(selectedIndex)]="selectedTabIndex">
     <!-- 保険料集計タブ -->
     <mat-tab label="保険料集計">
       <ng-template matTabContent>
@@ -384,9 +390,11 @@
       </ng-template>
     </mat-tab>
     -->
-  </mat-tab-group>
+      </mat-tab-group>
 
-  <div *ngIf="isLoading" class="loading-overlay">
-    <mat-spinner></mat-spinner>
-  </div>
+      <div *ngIf="isLoading" class="loading-overlay">
+        <mat-spinner></mat-spinner>
+      </div>
+    </mat-card-content>
+  </mat-card>
 </div>
