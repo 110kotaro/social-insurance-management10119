@@ -1,0 +1,20 @@
+.external-integration-container {
+  padding: 24px;
+}
+
+.tab-content {
+  padding: 24px 0;
+}
+
+.sub-tab-content {
+  padding: 16px 0;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 16px;
+}

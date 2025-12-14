@@ -4,6 +4,7 @@ import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-sample-dialog',
@@ -113,24 +114,6 @@ import { MatTableModule } from '@angular/material/table';
               <td mat-cell *matCellDef="let row">{{ row.insuranceStartDate || '-' }}</td>
             </ng-container>
 
-            <!-- 他社勤務有無 -->
-            <ng-container matColumnDef="isOtherCompany">
-              <th mat-header-cell *matHeaderCellDef>他社勤務有無</th>
-              <td mat-cell *matCellDef="let row">{{ row.isOtherCompany || '-' }}</td>
-            </ng-container>
-
-            <!-- 主たる勤務先 -->
-            <ng-container matColumnDef="isPrimary">
-              <th mat-header-cell *matHeaderCellDef>主たる勤務先</th>
-              <td mat-cell *matCellDef="let row">{{ row.isPrimary || '-' }}</td>
-            </ng-container>
-
-            <!-- 会社名 -->
-            <ng-container matColumnDef="companyName">
-              <th mat-header-cell *matHeaderCellDef>会社名</th>
-              <td mat-cell *matCellDef="let row">{{ row.companyName || '-' }}</td>
-            </ng-container>
-
             <!-- 郵便番号 -->
             <ng-container matColumnDef="postalCode">
               <th mat-header-cell *matHeaderCellDef>郵便番号 *</th>
@@ -178,6 +161,10 @@ import { MatTableModule } from '@angular/material/table';
             <button mat-raised-button color="accent" (click)="downloadCsv()">
               <mat-icon>download</mat-icon>
               CSVをダウンロード
+            </button>
+            <button mat-raised-button color="accent" (click)="downloadExcel()">
+              <mat-icon>download</mat-icon>
+              Excelをダウンロード
             </button>
           </div>
         </div>
@@ -269,7 +256,6 @@ export class SampleDialogComponent {
   displayedColumns: string[] = [
     'employeeNumber', 'name', 'nameKana', 'email', 'departmentName', 'joinDate', 'birthDate', 'status', 'role',
     'healthInsuranceNumber', 'pensionNumber', 'myNumber', 'standardReward', 'insuranceStartDate',
-    'isOtherCompany', 'isPrimary', 'companyName',
     'postalCode', 'prefecture', 'city', 'street', 'building'
   ];
   
@@ -289,9 +275,6 @@ export class SampleDialogComponent {
       myNumber: '1234567890123',
       standardReward: '300000',
       insuranceStartDate: '2024-04-01',
-      isOtherCompany: 'なし',
-      isPrimary: 'あり',
-      companyName: '',
       postalCode: '100-0001',
       prefecture: '東京都',
       city: '千代田区',
@@ -313,9 +296,6 @@ export class SampleDialogComponent {
       myNumber: '2345678901234',
       standardReward: '280000',
       insuranceStartDate: '2023-10-01',
-      isOtherCompany: 'なし',
-      isPrimary: 'あり',
-      companyName: '',
       postalCode: '150-0001',
       prefecture: '東京都',
       city: '渋谷区',
@@ -337,9 +317,6 @@ export class SampleDialogComponent {
       myNumber: '3456789012345',
       standardReward: '350000',
       insuranceStartDate: '2022-07-01',
-      isOtherCompany: '〇',
-      isPrimary: '×',
-      companyName: '株式会社サンプル',
       postalCode: '200-0002',
       prefecture: '東京都',
       city: '港区',
@@ -361,9 +338,6 @@ export class SampleDialogComponent {
       myNumber: '4567890123456',
       standardReward: '250000',
       insuranceStartDate: '2025-04-01',
-      isOtherCompany: 'false',
-      isPrimary: 'true',
-      companyName: '',
       postalCode: '250-0003',
       prefecture: '神奈川県',
       city: '横浜市',
@@ -372,11 +346,11 @@ export class SampleDialogComponent {
     }
   ];
 
-  csvText = `社員番号,氏名,氏名カナ,メールアドレス,部署名,入社日,生年月日,ステータス,権限,健康保険被保険者番号,厚生年金被保険者番号,マイナンバー,標準報酬月額,保険適用開始日,他社勤務有無,主たる勤務先,会社名,郵便番号,都道府県,市区町村,町名・番地,建物名・部屋番号
-EMP001,山田 太郎,ヤマダ タロウ,yamada.taro@example.com,営業部,2024-04-01,1990-05-15,在籍,一般社員,12345678,87654321,1234567890123,300000,2024-04-01,なし,あり,,100-0001,東京都,千代田区,千代田1-1-1,サンプルビル101
-EMP002,佐藤 花子,サトウ ハナコ,sato.hanako@example.com,総務部,2023-10-01,1992-08-20,在籍,管理者,23456789,98765432,2345678901234,280000,2023-10-01,なし,あり,,150-0001,東京都,渋谷区,渋谷2-2-2,サンプルマンション202
-EMP003,鈴木 一郎,スズキ イチロウ,suzuki.ichiro@example.com,開発部,2022-07-01,1988-12-10,休職,一般社員,34567890,10987654,3456789012345,350000,2022-07-01,〇,×,株式会社サンプル,200-0002,東京都,港区,港3-3-3,サンプルタワー303
-EMP004,田中 美咲,タナカ ミサキ,tanaka.misaki@example.com,人事部,2025-04-01,1995-03-25,未入社,一般社員,45678901,21098765,4567890123456,250000,2025-04-01,×,〇,,250-0003,神奈川県,横浜市,中区4-4-4,サンプルハイツ404`;
+  csvText = `社員番号,氏名,氏名カナ,メールアドレス,部署名,入社日,生年月日,ステータス,権限,健康保険被保険者番号,厚生年金被保険者番号,マイナンバー,標準報酬月額,保険適用開始日,郵便番号,都道府県,市区町村,町名・番地,建物名・部屋番号
+EMP001,山田 太郎,ヤマダ タロウ,yamada.taro@example.com,営業部,2024-04-01,1990-05-15,在籍,一般社員,12345678,87654321,1234567890123,300000,2024-04-01,100-0001,東京都,千代田区,千代田1-1-1,サンプルビル101
+EMP002,佐藤 花子,サトウ ハナコ,sato.hanako@example.com,総務部,2023-10-01,1992-08-20,在籍,管理者,23456789,98765432,2345678901234,280000,2023-10-01,150-0001,東京都,渋谷区,渋谷2-2-2,サンプルマンション202
+EMP003,鈴木 一郎,スズキ イチロウ,suzuki.ichiro@example.com,開発部,2022-07-01,1988-12-10,休職,一般社員,34567890,10987654,3456789012345,350000,2022-07-01,200-0002,東京都,港区,港3-3-3,サンプルタワー303
+EMP004,田中 美咲,タナカ ミサキ,tanaka.misaki@example.com,人事部,2025-04-01,1995-03-25,未入社,一般社員,45678901,21098765,4567890123456,250000,2025-04-01,250-0003,神奈川県,横浜市,中区4-4-4,サンプルハイツ404`;
 
   private dialogRef = inject(MatDialogRef<SampleDialogComponent>);
 
@@ -411,6 +385,74 @@ EMP004,田中 美咲,タナカ ミサキ,tanaka.misaki@example.com,人事部,202
     // クリーンアップ
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  downloadExcel(): void {
+    try {
+      // CSVテキストをパースしてデータ配列に変換
+      const lines = this.csvText.split('\n');
+      const headers = lines[0].split(',');
+      const data: any[] = [];
+
+      // データ行を処理
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        
+        const values = this.parseCsvLine(lines[i]);
+        if (values.length === headers.length) {
+          const row: any = {};
+          headers.forEach((header, index) => {
+            row[header.trim()] = values[index]?.trim() || '';
+          });
+          data.push(row);
+        }
+      }
+
+      // Excelワークブックを作成
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, '社員データ');
+
+      // ファイルをダウンロード
+      XLSX.writeFile(workbook, '社員インポートサンプル.xlsx');
+    } catch (error) {
+      console.error('Excelファイルの生成に失敗しました:', error);
+    }
+  }
+
+  /**
+   * CSV行をパース（カンマ区切り、ダブルクォート対応）
+   */
+  private parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          // エスケープされたダブルクォート
+          current += '"';
+          i++;
+        } else {
+          // クォートの開始/終了
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        // フィールドの区切り
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    // 最後のフィールドを追加
+    result.push(current);
+    
+    return result;
   }
 
   close(): void {

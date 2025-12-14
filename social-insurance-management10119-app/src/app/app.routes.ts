@@ -136,6 +136,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/analytics/analytics.component').then(m => m.AnalyticsComponent)
       },
       {
+        path: 'external-integration',
+        loadComponent: () => import('./features/external-integration/external-integration.component').then(m => m.ExternalIntegrationComponent)
+      },
+      {
         path: 'my-info',
         loadComponent: () => import('./features/my-info/my-info.component').then(m => m.MyInfoComponent)
       },

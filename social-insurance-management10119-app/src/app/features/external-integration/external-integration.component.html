@@ -1,0 +1,43 @@
+<div class="external-integration-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>import_export</mat-icon>
+        外部連携
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-tab-group [(selectedIndex)]="selectedTabIndex">
+        <!-- インポートタブ -->
+        <mat-tab label="データインポート">
+          <div class="tab-content">
+            <mat-tab-group>
+              <mat-tab label="社員情報インポート">
+                <div class="sub-tab-content">
+                  <app-employee-import-enhanced></app-employee-import-enhanced>
+                </div>
+              </mat-tab>
+              <mat-tab label="給与情報インポート">
+                <div class="sub-tab-content">
+                  <app-salary-import></app-salary-import>
+                </div>
+              </mat-tab>
+            </mat-tab-group>
+          </div>
+        </mat-tab>
+
+        <!-- エクスポートタブ -->
+        <mat-tab label="データエクスポート">
+          <div class="tab-content">
+            <app-employee-export></app-employee-export>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<div *ngIf="isLoading" class="loading-container">
+  <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+  <p>処理中...</p>
+</div>

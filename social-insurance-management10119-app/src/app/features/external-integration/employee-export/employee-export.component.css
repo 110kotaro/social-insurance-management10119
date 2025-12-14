@@ -1,0 +1,115 @@
+.employee-export-container {
+  padding: 24px;
+}
+
+.filter-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.filter-section h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.filter-form {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-form mat-form-field {
+  flex: 1;
+  min-width: 200px;
+}
+
+.data-type-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #fff3e0;
+  border-left: 4px solid #ff9800;
+  border-radius: 4px;
+}
+
+.data-type-section h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.data-type-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.year-month-selection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #ddd;
+}
+
+.year-month-selection h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.year-month-fields {
+  display: flex;
+  gap: 16px;
+}
+
+.year-month-fields mat-form-field {
+  width: 150px;
+}
+
+.selection-section {
+  margin-bottom: 24px;
+}
+
+.selection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.selection-header h3 {
+  margin: 0;
+}
+
+.selection-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.export-table {
+  width: 100%;
+}
+
+.export-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 16px;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}

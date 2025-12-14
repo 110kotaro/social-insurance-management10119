@@ -1,0 +1,175 @@
+<div class="salary-import-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>upload</mat-icon>
+        給与情報一括インポート
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- 年月選択 -->
+      <div class="year-month-selection">
+        <mat-form-field>
+          <mat-label>年</mat-label>
+          <mat-select [(ngModel)]="selectedYear" (selectionChange)="onYearMonthChange()">
+            <mat-option *ngFor="let year of years" [value]="year">{{ year }}年</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>月</mat-label>
+          <mat-select [(ngModel)]="selectedMonth" (selectionChange)="onYearMonthChange()">
+            <mat-option *ngFor="let month of months" [value]="month">{{ month }}月</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- ファイル選択 -->
+      <div class="file-selection">
+        <div class="file-input-wrapper">
+          <input type="file" id="salaryFileInput" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" style="display: none;" [disabled]="isValidating">
+          <label for="salaryFileInput" class="file-label" [class.disabled]="isValidating">
+            <mat-icon>attach_file</mat-icon>
+            CSV/Excelファイルを選択
+          </label>
+        </div>
+        <div class="file-actions">
+          <button mat-stroked-button color="primary" (click)="showSample()">
+            <mat-icon>description</mat-icon>
+            サンプルデータを表示
+          </button>
+        </div>
+        <p class="file-hint">
+          CSV/Excelファイル形式: 社員番号, 社員名, 年, 月, 基礎日数, 固定賃金, 総支給, 遡及支払額, 賞与
+        </p>
+      </div>
+
+      <!-- バリデーション中 -->
+      <div *ngIf="isValidating" class="validating-section">
+        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+        <p>バリデーション中...</p>
+      </div>
+
+      <!-- エラーメッセージ -->
+      <div *ngIf="importErrors.length > 0" class="error-section">
+        <h3>インポートエラー</h3>
+        <ul>
+          <li *ngFor="let error of importErrors">{{ error }}</li>
+        </ul>
+      </div>
+
+      <!-- インポートプレビュー -->
+      <div *ngIf="importedSalaryData.length > 0 && !isValidating" class="preview-section">
+        <div class="preview-header">
+          <h3>インポートプレビュー ({{ importedSalaryData.length }}件)</h3>
+          <div class="selection-info">
+            <span>選択済み: {{ getSelectedCount() }}件</span>
+          </div>
+        </div>
+        <div class="table-container">
+          <table mat-table [dataSource]="dataSource" class="import-table">
+            <!-- 選択チェックボックス -->
+            <ng-container matColumnDef="select">
+              <th mat-header-cell *matHeaderCellDef>
+                <mat-checkbox
+                  [checked]="allSelected"
+                  [indeterminate]="someSelected"
+                  (change)="toggleAllSelection()"
+                  [disabled]="isLoading">
+                </mat-checkbox>
+              </th>
+              <td mat-cell *matCellDef="let data">
+                <mat-checkbox
+                  [(ngModel)]="data.selected"
+                  (change)="toggleSelection(data)"
+                  [disabled]="isLoading || (data.errors && data.errors.length > 0)">
+                </mat-checkbox>
+              </td>
+            </ng-container>
+
+            <!-- 社員番号 -->
+            <ng-container matColumnDef="employeeNumber">
+              <th mat-header-cell *matHeaderCellDef>社員番号</th>
+              <td mat-cell *matCellDef="let data">{{ data.employeeNumber }}</td>
+            </ng-container>
+
+            <!-- 社員名 -->
+            <ng-container matColumnDef="employeeName">
+              <th mat-header-cell *matHeaderCellDef>社員名</th>
+              <td mat-cell *matCellDef="let data">{{ data.employeeName }}</td>
+            </ng-container>
+
+            <!-- 年 -->
+            <ng-container matColumnDef="year">
+              <th mat-header-cell *matHeaderCellDef>年</th>
+              <td mat-cell *matCellDef="let data">{{ data.year }}</td>
+            </ng-container>
+
+            <!-- 月 -->
+            <ng-container matColumnDef="month">
+              <th mat-header-cell *matHeaderCellDef>月</th>
+              <td mat-cell *matCellDef="let data">{{ data.month }}</td>
+            </ng-container>
+
+            <!-- 基礎日数 -->
+            <ng-container matColumnDef="baseDays">
+              <th mat-header-cell *matHeaderCellDef>基礎日数</th>
+              <td mat-cell *matCellDef="let data">{{ data.baseDays }}</td>
+            </ng-container>
+
+            <!-- 固定賃金 -->
+            <ng-container matColumnDef="fixedSalary">
+              <th mat-header-cell *matHeaderCellDef>固定賃金</th>
+              <td mat-cell *matCellDef="let data">{{ data.fixedSalary | number }}</td>
+            </ng-container>
+
+            <!-- 総支給 -->
+            <ng-container matColumnDef="totalPayment">
+              <th mat-header-cell *matHeaderCellDef>総支給</th>
+              <td mat-cell *matCellDef="let data">{{ data.totalPayment | number }}</td>
+            </ng-container>
+
+            <!-- 遡及支払額 -->
+            <ng-container matColumnDef="retroactivePayment">
+              <th mat-header-cell *matHeaderCellDef>遡及支払額</th>
+              <td mat-cell *matCellDef="let data">{{ data.retroactivePayment | number }}</td>
+            </ng-container>
+
+            <!-- 賞与 -->
+            <ng-container matColumnDef="bonus">
+              <th mat-header-cell *matHeaderCellDef>賞与</th>
+              <td mat-cell *matCellDef="let data">{{ data.bonus | number }}</td>
+            </ng-container>
+
+            <!-- エラー -->
+            <ng-container matColumnDef="errors">
+              <th mat-header-cell *matHeaderCellDef>エラー</th>
+              <td mat-cell *matCellDef="let data">
+                <div *ngIf="data.errors && data.errors.length > 0" class="error-list">
+                  <span *ngFor="let error of data.errors" class="error-item">{{ error }}</span>
+                </div>
+                <span *ngIf="!data.errors || data.errors.length === 0" class="no-error">✓</span>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" 
+                [class.error-row]="row.errors && row.errors.length > 0">
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- アクションボタン -->
+      <div class="action-buttons">
+        <button 
+          mat-raised-button 
+          color="primary" 
+          (click)="executeImport()" 
+          [disabled]="isLoading || importedSalaryData.length === 0 || !hasSelectedData()">
+          <mat-icon *ngIf="isLoading">hourglass_empty</mat-icon>
+          {{ isLoading ? 'インポート中...' : 'インポート実行' }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

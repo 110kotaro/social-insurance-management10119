@@ -1,0 +1,64 @@
+<h2 mat-dialog-title>競合解決</h2>
+
+<mat-dialog-content>
+  <div class="conflict-info">
+    <p><strong>社員番号:</strong> {{ data.importedEmployee.employeeNumber }}</p>
+    <p><strong>氏名:</strong> {{ data.importedEmployee.lastName }} {{ data.importedEmployee.firstName }}</p>
+    <p><strong>メールアドレス:</strong> {{ data.importedEmployee.email }}</p>
+  </div>
+
+  <div class="diff-section" *ngIf="data.diffs.length > 0">
+    <h3>変更内容</h3>
+    <table class="diff-table">
+      <thead>
+        <tr>
+          <th>項目</th>
+          <th>変更タイプ</th>
+          <th>既存値</th>
+          <th>インポート値</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let diff of data.diffs" [class]="getChangeTypeClass(diff.changeType)">
+          <td>{{ diff.fieldLabel }}</td>
+          <td>
+            <span [class]="'change-badge ' + getChangeTypeClass(diff.changeType)">
+              {{ getChangeTypeLabel(diff.changeType) }}
+            </span>
+          </td>
+          <td class="before-value">{{ formatValue(diff.before) }}</td>
+          <td class="after-value">{{ formatValue(diff.after) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="resolution-section">
+    <h3>解決方法を選択</h3>
+    <mat-radio-group [(ngModel)]="resolution">
+      <mat-radio-button value="overwrite">
+        <strong>上書き</strong> - 既存データをインポートデータで完全に置き換えます
+      </mat-radio-button>
+      <mat-radio-button value="merge">
+        <strong>マージ</strong> - 既存データの空欄のみインポートデータで埋めます
+      </mat-radio-button>
+      <mat-radio-button value="skip">
+        <strong>スキップ</strong> - このデータをインポートしません
+      </mat-radio-button>
+      <mat-radio-button value="individual">
+        <strong>個別選択</strong> - 後で個別に選択します
+      </mat-radio-button>
+    </mat-radio-group>
+  </div>
+
+  <div class="selection-section" *ngIf="resolution !== 'skip'">
+    <mat-checkbox [(ngModel)]="selected">
+      このデータをインポート対象に含める
+    </mat-checkbox>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">キャンセル</button>
+  <button mat-raised-button color="primary" (click)="onConfirm()">確定</button>
+</mat-dialog-actions>

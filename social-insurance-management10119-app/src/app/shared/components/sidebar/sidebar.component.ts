@@ -48,6 +48,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     { label: '算定／月変計算', icon: 'assessment', route: '/standard-reward-calculations', roles: ['owner', 'admin'] },
     { label: '保険料計算', icon: 'calculate', route: '/calculations', roles: ['owner', 'admin'] },
     { label: '分析', icon: 'analytics', route: '/analytics', roles: ['owner', 'admin'] },
+    { label: '外部連携', icon: 'import_export', route: '/external-integration', roles: ['owner', 'admin'] },
     { label: '設定', icon: 'settings', route: '/settings', roles: ['owner', 'admin'] }
   ];
   

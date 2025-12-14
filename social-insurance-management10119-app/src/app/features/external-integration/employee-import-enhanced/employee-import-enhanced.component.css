@@ -1,0 +1,176 @@
+.employee-import-container {
+  padding: 24px;
+}
+
+.file-selection {
+  margin-bottom: 24px;
+}
+
+.file-input-wrapper {
+  margin-bottom: 16px;
+}
+
+.file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background-color: #1976d2;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.file-label:hover:not(.disabled) {
+  background-color: #1565c0;
+}
+
+.file-label.disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.sample-link-wrapper {
+  margin-bottom: 16px;
+}
+
+.sample-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.sample-link:hover {
+  text-decoration: underline;
+}
+
+.file-hint {
+  color: #666;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.validating-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 16px;
+}
+
+.error-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #ffebee;
+  border-left: 4px solid #f44336;
+  border-radius: 4px;
+}
+
+.error-section h3 {
+  margin-top: 0;
+  color: #d32f2f;
+}
+
+.error-section ul {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.error-section li {
+  margin-bottom: 4px;
+}
+
+.conflict-resolution-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #fff3e0;
+  border-left: 4px solid #ff9800;
+  border-radius: 4px;
+}
+
+.conflict-resolution-section h3 {
+  margin-top: 0;
+}
+
+.resolution-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.resolution-controls mat-form-field {
+  flex: 1;
+  max-width: 300px;
+}
+
+.preview-section {
+  margin-bottom: 24px;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.preview-header h3 {
+  margin: 0;
+}
+
+.selection-info {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  color: #666;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.import-table {
+  width: 100%;
+}
+
+.import-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.error-row {
+  background-color: #ffebee;
+}
+
+.conflict-row {
+  background-color: #fff3e0;
+}
+
+.conflict-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.conflict-duplicate {
+  background-color: #f44336;
+  color: white;
+}
+
+.conflict-existing {
+  background-color: #ff9800;
+  color: white;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 24px;
+}
