@@ -68,8 +68,8 @@ export class CalculationDateDialogComponent {
 
   constructor() {
     const currentYear = new Date().getFullYear();
-    // 過去5年から未来1年まで
-    for (let i = currentYear - 5; i <= currentYear + 1; i++) {
+    // 過去5年から未来2年まで
+    for (let i = currentYear - 5; i <= currentYear + 2; i++) {
       this.years.push(i);
     }
 

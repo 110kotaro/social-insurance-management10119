@@ -162,8 +162,9 @@ export class SetupWizardComponent implements OnInit {
     this.organizationForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       corporateNumber: ['', Validators.required], // 必須項目に変更
-      officeSymbol: [''], // 事業所整理記号
-      officeNumber: ['', Validators.required], // 事業所番号（必須項目に変更）
+      // officeSymbol: [''], // 事業所整理記号（削除：保険情報の健康保険に移動）
+      // officeNumber: [''], // 事業所番号（削除：保険情報の健康保険・厚生年金に移動）
+      postalCode: ['', [Validators.required, Validators.pattern(/^\d{3}-?\d{4}$/)]],
       prefecture: ['', Validators.required],
       city: ['', Validators.required],
       street: ['', Validators.required],
@@ -186,18 +187,19 @@ export class SetupWizardComponent implements OnInit {
     this.insuranceForm = this.fb.group({
       // 健康保険
       healthInsuranceType: ['kyokai'], // 協会けんぽ or 組合健保（固定）
+      healthInsuranceOfficeSymbol: [''], // 事業所整理記号（追加）
       healthInsuranceOfficeNumber: ['', Validators.required], // 必須項目に変更
-      healthInsuranceRoundingMethod: ['', Validators.required], // 端数処理方式（必須項目に変更）
+      // healthInsuranceRoundingMethod: [''], // 端数処理方式（削除：計算ロジックで実装済み）
       healthInsuranceCardFormat: ['none'], // 保険証の形式（任意のまま）
       // 厚生年金
       pensionInsuranceOfficeNumber: ['', Validators.required], // 必須項目に変更
-      pensionInsuranceRoundingMethod: ['', Validators.required], // 端数処理方式（必須項目に変更）
+      // pensionInsuranceRoundingMethod: [''], // 端数処理方式（削除：計算ロジックで実装済み）
       pensionInsuranceBusinessCategory: ['', Validators.required], // 厚生年金適用事業所区分（必須項目に変更）
       // 介護保険
       careInsuranceTargetOffice: [null, Validators.required], // デフォルトをnullに変更、必須項目に変更
-      // 雇用保険
-      employmentInsuranceOfficeNumber: ['', Validators.required], // 必須項目に変更
-      employmentInsuranceLaborNumber: ['', Validators.required] // 必須項目に変更
+      // 雇用保険（コメントアウト：不要）
+      // employmentInsuranceOfficeNumber: ['', Validators.required],
+      // employmentInsuranceLaborNumber: ['', Validators.required]
     });
 
     // ステップ4: 料率・標準報酬等級テーブルフォーム
@@ -282,14 +284,14 @@ export class SetupWizardComponent implements OnInit {
 
       // ステップ3: 保険設定の必須項目をチェック
       const insuranceFormValue = this.insuranceForm.value;
-      const step3Complete = insuranceFormValue.healthInsuranceOfficeNumber &&
-                           insuranceFormValue.healthInsuranceRoundingMethod &&
+      const step3Complete = insuranceFormValue.healthInsuranceOfficeSymbol &&
+                           // insuranceFormValue.healthInsuranceRoundingMethod && // 削除：端数処理方式は不要
                            insuranceFormValue.pensionInsuranceOfficeNumber &&
-                           insuranceFormValue.pensionInsuranceRoundingMethod &&
+                           // insuranceFormValue.pensionInsuranceRoundingMethod && // 削除：端数処理方式は不要
                            insuranceFormValue.pensionInsuranceBusinessCategory &&
-                           insuranceFormValue.careInsuranceTargetOffice !== null &&
-                           insuranceFormValue.employmentInsuranceOfficeNumber &&
-                           insuranceFormValue.employmentInsuranceLaborNumber;
+                           insuranceFormValue.careInsuranceTargetOffice !== null;
+                           // insuranceFormValue.employmentInsuranceOfficeNumber && // 削除：雇用保険情報は不要
+                           // insuranceFormValue.employmentInsuranceLaborNumber; // 削除：雇用保険情報は不要
       
       if (!step3Complete) {
         // ステップ3が未完了の場合は、ステップ3に移動
@@ -351,7 +353,7 @@ export class SetupWizardComponent implements OnInit {
         this.organizationForm.patchValue({
           name: organization.name,
           corporateNumber: organization.corporateNumber || '',
-          officeNumber: organization.officeNumber || '',
+          postalCode: organization.address.postalCode || '',
           prefecture: organization.address.prefecture,
           city: organization.address.city,
           street: organization.address.street,
@@ -367,15 +369,15 @@ export class SetupWizardComponent implements OnInit {
           const ins = organization.insuranceSettings;
           this.insuranceForm.patchValue({
             healthInsuranceType: ins.healthInsurance?.type || 'kyokai',
-            healthInsuranceOfficeNumber: ins.healthInsurance?.officeNumber || '',
-            healthInsuranceRoundingMethod: ins.healthInsurance?.roundingMethod || '',
+            healthInsuranceOfficeSymbol: ins.healthInsurance?.officeSymbol || '',
+            // healthInsuranceRoundingMethod: ins.healthInsurance?.roundingMethod || '', // 削除：端数処理方式は不要
             healthInsuranceCardFormat: ins.healthInsurance?.cardFormat || 'none',
             pensionInsuranceOfficeNumber: ins.pensionInsurance?.officeNumber || '',
-            pensionInsuranceRoundingMethod: ins.pensionInsurance?.roundingMethod || '',
+            // pensionInsuranceRoundingMethod: ins.pensionInsurance?.roundingMethod || '', // 削除：端数処理方式は不要
             pensionInsuranceBusinessCategory: ins.pensionInsurance?.businessCategory || '',
-            careInsuranceTargetOffice: ins.careInsurance?.targetOffice !== undefined ? ins.careInsurance.targetOffice : null,
-            employmentInsuranceOfficeNumber: ins.employmentInsurance?.officeNumber || '',
-            employmentInsuranceLaborNumber: ins.employmentInsurance?.laborInsuranceNumber || ''
+            careInsuranceTargetOffice: ins.careInsurance?.targetOffice !== undefined ? ins.careInsurance.targetOffice : null
+            // employmentInsuranceOfficeNumber: ins.employmentInsurance?.officeNumber || '', // 削除：雇用保険情報は不要
+            // employmentInsuranceLaborNumber: ins.employmentInsurance?.laborInsuranceNumber || '' // 削除：雇用保険情報は不要
           });
         }
       }
@@ -405,9 +407,10 @@ export class SetupWizardComponent implements OnInit {
       const organization: Omit<Organization, 'id' | 'createdAt' | 'updatedAt'> = {
         name: formValue.name,
         corporateNumber: formValue.corporateNumber?.trim() || undefined,
-        officeSymbol: formValue.officeSymbol?.trim() || undefined, // 事業所整理記号
-        officeNumber: formValue.officeNumber?.trim() || undefined, // 事業所番号
+        // officeSymbol: formValue.officeSymbol?.trim() || undefined, // 事業所整理記号（削除：保険情報の健康保険に移動）
+        // officeNumber: formValue.officeNumber?.trim() || undefined, // 事業所番号（削除：保険情報の健康保険・厚生年金に移動）
         address: {
+          postalCode: formValue.postalCode?.trim() || undefined,
           prefecture: formValue.prefecture,
           city: formValue.city,
           street: formValue.street,
@@ -558,22 +561,22 @@ export class SetupWizardComponent implements OnInit {
       const insuranceSettings: any = {
         healthInsurance: {
           type: formValue.healthInsuranceType || 'kyokai',
-          officeNumber: formValue.healthInsuranceOfficeNumber?.trim() || undefined,
-          roundingMethod: formValue.healthInsuranceRoundingMethod?.trim() || undefined,
+          officeSymbol: formValue.healthInsuranceOfficeSymbol?.trim() || undefined, // 事業所整理記号（必須）
+          // roundingMethod: formValue.healthInsuranceRoundingMethod?.trim() || undefined, // 削除：端数処理方式は不要
           cardFormat: formValue.healthInsuranceCardFormat || 'none'
         },
         pensionInsurance: {
           officeNumber: formValue.pensionInsuranceOfficeNumber?.trim() || undefined,
-          roundingMethod: formValue.pensionInsuranceRoundingMethod?.trim() || undefined,
+          // roundingMethod: formValue.pensionInsuranceRoundingMethod?.trim() || undefined, // 削除：端数処理方式は不要
           businessCategory: formValue.pensionInsuranceBusinessCategory?.trim() || undefined
         },
         careInsurance: {
           targetOffice: formValue.careInsuranceTargetOffice || false
-        },
-        employmentInsurance: {
-          officeNumber: formValue.employmentInsuranceOfficeNumber?.trim() || undefined,
-          laborInsuranceNumber: formValue.employmentInsuranceLaborNumber?.trim() || undefined
         }
+        // employmentInsurance: { // 削除：雇用保険情報は不要
+        //   officeNumber: formValue.employmentInsuranceOfficeNumber?.trim() || undefined,
+        //   laborInsuranceNumber: formValue.employmentInsuranceLaborNumber?.trim() || undefined
+        // }
       };
 
       // 組織情報を更新
@@ -907,6 +910,136 @@ export class SetupWizardComponent implements OnInit {
         }
       } catch (error: any) {
         this.importErrors.push(`行 ${i + errorRowOffset}: ${error.message}`);
+      }
+    }
+
+    // 厚生年金の等級・折半額・全額の空欄を自動補完
+    this.fillPensionInsuranceBlanks(importedTables);
+  }
+
+  /**
+   * 厚生年金の等級・折半額・全額の空欄を自動補完
+   * 1級より上の空欄は1級の値を反映、最多級より下の空欄は最多級の値を反映
+   */
+  private fillPensionInsuranceBlanks(tables: InsuranceRateTable[]): void {
+    if (tables.length === 0) {
+      return;
+    }
+
+    // 健保等級（grade）でソート（元の順序を保持）
+    const sortedTables = [...tables].sort((a, b) => {
+      return a.grade - b.grade;
+    });
+
+    // 最初の有効な等級（pensionGrade !== null）のインデックスを取得
+    let firstValidIndex = -1;
+    for (let i = 0; i < sortedTables.length; i++) {
+      const pensionGrade = sortedTables[i].pensionGrade ?? null;
+      if (pensionGrade !== null) {
+        firstValidIndex = i;
+        break;
+      }
+    }
+
+    // 最後の有効な等級（pensionGrade !== null）のインデックスを取得
+    let lastValidIndex = -1;
+    for (let i = sortedTables.length - 1; i >= 0; i--) {
+      const pensionGrade = sortedTables[i].pensionGrade ?? null;
+      if (pensionGrade !== null) {
+        lastValidIndex = i;
+        break;
+      }
+    }
+
+    // 有効な等級が存在しない場合は処理を終了
+    if (firstValidIndex === -1 || lastValidIndex === -1) {
+      return;
+    }
+
+    // 1級の値を取得（pensionGrade === 1 または最小の等級）
+    let grade1Table: InsuranceRateTable | null = null;
+    for (const table of sortedTables) {
+      const pensionGrade = table.pensionGrade ?? null;
+      if (pensionGrade === 1) {
+        grade1Table = table;
+        break;
+      }
+    }
+    if (!grade1Table && sortedTables.length > 0) {
+      const firstPensionGrade = sortedTables[firstValidIndex].pensionGrade ?? null;
+      if (firstPensionGrade !== null) {
+        grade1Table = sortedTables[firstValidIndex];
+      }
+    }
+
+    // 最多級の値を取得（最大のpensionGrade）
+    let maxGradeTable: InsuranceRateTable | null = null;
+    let maxGrade = 0;
+    for (const table of sortedTables) {
+      const pensionGrade = table.pensionGrade ?? null;
+      if (pensionGrade !== null && pensionGrade > maxGrade) {
+        maxGrade = pensionGrade;
+        maxGradeTable = table;
+      }
+    }
+
+    // 各tableがソート済み配列のどの位置にあるかをマッピング
+    const tableToIndexMap = new Map<InsuranceRateTable, number>();
+    for (let i = 0; i < sortedTables.length; i++) {
+      tableToIndexMap.set(sortedTables[i], i);
+    }
+
+    // 空欄を補完
+    for (const table of tables) {
+      const pensionGrade = table.pensionGrade ?? null;
+      const sortedIndex = tableToIndexMap.get(table) ?? -1;
+
+      // 空欄の場合のみ補完処理を行う
+      if (pensionGrade === null) {
+        // 最初の有効な等級より前の位置にある場合 → 1級の値を補完
+        if (sortedIndex >= 0 && sortedIndex < firstValidIndex) {
+          if (grade1Table && grade1Table.pensionGrade !== null && grade1Table.pensionGrade !== undefined) {
+            table.pensionGrade = grade1Table.pensionGrade;
+            table.pensionInsurance.total = grade1Table.pensionInsurance.total;
+            table.pensionInsurance.half = grade1Table.pensionInsurance.half;
+          }
+        }
+        // 最後の有効な等級より後の位置にある場合 → 最多級の値を補完
+        else if (sortedIndex >= 0 && sortedIndex > lastValidIndex) {
+          if (maxGradeTable && maxGradeTable.pensionGrade !== null && maxGradeTable.pensionGrade !== undefined) {
+            table.pensionGrade = maxGradeTable.pensionGrade;
+            table.pensionInsurance.total = maxGradeTable.pensionInsurance.total;
+            table.pensionInsurance.half = maxGradeTable.pensionInsurance.half;
+          }
+        }
+        // 中間の位置にある場合 → 1級の値を補完（デフォルト）
+        else if (sortedIndex >= 0 && sortedIndex >= firstValidIndex && sortedIndex <= lastValidIndex) {
+          if (grade1Table && grade1Table.pensionGrade !== null && grade1Table.pensionGrade !== undefined) {
+            table.pensionGrade = grade1Table.pensionGrade;
+            table.pensionInsurance.total = grade1Table.pensionInsurance.total;
+            table.pensionInsurance.half = grade1Table.pensionInsurance.half;
+          }
+        }
+      }
+
+      // 折半額・全額が0または空欄の場合も補完
+      if (table.pensionInsurance.total === 0 || table.pensionInsurance.half === 0) {
+        const currentGrade = table.pensionGrade ?? null;
+        if (currentGrade === 1 && grade1Table) {
+          if (table.pensionInsurance.total === 0) {
+            table.pensionInsurance.total = grade1Table.pensionInsurance.total;
+          }
+          if (table.pensionInsurance.half === 0) {
+            table.pensionInsurance.half = grade1Table.pensionInsurance.half;
+          }
+        } else if (maxGradeTable && currentGrade === maxGrade) {
+          if (table.pensionInsurance.total === 0) {
+            table.pensionInsurance.total = maxGradeTable.pensionInsurance.total;
+          }
+          if (table.pensionInsurance.half === 0) {
+            table.pensionInsurance.half = maxGradeTable.pensionInsurance.half;
+          }
+        }
       }
     }
   }
@@ -1649,7 +1782,7 @@ export class SetupWizardComponent implements OnInit {
       },
       step3: {
         healthInsuranceType: insuranceFormValue.healthInsuranceType === 'kyokai' ? '協会けんぽ' : '組合健保',
-        healthInsuranceOfficeNumber: insuranceFormValue.healthInsuranceOfficeNumber || '未入力',
+        healthInsuranceOfficeSymbol: insuranceFormValue.healthInsuranceOfficeSymbol || '未入力',
         healthInsuranceRoundingMethod: this.getRoundingMethodLabel(insuranceFormValue.healthInsuranceRoundingMethod),
         healthInsuranceCardFormat: this.getCardFormatLabel(insuranceFormValue.healthInsuranceCardFormat),
         pensionInsuranceOfficeNumber: insuranceFormValue.pensionInsuranceOfficeNumber || '未入力',

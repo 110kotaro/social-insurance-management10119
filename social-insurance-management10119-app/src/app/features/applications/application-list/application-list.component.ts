@@ -19,6 +19,7 @@ import { EmployeeService } from '../../../core/services/employee.service';
 import { OrganizationService } from '../../../core/services/organization.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ModeService } from '../../../core/services/mode.service';
+import { DeadlineCalculationService } from '../../../core/services/deadline-calculation.service';
 import { Application, ApplicationStatus, ApplicationCategory } from '../../../core/models/application.model';
 import { Employee } from '../../../core/models/employee.model';
 import { Organization } from '../../../core/models/organization.model';
@@ -53,6 +54,7 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
   private organizationService = inject(OrganizationService);
   private authService = inject(AuthService);
   private modeService = inject(ModeService);
+  private deadlineCalculationService = inject(DeadlineCalculationService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
@@ -65,6 +67,7 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
   organization: Organization | null = null;
   displayedColumns: string[] = ['type', 'employee', 'category', 'status', 'createdAt', 'deadline', 'actions'];
   dataSource = new MatTableDataSource<Application>([]);
+  applicationDeadlines: Map<string, Date | null> = new Map(); // 申請ID -> 期限のマップ
   
   // ページネーション
   pageSize = 10;
@@ -93,7 +96,7 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser?.organizationId) {
       this.router.navigate(['/dashboard']);
@@ -127,9 +130,10 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
     });
     this.subscriptions.add(modeSub);
 
-    this.loadOrganization(currentUser.organizationId);
-    this.loadEmployees(currentUser.organizationId);
-    this.loadApplications(currentUser.organizationId);
+    // 組織情報と社員情報を先に読み込んでから申請一覧を読み込む（修正16）
+    await this.loadOrganization(currentUser.organizationId);
+    await this.loadEmployees(currentUser.organizationId);
+    await this.loadApplications(currentUser.organizationId);
 
     // 検索フォームの変更を監視
     this.searchForm.valueChanges.subscribe(() => {
@@ -192,6 +196,9 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
       } else {
         this.applications = allApplications;
       }
+      
+      // 期限を計算してマップに保存（修正16）
+      await this.calculateDeadlines();
       
       this.applyFilters();
     } catch (error) {
@@ -391,11 +398,126 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
   /**
    * 日付をフォーマット
    */
-  formatDate(date: Date | undefined): string {
+  formatDate(date: Date | null | undefined): string {
     if (!date) {
       return '-';
     }
     return new Date(date).toLocaleDateString('ja-JP');
+  }
+
+  /**
+   * 申請の期限を計算してマップに保存（修正16）
+   */
+  private async calculateDeadlines(): Promise<void> {
+    console.log('[ApplicationList] calculateDeadlines 開始', {
+      applicationsCount: this.applications.length
+    });
+
+    this.applicationDeadlines.clear();
+    
+    if (!this.organization?.applicationFlowSettings?.applicationTypes) {
+      console.log('[ApplicationList] applicationTypes がないため終了');
+      return;
+    }
+
+    for (const application of this.applications) {
+      if (!application.id) continue;
+
+      console.log('[ApplicationList] 申請処理開始', {
+        applicationId: application.id,
+        applicationType: application.type,
+        category: application.category
+      });
+
+      const applicationType = this.organization.applicationFlowSettings.applicationTypes.find(
+        type => type.id === application.type
+      );
+
+      if (!applicationType) {
+        console.log('[ApplicationList] 申請種別が見つからない', {
+          applicationId: application.id,
+          applicationTypeId: application.type
+        });
+        // 申請種別が見つからない場合はapplication.deadlineを使用
+        const deadline = application.deadline 
+          ? (application.deadline instanceof Date ? application.deadline : (application.deadline as any).toDate())
+          : null;
+        console.log('[ApplicationList] application.deadline を使用', {
+          applicationId: application.id,
+          deadline: deadline ? deadline.toISOString() : null
+        });
+        this.applicationDeadlines.set(application.id, deadline);
+        continue;
+      }
+
+      if (application.category === 'external') {
+        console.log('[ApplicationList] 外部申請の法定期限を計算', {
+          applicationId: application.id,
+          applicationTypeCode: applicationType.code
+        });
+        // 外部申請：法定期限を計算して表示（法定期限がない場合のみapplication.deadlineを表示）
+        const legalDeadline = await this.deadlineCalculationService.calculateLegalDeadline(application, applicationType);
+        console.log('[ApplicationList] 法定期限計算結果', {
+          applicationId: application.id,
+          legalDeadline: legalDeadline ? legalDeadline.toISOString() : null,
+          legalDeadlineType: legalDeadline ? 'Date' : 'null',
+          isPast: legalDeadline ? legalDeadline < new Date() : null
+        });
+        if (legalDeadline) {
+          this.applicationDeadlines.set(application.id, legalDeadline);
+          console.log('[ApplicationList] 法定期限を設定', {
+            applicationId: application.id,
+            deadline: legalDeadline.toISOString()
+          });
+        } else {
+          // 法定期限がない場合のみapplication.deadlineを表示
+          const deadline = application.deadline 
+            ? (application.deadline instanceof Date ? application.deadline : (application.deadline as any).toDate())
+            : null;
+          console.log('[ApplicationList] 法定期限がないため application.deadline を使用', {
+            applicationId: application.id,
+            deadline: deadline ? deadline.toISOString() : null
+          });
+          this.applicationDeadlines.set(application.id, deadline);
+        }
+      } else {
+        // 内部申請：application.deadline（管理者設定期限）を表示
+        const deadline = application.deadline 
+          ? (application.deadline instanceof Date ? application.deadline : (application.deadline as any).toDate())
+          : null;
+        console.log('[ApplicationList] 内部申請の期限を設定', {
+          applicationId: application.id,
+          deadline: deadline ? deadline.toISOString() : null
+        });
+        this.applicationDeadlines.set(application.id, deadline);
+      }
+    }
+
+    console.log('[ApplicationList] calculateDeadlines 完了', {
+      applicationDeadlinesSize: this.applicationDeadlines.size,
+      applicationDeadlines: Array.from(this.applicationDeadlines.entries()).map(([id, date]) => ({
+        id,
+        deadline: date ? date.toISOString() : null
+      }))
+    });
+  }
+
+  /**
+   * 申請の期限を取得（修正16）
+   */
+  getApplicationDeadline(application: Application): Date | null {
+    if (!application.id) {
+      console.log('[ApplicationList] getApplicationDeadline: application.id がない');
+      return null;
+    }
+    const deadline = this.applicationDeadlines.get(application.id) || null;
+    console.log('[ApplicationList] getApplicationDeadline', {
+      applicationId: application.id,
+      deadline: deadline ? deadline.toISOString() : null,
+      deadlineType: deadline ? 'Date' : 'null',
+      isPast: deadline ? deadline < new Date() : null
+    });
+    return deadline;
   }
 }
 

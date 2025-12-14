@@ -151,12 +151,12 @@
           <div class="tab-content">
             <mat-list *ngIf="employee.insuranceInfo; else noInsuranceInfo">
               <mat-list-item>
-                <span matListItemTitle>健康保険被保険者番号</span>
+                <span matListItemTitle>被保険者整理番号（健康保険）</span>
                 <span matListItemLine>{{ employee.insuranceInfo.healthInsuranceNumber || '-' }}</span>
               </mat-list-item>
               <mat-divider></mat-divider>
               <mat-list-item>
-                <span matListItemTitle>厚生年金被保険者番号</span>
+                <span matListItemTitle>基礎年金番号</span>
                 <span matListItemLine>{{ employee.insuranceInfo.pensionNumber || '-' }}</span>
               </mat-list-item>
               <mat-divider></mat-divider>
@@ -351,6 +351,29 @@
             </div>
             <ng-template #noAddressInfo>
               <p class="no-data">住所情報が登録されていません</p>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+        <!-- ファイル添付タブ（修正17） -->
+        <mat-tab label="添付ファイル">
+          <div class="tab-content">
+            <div *ngIf="employee.attachments && employee.attachments.length > 0; else noAttachments">
+              <mat-list>
+                <mat-list-item *ngFor="let attachment of employee.attachments">
+                  <mat-icon matListItemIcon>description</mat-icon>
+                  <span matListItemTitle>{{ attachment.fileName }}</span>
+                  <span matListItemLine *ngIf="attachment.fileSize">{{ (attachment.fileSize / 1024).toFixed(2) }} KB</span>
+                  <span matListItemLine *ngIf="attachment.uploadedAt">{{ formatDate(attachment.uploadedAt) }}</span>
+                  <a mat-button [href]="attachment.fileUrl" target="_blank" matListItemMeta>
+                    <mat-icon>open_in_new</mat-icon>
+                    開く
+                  </a>
+                </mat-list-item>
+              </mat-list>
+            </div>
+            <ng-template #noAttachments>
+              <p class="no-data">添付ファイルがありません</p>
             </ng-template>
           </div>
         </mat-tab>

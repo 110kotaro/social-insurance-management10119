@@ -73,12 +73,7 @@ export class OrganizationService {
     if (organization.corporateNumber !== undefined) {
       orgData.corporateNumber = organization.corporateNumber;
     }
-    if (organization.officeSymbol !== undefined) {
-      orgData.officeSymbol = organization.officeSymbol;
-    }
-    if (organization.officeNumber !== undefined) {
-      orgData.officeNumber = organization.officeNumber;
-    }
+    // officeSymbol, officeNumberは削除（保険情報の健康保険・厚生年金に移動）
     if (organization.leaveInsuranceCollectionMethod !== undefined) {
       orgData.leaveInsuranceCollectionMethod = organization.leaveInsuranceCollectionMethod;
     }
@@ -117,8 +112,7 @@ export class OrganizationService {
 
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.corporateNumber !== undefined) updateData.corporateNumber = updates.corporateNumber;
-    if (updates.officeSymbol !== undefined) updateData.officeSymbol = updates.officeSymbol;
-    if (updates.officeNumber !== undefined) updateData.officeNumber = updates.officeNumber;
+    // officeSymbol, officeNumberは削除（保険情報の健康保険・厚生年金に移動）
     if (updates.leaveInsuranceCollectionMethod !== undefined) updateData.leaveInsuranceCollectionMethod = updates.leaveInsuranceCollectionMethod;
     if (updates.address !== undefined) {
       // addressオブジェクト内のundefinedフィールドを除外

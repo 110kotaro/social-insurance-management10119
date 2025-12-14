@@ -145,12 +145,12 @@
           <form [formGroup]="insuranceInfoForm">
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>健康保険被保険者番号</mat-label>
+                <mat-label>被保険者整理番号（健康保険）</mat-label>
                 <input matInput formControlName="healthInsuranceNumber">
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>厚生年金被保険者番号</mat-label>
+                <mat-label>基礎年金番号</mat-label>
                 <input matInput formControlName="pensionNumber">
               </mat-form-field>
             </div>
@@ -407,6 +407,13 @@
               </mat-form-field>
             </div>
 
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>住所（カナ）</mat-label>
+                <input matInput formControlName="kana" placeholder="例: トウキョウトシブヤク">
+              </mat-form-field>
+            </div>
+
             <div class="button-group">
               <button mat-button type="button" (click)="stepper.previous()">戻る</button>
               <button mat-button type="button" (click)="cancel()">キャンセル</button>
@@ -476,12 +483,66 @@
             <div class="button-group" style="margin-top: 24px;">
               <button mat-button type="button" (click)="stepper.previous()">戻る</button>
               <button mat-button type="button" (click)="cancel()">キャンセル</button>
-              <button mat-raised-button color="primary" (click)="onStep6Submit()" [disabled]="isLoading">
-                <mat-icon *ngIf="isLoading">hourglass_empty</mat-icon>
-                {{ isLoading ? '更新中...' : '更新' }}
+              <button mat-raised-button color="primary" (click)="stepper.next()">
+                次へ
               </button>
             </div>
           </form>
+        </mat-step>
+
+        <!-- ステップ7: ファイル添付（修正17） -->
+        <mat-step>
+          <ng-template matStepLabel>ファイル添付</ng-template>
+          <div class="step-content">
+            <!-- 既存ファイル -->
+            <div *ngIf="existingAttachments.length > 0" style="margin-bottom: 24px;">
+              <h3>既存のファイル</h3>
+              <mat-list>
+                <mat-list-item *ngFor="let attachment of existingAttachments; let i = index">
+                  <mat-icon matListItemIcon>description</mat-icon>
+                  <span matListItemTitle>{{ attachment.fileName }}</span>
+                  <span matListItemLine *ngIf="attachment.fileSize">{{ (attachment.fileSize / 1024).toFixed(2) }} KB</span>
+                  <button mat-icon-button (click)="removeExistingFile(i)" matListItemMeta [disabled]="deletedAttachmentIndices.includes(i)">
+                    <mat-icon>{{ deletedAttachmentIndices.includes(i) ? 'delete_outline' : 'delete' }}</mat-icon>
+                  </button>
+                </mat-list-item>
+              </mat-list>
+            </div>
+
+            <!-- 新規ファイルの追加 -->
+            <div class="file-upload-section">
+              <h3>新規ファイルを追加</h3>
+              <input type="file" #fileInput multiple (change)="onFileSelected($event)" style="display: none;">
+              <button mat-raised-button (click)="fileInput.click()">
+                <mat-icon>attach_file</mat-icon>
+                ファイルを選択
+              </button>
+            </div>
+
+            <div class="file-list" *ngIf="attachments.length > 0" style="margin-top: 16px;">
+              <mat-list>
+                <mat-list-item *ngFor="let file of attachments; let i = index">
+                  <mat-icon matListItemIcon>description</mat-icon>
+                  <span matListItemTitle>{{ file.name }}</span>
+                  <span matListItemLine>{{ (file.size / 1024).toFixed(2) }} KB</span>
+                  <button mat-icon-button (click)="removeFile(i)" matListItemMeta>
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </mat-list-item>
+              </mat-list>
+            </div>
+
+            <p *ngIf="existingAttachments.length === 0 && attachments.length === 0" class="no-files" style="margin-top: 16px;">添付ファイルはありません</p>
+          </div>
+
+          <div class="button-group" style="margin-top: 24px;">
+            <button mat-button type="button" (click)="stepper.previous()">戻る</button>
+            <button mat-button type="button" (click)="cancel()">キャンセル</button>
+            <button mat-raised-button color="primary" (click)="onStep6Submit()" [disabled]="isLoading">
+              <mat-icon *ngIf="isLoading">hourglass_empty</mat-icon>
+              {{ isLoading ? '更新中...' : '更新' }}
+            </button>
+          </div>
         </mat-step>
       </mat-stepper>
     </mat-card-content>

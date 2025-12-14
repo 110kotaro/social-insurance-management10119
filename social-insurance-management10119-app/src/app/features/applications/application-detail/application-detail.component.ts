@@ -279,7 +279,6 @@ export class ApplicationDetailComponent implements OnInit {
       const si = data['submitterInfo'];
       
       submitterItems.push({ label: '事業所記号', value: si.officeSymbol || '', isEmpty: !si.officeSymbol });
-      submitterItems.push({ label: '事業所番号', value: si.officeNumber || '', isEmpty: !si.officeNumber });
       
       // 住所に郵便番号を追加（フォームデータにpostalCodeがある場合）
       const postalCode = si.postalCode || '';
@@ -288,6 +287,7 @@ export class ApplicationDetailComponent implements OnInit {
       submitterItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       submitterItems.push({ label: '事業所名', value: si.officeName || si.name || '', isEmpty: !si.officeName && !si.name });
+      submitterItems.push({ label: '事業主氏名', value: si.ownerName || '', isEmpty: !si.ownerName }); // 事業主氏名（修正17）
       submitterItems.push({ label: '電話番号', value: si.phoneNumber || '', isEmpty: !si.phoneNumber });
 
       sections.push({
@@ -363,7 +363,6 @@ export class ApplicationDetailComponent implements OnInit {
       const submitterItems: FormattedItem[] = [];
       const si = data['submitterInfo'];
       submitterItems.push({ label: '事業所記号', value: si.officeSymbol || '', isEmpty: !si.officeSymbol });
-      submitterItems.push({ label: '事業所番号', value: si.officeNumber || '', isEmpty: !si.officeNumber });
       
       // 住所に郵便番号を追加（フォームデータにpostalCodeがある場合）
       const postalCode = si.postalCode || '';
@@ -372,6 +371,7 @@ export class ApplicationDetailComponent implements OnInit {
       submitterItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       submitterItems.push({ label: '事業所名', value: si.officeName || si.name || '', isEmpty: !si.officeName && !si.name });
+      submitterItems.push({ label: '事業主氏名', value: si.ownerName || '', isEmpty: !si.ownerName }); // 事業主氏名（修正17）
       submitterItems.push({ label: '電話番号', value: si.phoneNumber || '', isEmpty: !si.phoneNumber });
 
       sections.push({
@@ -601,7 +601,6 @@ export class ApplicationDetailComponent implements OnInit {
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（フォームデータにpostalCodeがある場合）
       const postalCode = bi.postalCode || '';
@@ -610,6 +609,7 @@ export class ApplicationDetailComponent implements OnInit {
       biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
+      biItems.push({ label: '事業主氏名', value: bi.ownerName || '', isEmpty: !bi.ownerName }); // 事業主氏名（修正17）
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });
 
       sections.push({
@@ -684,7 +684,6 @@ export class ApplicationDetailComponent implements OnInit {
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（フォームデータにpostalCodeがある場合）
       const postalCode = bi.postalCode || '';
@@ -693,6 +692,7 @@ export class ApplicationDetailComponent implements OnInit {
       biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
+      biItems.push({ label: '事業主氏名', value: bi.ownerName || '', isEmpty: !bi.ownerName }); // 事業主氏名（修正17）
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });
 
       sections.push({
@@ -744,7 +744,6 @@ export class ApplicationDetailComponent implements OnInit {
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（フォームデータにpostalCodeがある場合）
       const postalCode = bi.postalCode || '';
@@ -753,6 +752,7 @@ export class ApplicationDetailComponent implements OnInit {
       biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
+      biItems.push({ label: '事業主氏名', value: bi.ownerName || '', isEmpty: !bi.ownerName }); // 事業主氏名（修正17）
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });
 
       sections.push({
@@ -819,7 +819,6 @@ export class ApplicationDetailComponent implements OnInit {
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（フォームデータにpostalCodeがある場合）
       const postalCode = bi.postalCode || '';
@@ -828,6 +827,7 @@ export class ApplicationDetailComponent implements OnInit {
       biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
+      biItems.push({ label: '事業主氏名', value: bi.ownerName || '', isEmpty: !bi.ownerName }); // 事業主氏名（修正17）
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });
 
       sections.push({
@@ -888,7 +888,6 @@ export class ApplicationDetailComponent implements OnInit {
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（フォームデータにpostalCodeがある場合）
       const postalCode = bi.postalCode || '';
@@ -897,6 +896,7 @@ export class ApplicationDetailComponent implements OnInit {
       biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
       biItems.push({ label: '事業所名', value: bi.name || bi.officeName || '', isEmpty: !bi.name && !bi.officeName });
+      biItems.push({ label: '事業主氏名', value: bi.ownerName || '', isEmpty: !bi.ownerName }); // 事業主氏名（修正17）
       biItems.push({ label: '電話番号', value: bi.phoneNumber || '', isEmpty: !bi.phoneNumber });
 
       sections.push({
@@ -1755,7 +1755,37 @@ export class ApplicationDetailComponent implements OnInit {
       rows.push(',');
     });
     
+    // 出力年月日を追加
+    const now = new Date();
+    const outputDate = this.formatEraDateForCsv(now);
+    rows.push(`"出力年月日",${this.escapeCsvValue(outputDate)}`);
+    
     return rows.join('\n');
+  }
+
+  /**
+   * 日付を年号形式の文字列に変換（CSV出力用）
+   */
+  private formatEraDateForCsv(date: Date): string {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+
+    let era = '令和';
+    let eraYear = year - 2018;
+
+    if (year < 1926) {
+      era = '大正';
+      eraYear = year - 1911;
+    } else if (year < 1989) {
+      era = '昭和';
+      eraYear = year - 1925;
+    } else if (year < 2019) {
+      era = '平成';
+      eraYear = year - 1988;
+    }
+
+    return `${era}${eraYear}年${month}月${day}日`;
   }
 
   /**

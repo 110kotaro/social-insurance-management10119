@@ -69,14 +69,15 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
     this.organizationForm = this.fb.group({
       name: ['', [Validators.required]],
       corporateNumber: [''],
-      officeSymbol: [''],
-      officeNumber: [''],
-      postalCode: ['', [Validators.pattern(/^\d{3}-?\d{4}$/)]],
+      // officeSymbol: [''], // 削除：事業所整理記号は保険情報の健康保険に移動
+      // officeNumber: [''], // 削除：事業所番号は保険情報の健康保険・厚生年金に移動
+      postalCode: ['', [Validators.required, Validators.pattern(/^\d{3}-?\d{4}$/)]],
       prefecture: ['', [Validators.required]],
       city: ['', [Validators.required]],
       street: ['', [Validators.required]],
       building: [''],
       phoneNumber: [''],
+      ownerName: [''], // 事業主氏名（修正17）
       email: ['', [Validators.email]],
       industry: [''],
       payrollDate: [null, [Validators.min(1), Validators.max(31)]],
@@ -104,8 +105,8 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
     this.organizationForm.patchValue({
       name: this.organization.name || '',
       corporateNumber: this.organization.corporateNumber || '',
-      officeSymbol: this.organization.officeSymbol || '',
-      officeNumber: this.organization.officeNumber || '',
+      // officeSymbol: this.organization.officeSymbol || '', // 削除：事業所整理記号は保険情報の健康保険に移動
+      // officeNumber: this.organization.officeNumber || '', // 削除：事業所番号は保険情報の健康保険・厚生年金に移動
       postalCode: this.organization.address?.postalCode || '',
       prefecture: this.organization.address?.prefecture || '',
       city: this.organization.address?.city || '',
@@ -221,8 +222,8 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       const updates: Partial<Organization> = {
         name: formValue.name,
         corporateNumber: formValue.corporateNumber?.trim() || undefined,
-        officeSymbol: formValue.officeSymbol?.trim() || undefined,
-        officeNumber: formValue.officeNumber?.trim() || undefined,
+        // officeSymbol: formValue.officeSymbol?.trim() || undefined, // 削除：事業所整理記号は保険情報の健康保険に移動
+        // officeNumber: formValue.officeNumber?.trim() || undefined, // 削除：事業所番号は保険情報の健康保険・厚生年金に移動
         address: {
           postalCode: formValue.postalCode?.trim() || undefined,
           prefecture: formValue.prefecture,
@@ -231,6 +232,7 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
           building: formValue.building?.trim() || undefined
         },
         phoneNumber: formValue.phoneNumber?.trim() || undefined,
+        ownerName: formValue.ownerName?.trim() || undefined, // 事業主氏名（修正17）
         email: formValue.email?.trim() || undefined,
         industry: formValue.industry?.trim() || undefined,
         logoUrl: logoUrl,

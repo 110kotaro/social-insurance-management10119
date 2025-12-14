@@ -301,7 +301,36 @@ export class StandardRewardCalculationService {
     // 従前の等級を取得
     const previousGrade = employee.insuranceInfo?.grade || null;
     const gradeChange = previousGrade !== null ? Math.abs(gradeResult.grade - previousGrade) : 0;
-    const requiresApplication = gradeChange >= 2;
+    
+    // 申請対象判定（修正16）
+    let requiresApplication = false;
+    
+    // 基礎日数不足チェック：3か月すべてで17日以上を満たすか（既にチェック済みだが、エラーではなく申請対象外として扱う）
+    const allMonthsHaveEnoughBaseDays = validMonths.length === 3;
+    
+    if (allMonthsHaveEnoughBaseDays && gradeChange >= 2) {
+      // 等級変動が2等級以上の場合、さらに組み合わせチェック
+      requiresApplication = true;
+      
+      // 従前等級から従前の平均額を推定（等級表から標準報酬月額の規定値を使用）
+      if (previousGrade !== null) {
+        const previousRateTable = validRateTables.find(table => table.grade === previousGrade);
+        if (previousRateTable) {
+          // 従前等級の標準報酬月額の規定値を使用
+          const previousStandardReward = previousRateTable.standardRewardAmount;
+          
+          // 2等級上昇かつ平均額減少、または2等級下降かつ平均額上昇の場合は申請対象外
+          const isGradeUp = gradeResult.grade > previousGrade;
+          const isAverageDecrease = averageReward < previousStandardReward;
+          const isGradeDown = gradeResult.grade < previousGrade;
+          const isAverageIncrease = averageReward > previousStandardReward;
+          
+          if ((isGradeUp && isAverageDecrease) || (isGradeDown && isAverageIncrease)) {
+            requiresApplication = false;
+          }
+        }
+      }
+    }
 
     // 部署名を取得
     let departmentName: string | undefined;

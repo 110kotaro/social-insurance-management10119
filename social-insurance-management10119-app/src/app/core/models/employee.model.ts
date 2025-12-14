@@ -131,6 +131,21 @@ export interface Address {
   city?: string; // 市区町村
   street?: string; // 町名・番地
   building?: string; // 建物名・部屋番号
+  kana?: string; // 住所カナ（修正17）
+}
+
+/**
+ * ファイル添付情報（修正17）
+ */
+export interface FileAttachment {
+  id?: string; // ファイルID（UUID）
+  fileName: string; // ファイル名
+  fileUrl: string; // Cloud StorageのURL
+  fileSize?: number; // ファイルサイズ（バイト）
+  mimeType?: string; // MIMEタイプ
+  uploadedAt: Date | Timestamp; // アップロード日時
+  uploadedBy: string; // アップロードしたユーザーID
+  description?: string; // 説明（任意）
 }
 
 export interface Employee {
@@ -160,6 +175,7 @@ export interface Employee {
   changeHistory?: EmployeeChangeHistory[]; // 変更履歴
   salaryData?: SalaryData[]; // 給与データの配列
   bonusData?: BonusData[]; // 賞与データの配列
+  attachments?: FileAttachment[]; // ファイル添付（修正17）
   organizationId: string; // 組織ID
   role?: 'admin' | 'employee'; // 権限（デフォルト: 'employee'）
   invitationEmailSent?: boolean; // 認証メール送信済みかどうか

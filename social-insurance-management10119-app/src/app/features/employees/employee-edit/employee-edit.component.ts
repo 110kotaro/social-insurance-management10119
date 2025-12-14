@@ -13,11 +13,12 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatListModule } from '@angular/material/list';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { InsuranceRateTableService } from '../../../core/services/insurance-rate-table.service';
-import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address, LeaveInfo } from '../../../core/models/employee.model';
+import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address, LeaveInfo, EmployeeChangeHistory, FileAttachment } from '../../../core/models/employee.model';
 import { Department } from '../../../core/models/department.model';
 import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.model';
 
@@ -37,7 +38,8 @@ import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.mo
     MatNativeDateModule,
     MatCheckboxModule,
     MatCardModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatListModule
   ],
   templateUrl: './employee-edit.component.html',
   styleUrl: './employee-edit.component.css'
@@ -81,6 +83,11 @@ export class EmployeeEditComponent implements OnInit {
   employee: Employee | null = null;
   isLoading = false;
   isDataLoading = true;
+  
+  // ファイル添付（修正17）
+  attachments: File[] = [];
+  existingAttachments: FileAttachment[] = [];
+  deletedAttachmentIndices: number[] = [];
 
   constructor() {
     // ステップ1: 基本情報
@@ -129,7 +136,8 @@ export class EmployeeEditComponent implements OnInit {
       prefecture: ['', [Validators.required]],
       city: ['', [Validators.required]],
       street: ['', [Validators.required]],
-      building: [''] // 建物名・部屋番号は任意
+      building: [''], // 建物名・部屋番号は任意
+      kana: [''] // 住所カナ（修正17）
     });
 
     // ステップ6: 休職情報
@@ -394,6 +402,10 @@ export class EmployeeEditComponent implements OnInit {
         return;
       }
 
+      // 既存のファイル添付を読み込む（修正17）
+      this.existingAttachments = this.employee.attachments || [];
+      this.deletedAttachmentIndices = [];
+
       // フォームに既存データを設定
       this.populateForms();
       this.isDataLoading = false;
@@ -459,6 +471,14 @@ export class EmployeeEditComponent implements OnInit {
       });
     }
 
+    // 入社日変更時に保険適用開始日を自動設定（修正17）
+    this.basicInfoForm.get('joinDate')?.valueChanges.subscribe(joinDate => {
+      if (joinDate && !this.insuranceInfoForm.get('insuranceStartDate')?.value) {
+        // 保険適用開始日が未設定の場合のみ自動設定
+        this.insuranceInfoForm.patchValue({ insuranceStartDate: joinDate }, { emitEvent: false });
+      }
+    });
+
     // 扶養情報
     if (this.employee.dependentInfo && this.employee.dependentInfo.length > 0) {
       this.dependentsFormArray.clear();
@@ -510,7 +530,8 @@ export class EmployeeEditComponent implements OnInit {
         prefecture: this.employee.address.official.prefecture || '',
         city: this.employee.address.official.city || '',
         street: this.employee.address.official.street || '',
-        building: this.employee.address.official.building || ''
+        building: this.employee.address.official.building || '',
+        kana: this.employee.address.official.kana || '' // 住所カナ（修正17）
       });
     }
 
@@ -723,7 +744,8 @@ export class EmployeeEditComponent implements OnInit {
           prefecture: this.addressForm.value.prefecture,
           city: this.addressForm.value.city,
           street: this.addressForm.value.street,
-          ...(this.addressForm.value.building && { building: this.addressForm.value.building })
+          ...(this.addressForm.value.building && { building: this.addressForm.value.building }),
+          ...(this.addressForm.value.kana && { kana: this.addressForm.value.kana }) // 住所カナ（修正17）
         }
       };
 
@@ -757,6 +779,143 @@ export class EmployeeEditComponent implements OnInit {
         address,
         leaveInfo
       };
+
+      // 変更履歴を記録（修正17）
+      const changes: EmployeeChangeHistory['changes'] = [];
+      const currentUser = this.authService.getCurrentUser();
+      const changedBy = currentUser?.uid || '';
+
+      if (this.employee) {
+        // 基本情報の変更をチェック
+        if (this.employee.firstName !== employeeData.firstName) {
+          changes.push({ field: 'firstName', before: this.employee.firstName, after: employeeData.firstName });
+        }
+        if (this.employee.lastName !== employeeData.lastName) {
+          changes.push({ field: 'lastName', before: this.employee.lastName, after: employeeData.lastName });
+        }
+        if (this.employee.firstNameKana !== employeeData.firstNameKana) {
+          changes.push({ field: 'firstNameKana', before: this.employee.firstNameKana, after: employeeData.firstNameKana });
+        }
+        if (this.employee.lastNameKana !== employeeData.lastNameKana) {
+          changes.push({ field: 'lastNameKana', before: this.employee.lastNameKana, after: employeeData.lastNameKana });
+        }
+        if (this.employee.email !== employeeData.email) {
+          changes.push({ field: 'email', before: this.employee.email, after: employeeData.email });
+        }
+        if (this.employee.departmentId !== employeeData.departmentId) {
+          changes.push({ field: 'departmentId', before: this.employee.departmentId, after: employeeData.departmentId });
+        }
+        if (this.employee.status !== employeeData.status) {
+          changes.push({ field: 'status', before: this.employee.status, after: employeeData.status });
+        }
+        if (this.employee.role !== employeeData.role) {
+          changes.push({ field: 'role', before: this.employee.role, after: employeeData.role });
+        }
+
+        // 日付の変更をチェック（TimestampとDateの比較）
+        const previousJoinDate = this.employee.joinDate instanceof Date 
+          ? this.employee.joinDate 
+          : (this.employee.joinDate ? new Date((this.employee.joinDate as any).seconds * 1000) : null);
+        const newJoinDate = employeeData.joinDate instanceof Date 
+          ? employeeData.joinDate 
+          : (employeeData.joinDate ? new Date((employeeData.joinDate as any).seconds * 1000) : null);
+        if (previousJoinDate?.getTime() !== newJoinDate?.getTime()) {
+          changes.push({ field: 'joinDate', before: previousJoinDate, after: newJoinDate });
+        }
+
+        const previousBirthDate = this.employee.birthDate instanceof Date 
+          ? this.employee.birthDate 
+          : (this.employee.birthDate ? new Date((this.employee.birthDate as any).seconds * 1000) : null);
+        const newBirthDate = employeeData.birthDate instanceof Date 
+          ? employeeData.birthDate 
+          : (employeeData.birthDate ? new Date((employeeData.birthDate as any).seconds * 1000) : null);
+        if (previousBirthDate?.getTime() !== newBirthDate?.getTime()) {
+          changes.push({ field: 'birthDate', before: previousBirthDate, after: newBirthDate });
+        }
+
+        // 保険情報の変更をチェック
+        if (JSON.stringify(this.employee.insuranceInfo || {}) !== JSON.stringify(insuranceInfo || {})) {
+          changes.push({ field: 'insuranceInfo', before: this.employee.insuranceInfo, after: insuranceInfo });
+        }
+
+        // 住所情報の変更をチェック
+        if (JSON.stringify(this.employee.address?.official || {}) !== JSON.stringify(address?.official || {})) {
+          changes.push({ field: 'address.official', before: this.employee.address?.official, after: address?.official });
+        }
+
+        // 扶養情報の変更をチェック
+        if (JSON.stringify(this.employee.dependentInfo || []) !== JSON.stringify(dependentInfo || [])) {
+          changes.push({ field: 'dependentInfo', before: this.employee.dependentInfo, after: dependentInfo });
+        }
+
+        // 他社勤務情報の変更をチェック
+        if (JSON.stringify(this.employee.otherCompanyInfo || []) !== JSON.stringify(otherCompanyInfo || [])) {
+          changes.push({ field: 'otherCompanyInfo', before: this.employee.otherCompanyInfo, after: otherCompanyInfo });
+        }
+
+        // 休職情報の変更をチェック
+        if (JSON.stringify(this.employee.leaveInfo || []) !== JSON.stringify(leaveInfo || [])) {
+          changes.push({ field: 'leaveInfo', before: this.employee.leaveInfo, after: leaveInfo });
+        }
+
+        // 変更があった場合のみ変更履歴を追加
+        if (changes.length > 0) {
+          const changeHistory: EmployeeChangeHistory = {
+            applicationId: 'manual_edit', // 手動編集の場合は特別なID
+            applicationName: '手動編集',
+            changedAt: new Date(),
+            changedBy: changedBy,
+            changes: changes
+          };
+
+          const updatedChangeHistory = [...(this.employee.changeHistory || []), changeHistory];
+          employeeData.changeHistory = updatedChangeHistory;
+        }
+      }
+
+      // ファイル添付を処理（修正17）
+      const uploadedAttachments: FileAttachment[] = [];
+      
+      // 既存ファイルから削除されていないものを追加
+      if (this.existingAttachments.length > 0) {
+        for (let i = 0; i < this.existingAttachments.length; i++) {
+          if (!this.deletedAttachmentIndices.includes(i)) {
+            uploadedAttachments.push(this.existingAttachments[i]);
+          } else {
+            // 削除されたファイルをStorageから削除
+            if (this.existingAttachments[i].fileUrl) {
+              await this.employeeService.deleteEmployeeFile(this.existingAttachments[i].fileUrl);
+            }
+          }
+        }
+      }
+      
+      // 新規ファイルをアップロード
+      if (this.attachments.length > 0 && this.organizationId && this.employeeId) {
+        const currentUser = this.authService.getCurrentUser();
+        const uploadedBy = currentUser?.uid || '';
+        
+        for (const file of this.attachments) {
+          const fileUrl = await this.employeeService.uploadEmployeeFile(file, this.organizationId, this.employeeId);
+          uploadedAttachments.push({
+            id: crypto.randomUUID(),
+            fileName: file.name,
+            fileUrl: fileUrl,
+            fileSize: file.size,
+            mimeType: file.type,
+            uploadedAt: new Date(),
+            uploadedBy: uploadedBy
+          });
+        }
+      }
+
+      // ファイル添付をemployeeDataに追加
+      if (uploadedAttachments.length > 0) {
+        employeeData.attachments = uploadedAttachments;
+      } else if (this.existingAttachments.length > 0 && this.deletedAttachmentIndices.length === this.existingAttachments.length) {
+        // すべてのファイルが削除された場合
+        employeeData.attachments = [];
+      }
 
       await this.employeeService.updateEmployee(this.employeeId, employeeData);
 
@@ -793,6 +952,32 @@ export class EmployeeEditComponent implements OnInit {
       formValue.standardReward ||
       formValue.insuranceStartDate
     );
+  }
+
+  /**
+   * ファイル選択（修正17）
+   */
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files) {
+      this.attachments = Array.from(input.files);
+    }
+  }
+
+  /**
+   * ファイルを削除（修正17）
+   */
+  removeFile(index: number): void {
+    this.attachments.splice(index, 1);
+  }
+
+  /**
+   * 既存ファイルを削除（修正17）
+   */
+  removeExistingFile(index: number): void {
+    if (!this.deletedAttachmentIndices.includes(index)) {
+      this.deletedAttachmentIndices.push(index);
+    }
   }
 
   /**

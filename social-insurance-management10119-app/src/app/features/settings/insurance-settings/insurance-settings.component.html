@@ -36,6 +36,7 @@
         </mat-select>
       </mat-form-field>
     </div>
+    <p class="filter-hint">終了月未設定の等級表は現在年＋2年まで表示されます</p>
 
     <div class="table-container" *ngIf="isFilterActive(); else filterPlaceholder">
       <table mat-table [dataSource]="dataSource" class="insurance-rate-table">

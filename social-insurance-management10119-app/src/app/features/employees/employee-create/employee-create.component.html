@@ -145,12 +145,12 @@
           <form [formGroup]="insuranceInfoForm">
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>健康保険被保険者番号</mat-label>
+                <mat-label>被保険者整理番号（健康保険）</mat-label>
                 <input matInput formControlName="healthInsuranceNumber">
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>厚生年金被保険者番号</mat-label>
+                <mat-label>基礎年金番号</mat-label>
                 <input matInput formControlName="pensionNumber">
               </mat-form-field>
             </div>
@@ -385,6 +385,13 @@
               <mat-form-field appearance="outline" class="form-field">
                 <mat-label>建物名・部屋番号</mat-label>
                 <input matInput formControlName="building">
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="form-field">
+                <mat-label>住所（カナ）</mat-label>
+                <input matInput formControlName="kana" placeholder="例: トウキョウトシブヤク">
               </mat-form-field>
             </div>
 

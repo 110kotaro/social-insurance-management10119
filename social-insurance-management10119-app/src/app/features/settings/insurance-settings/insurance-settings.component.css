@@ -17,11 +17,18 @@ mat-card-title {
 }
 
 .filter-section {
-  margin-bottom: 24px;
+  margin-bottom: 8px;
 }
 
 .filter-section mat-form-field {
   width: 200px;
+}
+
+.filter-hint {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
 }
 
 .table-container {

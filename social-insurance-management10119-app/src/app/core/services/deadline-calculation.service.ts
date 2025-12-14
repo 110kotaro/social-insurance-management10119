@@ -28,8 +28,15 @@ export class DeadlineCalculationService {
     application: Application,
     applicationType: ApplicationType
   ): Promise<Date | null> {
+    console.log('[DeadlineCalculationService] calculateLegalDeadline 開始', {
+      applicationId: application.id,
+      applicationTypeCode: applicationType.code,
+      category: applicationType.category
+    });
+
     if (applicationType.category === 'internal') {
       // 内部申請は法定期限なし（管理者設定期限のみ）
+      console.log('[DeadlineCalculationService] 内部申請のため null を返す');
       return null;
     }
 
@@ -39,11 +46,18 @@ export class DeadlineCalculationService {
     switch (code) {
       case 'INSURANCE_ACQUISITION':
         // 資格取得届：資格取得年月日から5日以内（入社日から5日目）
-        return this.calculateInsuranceAcquisitionDeadline(application);
+        const result = await this.calculateInsuranceAcquisitionDeadline(application);
+        console.log('[DeadlineCalculationService] calculateLegalDeadline 結果 (INSURANCE_ACQUISITION)', {
+          applicationId: application.id,
+          result: result,
+          resultType: result ? 'Date' : 'null',
+          resultValue: result ? result.toISOString() : null
+        });
+        return result;
       
       case 'INSURANCE_LOSS':
         // 資格喪失届：資格喪失年月日から5日以内（退社日の翌日から5日目）
-        return this.calculateInsuranceLossDeadline(application);
+        return await this.calculateInsuranceLossDeadline(application);
       
       case 'DEPENDENT_CHANGE_EXTERNAL':
         // 被扶養者（異動）届：事実発生から5日以内
@@ -59,7 +73,7 @@ export class DeadlineCalculationService {
       
       case 'BONUS_PAYMENT':
         // 賞与支払届：賞与支払い日より5日以内
-        return this.calculateBonusPaymentDeadline(application);
+        return await this.calculateBonusPaymentDeadline(application);
       
       case 'ADDRESS_CHANGE_EXTERNAL':
       case 'NAME_CHANGE_EXTERNAL':
@@ -77,8 +91,20 @@ export class DeadlineCalculationService {
    * 資格取得年月日から5日以内（入社日から5日目）
    */
   private async calculateInsuranceAcquisitionDeadline(application: Application): Promise<Date | null> {
+    console.log('[DeadlineCalculationService] calculateInsuranceAcquisitionDeadline 開始', {
+      applicationId: application.id,
+      employeeId: application.employeeId
+    });
+
     const employee = await this.employeeService.getEmployee(application.employeeId);
+    console.log('[DeadlineCalculationService] 社員情報取得', {
+      employeeId: application.employeeId,
+      employee: employee ? '存在' : 'null',
+      joinDate: employee?.joinDate
+    });
+
     if (!employee?.joinDate) {
+      console.log('[DeadlineCalculationService] joinDate がないため null を返す');
       return null;
     }
 
@@ -86,10 +112,26 @@ export class DeadlineCalculationService {
       ? employee.joinDate 
       : new Date((employee.joinDate as any).seconds * 1000);
     
+    console.log('[DeadlineCalculationService] joinDate 変換後', {
+      joinDate: joinDate.toISOString(),
+      joinDateType: employee.joinDate instanceof Date ? 'Date' : 'Timestamp'
+    });
+
     const deadline = new Date(joinDate);
     deadline.setDate(deadline.getDate() + 5);
     
-    return this.adjustForBusinessDay(deadline);
+    console.log('[DeadlineCalculationService] 期限計算（+5日後）', {
+      deadline: deadline.toISOString(),
+      isPast: deadline < new Date()
+    });
+
+    const adjustedDeadline = this.adjustForBusinessDay(deadline);
+    console.log('[DeadlineCalculationService] 営業日調整後', {
+      adjustedDeadline: adjustedDeadline.toISOString(),
+      isPast: adjustedDeadline < new Date()
+    });
+
+    return adjustedDeadline;
   }
 
   /**

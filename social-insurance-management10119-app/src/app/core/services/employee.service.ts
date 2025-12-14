@@ -1,5 +1,6 @@
 import { Injectable, inject, Injector } from '@angular/core';
 import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc, Timestamp } from '@angular/fire/firestore';
+import { Storage, ref, uploadBytes, getDownloadURL, deleteObject } from '@angular/fire/storage';
 import { Employee } from '../models/employee.model';
 import { Application } from '../models/application.model';
 import { environment } from '../../../environments/environment';
@@ -13,6 +14,7 @@ import { ApplicationService } from './application.service';
 })
 export class EmployeeService {
   private firestore = inject(Firestore);
+  private storage = inject(Storage);
   private organizationService = inject(OrganizationService);
   private injector = inject(Injector);
 
@@ -501,8 +503,35 @@ export class EmployeeService {
       invitationEmailSent: data['invitationEmailSent'],
       emailVerified: data['emailVerified'],
       createdAt: this.convertToDate(data['createdAt']) || new Date(),
-      updatedAt: this.convertToDate(data['updatedAt']) || new Date()
+      updatedAt: this.convertToDate(data['updatedAt']) || new Date(),
+      attachments: data['attachments'] // ファイル添付（修正17）
     };
+  }
+
+  /**
+   * 社員にファイルをアップロード（修正17）
+   */
+  async uploadEmployeeFile(file: File, organizationId: string, employeeId: string): Promise<string> {
+    const filePath = `social-insurance/organizations/${organizationId}/employees/${employeeId}/${file.name}`;
+    const fileRef = ref(this.storage, filePath);
+    
+    await uploadBytes(fileRef, file);
+    const downloadURL = await getDownloadURL(fileRef);
+    
+    return downloadURL;
+  }
+
+  /**
+   * 社員のファイルを削除（修正17）
+   */
+  async deleteEmployeeFile(fileUrl: string): Promise<void> {
+    try {
+      const fileRef = ref(this.storage, fileUrl);
+      await deleteObject(fileRef);
+    } catch (error) {
+      console.error('ファイル削除エラー:', error);
+      // ファイルが存在しない場合はエラーを無視
+    }
   }
 }
 

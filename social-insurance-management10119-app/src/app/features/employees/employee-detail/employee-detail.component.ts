@@ -15,7 +15,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address, EmployeeChangeHistory, LeaveInfo } from '../../../core/models/employee.model';
+import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address, EmployeeChangeHistory, LeaveInfo, FileAttachment } from '../../../core/models/employee.model';
 import { Department } from '../../../core/models/department.model';
 
 @Component({

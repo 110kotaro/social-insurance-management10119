@@ -44,18 +44,18 @@ export class InsuranceInfoSettingsComponent implements OnInit, OnChanges {
     this.insuranceForm = this.fb.group({
       // 健康保険
       healthInsuranceType: ['kyokai'], // 協会けんぽ固定
-      healthInsuranceOfficeNumber: ['', Validators.required],
-      healthInsuranceRoundingMethod: ['', Validators.required],
+      healthInsuranceOfficeSymbol: ['', Validators.required], // 事業所整理記号（必須）
+      // healthInsuranceRoundingMethod: [''], // 端数処理方式（削除：計算ロジックで実装済み）
       healthInsuranceCardFormat: ['none'],
       // 厚生年金
       pensionInsuranceOfficeNumber: ['', Validators.required],
-      pensionInsuranceRoundingMethod: ['', Validators.required],
+      // pensionInsuranceRoundingMethod: [''], // 端数処理方式（削除：計算ロジックで実装済み）
       pensionInsuranceBusinessCategory: ['', Validators.required],
       // 介護保険
-      careInsuranceTargetOffice: [null, Validators.required],
-      // 雇用保険
-      employmentInsuranceOfficeNumber: ['', Validators.required],
-      employmentInsuranceLaborNumber: ['', Validators.required]
+      careInsuranceTargetOffice: [null, Validators.required]
+      // 雇用保険（コメントアウト：不要）
+      // employmentInsuranceOfficeNumber: ['', Validators.required],
+      // employmentInsuranceLaborNumber: ['', Validators.required]
     });
   }
 
@@ -75,15 +75,14 @@ export class InsuranceInfoSettingsComponent implements OnInit, OnChanges {
     const ins = this.organization.insuranceSettings;
     this.insuranceForm.patchValue({
       healthInsuranceType: ins.healthInsurance?.type || 'kyokai',
-      healthInsuranceOfficeNumber: ins.healthInsurance?.officeNumber || '',
-      healthInsuranceRoundingMethod: ins.healthInsurance?.roundingMethod || '',
+      healthInsuranceOfficeSymbol: ins.healthInsurance?.officeSymbol || '',
       healthInsuranceCardFormat: ins.healthInsurance?.cardFormat || 'none',
       pensionInsuranceOfficeNumber: ins.pensionInsurance?.officeNumber || '',
-      pensionInsuranceRoundingMethod: ins.pensionInsurance?.roundingMethod || '',
       pensionInsuranceBusinessCategory: ins.pensionInsurance?.businessCategory || '',
-      careInsuranceTargetOffice: ins.careInsurance?.targetOffice !== undefined ? ins.careInsurance.targetOffice : null,
-      employmentInsuranceOfficeNumber: ins.employmentInsurance?.officeNumber || '',
-      employmentInsuranceLaborNumber: ins.employmentInsurance?.laborInsuranceNumber || ''
+      careInsuranceTargetOffice: ins.careInsurance?.targetOffice !== undefined ? ins.careInsurance.targetOffice : null
+      // employmentInsurance: コメントアウト（削除）
+      // employmentInsuranceOfficeNumber: ins.employmentInsurance?.officeNumber || '',
+      // employmentInsuranceLaborNumber: ins.employmentInsurance?.laborInsuranceNumber || ''
     });
   }
 
@@ -109,22 +108,22 @@ export class InsuranceInfoSettingsComponent implements OnInit, OnChanges {
       const insuranceSettings: any = {
         healthInsurance: {
           type: formValue.healthInsuranceType || 'kyokai',
-          officeNumber: formValue.healthInsuranceOfficeNumber?.trim() || undefined,
-          roundingMethod: formValue.healthInsuranceRoundingMethod?.trim() || undefined,
+          officeSymbol: formValue.healthInsuranceOfficeSymbol?.trim() || undefined, // 事業所整理記号（必須）
+          // roundingMethod: formValue.healthInsuranceRoundingMethod?.trim() || undefined, // 削除：端数処理方式は不要
           cardFormat: formValue.healthInsuranceCardFormat || 'none'
         },
         pensionInsurance: {
           officeNumber: formValue.pensionInsuranceOfficeNumber?.trim() || undefined,
-          roundingMethod: formValue.pensionInsuranceRoundingMethod?.trim() || undefined,
+          // roundingMethod: formValue.pensionInsuranceRoundingMethod?.trim() || undefined, // 削除：端数処理方式は不要
           businessCategory: formValue.pensionInsuranceBusinessCategory?.trim() || undefined
         },
         careInsurance: {
           targetOffice: formValue.careInsuranceTargetOffice !== null ? formValue.careInsuranceTargetOffice : false
-        },
-        employmentInsurance: {
-          officeNumber: formValue.employmentInsuranceOfficeNumber?.trim() || undefined,
-          laborInsuranceNumber: formValue.employmentInsuranceLaborNumber?.trim() || undefined
         }
+        // employmentInsurance: { // 削除：雇用保険情報は不要
+        //   officeNumber: formValue.employmentInsuranceOfficeNumber?.trim() || undefined,
+        //   laborInsuranceNumber: formValue.employmentInsuranceLaborNumber?.trim() || undefined
+        // }
       };
 
       await this.organizationService.updateOrganization(this.organization.id, {

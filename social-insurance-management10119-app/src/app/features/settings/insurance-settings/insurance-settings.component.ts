@@ -119,10 +119,29 @@ export class InsuranceSettingsComponent implements OnInit {
       });
 
       const years = new Set<number>();
+      const currentYear = new Date().getFullYear();
+      const futureYears = 2; // 将来2年まで表示
+      
       this.rateTables.forEach(table => {
         const effectiveFrom = this.convertToDate(table.effectiveFrom);
+        const effectiveTo = this.convertToDate(table.effectiveTo);
+        
         if (effectiveFrom) {
-          years.add(effectiveFrom.getFullYear());
+          const startYear = effectiveFrom.getFullYear();
+          let endYear: number;
+          
+          if (effectiveTo) {
+            // 終了日が設定されている場合
+            endYear = effectiveTo.getFullYear();
+          } else {
+            // 終了日未設定の場合、現在年+将来の年まで
+            endYear = currentYear + futureYears;
+          }
+          
+          // 開始年から終了年まですべての年を追加
+          for (let year = startYear; year <= endYear; year++) {
+            years.add(year);
+          }
         }
       });
       this.effectiveYears = Array.from(years).sort((a, b) => b - a);

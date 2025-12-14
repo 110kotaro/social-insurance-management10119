@@ -24,6 +24,7 @@ import { OrganizationService } from '../../../core/services/organization.service
 import { EmployeeService } from '../../../core/services/employee.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ModeService } from '../../../core/services/mode.service';
+import { DeadlineCalculationService } from '../../../core/services/deadline-calculation.service';
 import { Application, ApplicationStatus, ApplicationCategory, Attachment } from '../../../core/models/application.model';
 import { Organization } from '../../../core/models/organization.model';
 import { ApplicationType } from '../../../core/models/application-flow.model';
@@ -69,6 +70,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private employeeService = inject(EmployeeService);
   private authService = inject(AuthService);
   private modeService = inject(ModeService);
+  private deadlineCalculationService = inject(DeadlineCalculationService);
   private snackBar = inject(MatSnackBar);
 
   // 編集対象の申請
@@ -357,8 +359,10 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     // 既存の申請データを読み込む
     await this.loadApplicationForEdit(this.editingApplicationId);
     
+    // 社員一覧を先に読み込む（populateFormWithExistingDataでemployeeIdを逆引きするため）
+    await this.loadEmployees();
+    
     this.loadOrganization();
-    this.loadEmployees();
   }
 
   ngAfterViewInit(): void {
@@ -473,7 +477,13 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         data['insuredPersons'].forEach((person: any) => {
           // すべての要素を追加してからpatchValue
           this.addInsuredPerson();
-          insuredPersonsArray.at(insuredPersonsArray.length - 1)?.patchValue(person);
+          const personGroup = insuredPersonsArray.at(insuredPersonsArray.length - 1) as FormGroup;
+          // employeeIdを設定（既存データから逆引き）
+          const employeeId = this.findEmployeeIdByPersonData(person);
+          if (employeeId) {
+            personGroup.patchValue({ employeeId: employeeId });
+          }
+          personGroup.patchValue(person);
         });
       }
       // その他のフィールドを設定
@@ -488,7 +498,13 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         data['insuredPersons'].forEach((person: any) => {
           // すべての要素を追加してからpatchValue
           this.addInsuredPersonForLoss();
-          insuredPersonsArray.at(insuredPersonsArray.length - 1)?.patchValue(person);
+          const personGroup = insuredPersonsArray.at(insuredPersonsArray.length - 1) as FormGroup;
+          // employeeIdを設定（既存データから逆引き）
+          const employeeId = this.findEmployeeIdByPersonData(person);
+          if (employeeId) {
+            personGroup.patchValue({ employeeId: employeeId });
+          }
+          personGroup.patchValue(person);
         });
       }
       const dataWithoutArray = { ...data };
@@ -507,6 +523,33 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const dataWithoutArray = { ...data };
       delete dataWithoutArray['otherDependents'];
       this.dependentChangeForm.patchValue(dataWithoutArray);
+      
+      // 被保険者情報のemployeeIdを設定（既存データから逆引き）
+      if (data['insuredPerson']) {
+        const insuredPersonGroup = this.dependentChangeForm.get('insuredPerson') as FormGroup;
+        if (insuredPersonGroup) {
+          const employeeId = this.findEmployeeIdByPersonData(data['insuredPerson']);
+          if (employeeId) {
+            insuredPersonGroup.patchValue({ employeeId: employeeId });
+          }
+        }
+      }
+      
+      // 提出日を設定（Application.submissionDateから年号形式に変換）
+      if (this.editingApplication?.submissionDate) {
+        const submissionDate = this.editingApplication.submissionDate instanceof Date 
+          ? this.editingApplication.submissionDate 
+          : (this.editingApplication.submissionDate instanceof Timestamp 
+            ? this.editingApplication.submissionDate.toDate() 
+            : null);
+        if (submissionDate) {
+          const submissionDateInfo = this.convertToEraDate(submissionDate);
+          const submissionDateGroup = this.dependentChangeForm.get('submissionDate') as FormGroup;
+          if (submissionDateGroup) {
+            submissionDateGroup.patchValue(submissionDateInfo);
+          }
+        }
+      }
       
       // 関連する内部申請が承認済みの場合、承認日を事業主等受付年月日に自動転記
       if (this.editingApplication?.relatedInternalApplicationIds && this.editingApplication.relatedInternalApplicationIds.length > 0) {
@@ -764,27 +807,36 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   /**
+   * 郵便番号を含む住所を組み立てる
+   */
+  private buildAddressWithPostalCode(): string {
+    if (!this.organization?.address) {
+      return '';
+    }
+    const address = `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`;
+    const postalCode = this.organization.address.postalCode;
+    return postalCode ? `〒${postalCode} ${address}` : address;
+  }
+
+  /**
    * 被保険者資格取得届フォームを初期化
    */
   private initializeInsuranceAcquisitionForm(): void {
     const today = new Date();
     
     // 提出者情報を組織情報から取得
-    const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
-                                  this.organization?.officeNumber || '';
-    const submitterAddress = this.organization?.address 
-      ? `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`
-      : '';
+    const submitterOfficeNumber = this.organization?.insuranceSettings?.pensionInsurance?.officeNumber || '';
+    const submitterAddress = this.buildAddressWithPostalCode();
     const submitterName = this.organization?.name || '';
     const submitterPhone = this.organization?.phoneNumber || '';
 
     this.insuranceAcquisitionForm = this.fb.group({
       submitterInfo: this.fb.group({
-        officeSymbol: [''], // 事業所整理記号（組織情報にない場合は空）
-        officeNumber: [submitterOfficeNumber, [Validators.required]],
+        officeSymbol: [this.organization?.insuranceSettings?.healthInsurance?.officeSymbol || '', [Validators.required]], // 事業所整理記号（組織設定から自動設定）
+        officeNumber: [submitterOfficeNumber, [Validators.required]], // 事業所番号（必須）
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
-        ownerName: [''], // 事業主氏名（組織情報にない場合は空）
+        ownerName: [this.organization?.ownerName || ''], // 事業主氏名（修正17）
         phoneNumber: [submitterPhone] // 電話番号（任意）
       }),
       insuredPersons: this.fb.array([])
@@ -811,6 +863,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     });
 
     const insuredPersonGroup = this.fb.group({
+      employeeId: [null], // 社員ID（編集時は固定）
       insuranceNumber: [''], // 被保険者整理番号
       lastName: ['', [Validators.required]], // 氏
       firstName: ['', [Validators.required]], // 名
@@ -924,6 +977,11 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       return;
     }
 
+    // 社員IDを保存
+    personGroup.patchValue({
+      employeeId: employeeId
+    });
+
     // 氏名を直接設定
     personGroup.patchValue({
       lastName: employee.lastName,
@@ -954,11 +1012,18 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         identificationType: 'personal_number',
         personalNumber: employee.insuranceInfo.myNumber
       });
-    } else if (employee.insuranceInfo?.pensionNumber) {
+    }
+    // 基礎年金番号はマイナンバーがあっても設定する（申請フォームで選択可能なため）
+    if (employee.insuranceInfo?.pensionNumber) {
       personGroup.patchValue({
-        identificationType: 'basic_pension_number',
         basicPensionNumber: employee.insuranceInfo.pensionNumber
       });
+      // マイナンバーがない場合は基礎年金番号を選択状態にする
+      if (!employee.insuranceInfo?.myNumber) {
+        personGroup.patchValue({
+          identificationType: 'basic_pension_number'
+        });
+      }
     }
 
     // 住所（officialのみ使用）
@@ -970,7 +1035,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         city: address.city || '',
         street: address.street || '',
         building: address.building || '',
-        addressKana: '' // 住所カナは社員情報にないため空
+        addressKana: address.kana || '' // 住所カナを自動転記（修正17）
       });
     }
   }
@@ -1001,6 +1066,33 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         firstNameKana: ''
       };
     }
+  }
+
+  /**
+   * 申請データからemployeeIdを除外（表示用のため保存しない）
+   */
+  private removeEmployeeIdFromData(data: any): any {
+    if (!data) {
+      return data;
+    }
+    
+    const cleaned = { ...data };
+    
+    // insuredPersons配列からemployeeIdを除外
+    if (cleaned.insuredPersons && Array.isArray(cleaned.insuredPersons)) {
+      cleaned.insuredPersons = cleaned.insuredPersons.map((person: any) => {
+        const { employeeId, ...rest } = person;
+        return rest;
+      });
+    }
+    
+    // insuredPersonオブジェクトからemployeeIdを除外
+    if (cleaned.insuredPerson && typeof cleaned.insuredPerson === 'object') {
+      const { employeeId, ...rest } = cleaned.insuredPerson;
+      cleaned.insuredPerson = rest;
+    }
+    
+    return cleaned;
   }
 
   /**
@@ -1036,6 +1128,84 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   /**
    * 社員の表示名を取得
    */
+  /**
+   * 社員IDから社員の表示名を取得
+   */
+  getEmployeeDisplayNameById(employeeId: string | null | undefined): string {
+    if (!employeeId) {
+      return '';
+    }
+    const employee = this.employees.find(e => e.id === employeeId);
+    if (!employee) {
+      return '';
+    }
+    return this.getEmployeeDisplayName(employee);
+  }
+
+  /**
+   * 被保険者情報から社員IDを逆引き
+   */
+  private findEmployeeIdByPersonData(person: any): string | null {
+    if (!person) {
+      return null;
+    }
+    
+    // 被保険者整理番号で検索（最も確実）
+    if (person.insuranceNumber) {
+      const employee = this.employees.find(e => 
+        e.insuranceInfo?.healthInsuranceNumber === person.insuranceNumber
+      );
+      if (employee) {
+        return employee.id || null;
+      }
+    }
+    
+    // 氏名と生年月日で検索
+    if (person.lastName && person.firstName && person.birthDate) {
+      const birthDate = this.convertEraDateToDate(person.birthDate);
+      if (birthDate) {
+        const employee = this.employees.find(e => {
+          const employeeBirthDate = e.birthDate instanceof Date 
+            ? e.birthDate 
+            : (e.birthDate instanceof Timestamp ? e.birthDate.toDate() : null);
+          if (!employeeBirthDate) {
+            return false;
+          }
+          return e.lastName === person.lastName &&
+                 e.firstName === person.firstName &&
+                 employeeBirthDate.getTime() === birthDate.getTime();
+        });
+        if (employee) {
+          return employee.id || null;
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * 年号付き日付をDateに変換
+   */
+  private convertEraDateToDate(eraDate: any): Date | null {
+    if (!eraDate || !eraDate.era || !eraDate.year || !eraDate.month || !eraDate.day) {
+      return null;
+    }
+    
+    let year = eraDate.year;
+    if (eraDate.era === 'reiwa') {
+      year = eraDate.year + 2018;
+    } else if (eraDate.era === 'heisei') {
+      year = eraDate.year + 1988;
+    } else if (eraDate.era === 'showa') {
+      year = eraDate.year + 1925;
+    } else if (eraDate.era === 'taisho') {
+      year = eraDate.year + 1911;
+    }
+    
+    return new Date(year, eraDate.month - 1, eraDate.day);
+  }
+
   getEmployeeDisplayName(employee: Employee): string {
     return `${employee.lastName} ${employee.firstName} (${employee.employeeNumber})`;
   }
@@ -1047,8 +1217,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     const today = new Date();
     
     // 提出者情報を組織情報から取得
-    const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
-                                  this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
       ? `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`
       : '';
@@ -1057,8 +1225,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
 
     this.insuranceLossForm = this.fb.group({
       submitterInfo: this.fb.group({
-        officeSymbol: [''],
-        officeNumber: [submitterOfficeNumber, [Validators.required]],
+        officeSymbol: [this.organization?.insuranceSettings?.healthInsurance?.officeSymbol || '', [Validators.required]],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
         ownerName: [''],
@@ -1080,6 +1247,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     }
 
     const insuredPersonGroup = this.fb.group({
+      employeeId: [null], // 社員ID（編集時は固定）
       insuranceNumber: [''],
       lastName: ['', [Validators.required]],
       firstName: ['', [Validators.required]],
@@ -1165,6 +1333,11 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       return;
     }
 
+    // 社員IDを保存
+    personGroup.patchValue({
+      employeeId: employeeId
+    });
+
     // 氏名を分割
     // 氏名を直接設定
     personGroup.patchValue({
@@ -1196,11 +1369,18 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         identificationType: 'personal_number',
         personalNumber: employee.insuranceInfo.myNumber
       });
-    } else if (employee.insuranceInfo?.pensionNumber) {
+    }
+    // 基礎年金番号はマイナンバーがあっても設定する（申請フォームで選択可能なため）
+    if (employee.insuranceInfo?.pensionNumber) {
       personGroup.patchValue({
-        identificationType: 'basic_pension_number',
         basicPensionNumber: employee.insuranceInfo.pensionNumber
       });
+      // マイナンバーがない場合は基礎年金番号を選択状態にする
+      if (!employee.insuranceInfo?.myNumber) {
+        personGroup.patchValue({
+          identificationType: 'basic_pension_number'
+        });
+      }
     }
   }
 
@@ -1270,6 +1450,11 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       return;
     }
 
+    // 社員IDを保存
+    insuredPersonGroup.patchValue({
+      employeeId: employeeId
+    });
+
     // 氏名を分割
     // 氏名を直接設定
     insuredPersonGroup.patchValue({
@@ -1301,11 +1486,18 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         identificationType: 'personal_number',
         personalNumber: employee.insuranceInfo.myNumber
       });
-    } else if (employee.insuranceInfo?.pensionNumber) {
+    }
+    // 基礎年金番号はマイナンバーがあっても設定する（申請フォームで選択可能なため）
+    if (employee.insuranceInfo?.pensionNumber) {
       insuredPersonGroup.patchValue({
-        identificationType: 'basic_pension_number',
         basicPensionNumber: employee.insuranceInfo.pensionNumber
       });
+      // マイナンバーがない場合は基礎年金番号を選択状態にする
+      if (!employee.insuranceInfo?.myNumber) {
+        insuredPersonGroup.patchValue({
+          identificationType: 'basic_pension_number'
+        });
+      }
     }
 
     // 取得年月日（入社日から設定）
@@ -1326,7 +1518,8 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
           prefecture: address.prefecture || '',
           city: address.city || '',
           street: address.street || '',
-          building: address.building || ''
+          building: address.building || '',
+          addressKana: address.kana || '' // 住所カナを自動転記（修正17）
         });
       }
     }
@@ -1338,17 +1531,15 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private initializeDependentChangeForm(): void {
     const today = new Date();
     
-    const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
-                                  this.organization?.officeNumber || '';
-    const submitterAddress = this.organization?.address 
-      ? `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`
-      : '';
+    const submitterOfficeNumber = this.organization?.insuranceSettings?.pensionInsurance?.officeNumber || '';
+    const submitterAddress = this.buildAddressWithPostalCode();
     const submitterName = this.organization?.name || '';
     const submitterPhone = this.organization?.phoneNumber || '';
 
     this.dependentChangeForm = this.fb.group({
       businessOwnerInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [this.organization?.insuranceSettings?.healthInsurance?.officeSymbol || '', [Validators.required]],
+        officeNumber: [submitterOfficeNumber], // 事業所番号
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
         ownerName: [''],
@@ -1360,7 +1551,14 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         month: [''],
         day: ['']
       }),
+      submissionDate: this.fb.group({
+        era: ['reiwa'],
+        year: [''],
+        month: [''],
+        day: ['']
+      }),
       insuredPerson: this.fb.group({
+        employeeId: [null], // 社員ID（編集時は固定）
         insuranceNumber: [''],
         lastName: ['', [Validators.required]],
         firstName: ['', [Validators.required]],
@@ -1689,8 +1887,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private initializeAddressChangeForm(): void {
     const today = new Date();
     
-    const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
-                                  this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
       ? `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`
       : '';
@@ -1699,10 +1895,10 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
 
     this.addressChangeForm = this.fb.group({
       businessInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [this.organization?.insuranceSettings?.healthInsurance?.officeSymbol || '', [Validators.required]],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
-        ownerName: [''],
+        ownerName: [this.organization?.ownerName || ''], // 事業主氏名（修正17）
         phoneNumber: [submitterPhone]
       }),
       insuredPerson: this.fb.group({
@@ -1907,20 +2103,18 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private initializeNameChangeForm(): void {
     const today = new Date();
     
-    const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
-                                  this.organization?.officeNumber || '';
-    const submitterAddress = this.organization?.address 
-      ? `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`
-      : '';
+    const submitterOfficeNumber = this.organization?.insuranceSettings?.pensionInsurance?.officeNumber || '';
+    const submitterAddress = this.buildAddressWithPostalCode();
     const submitterName = this.organization?.name || '';
     const submitterPhone = this.organization?.phoneNumber || '';
 
     this.nameChangeForm = this.fb.group({
       businessInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [this.organization?.insuranceSettings?.healthInsurance?.officeSymbol || '', [Validators.required]],
+        officeNumber: [submitterOfficeNumber], // 事業所番号
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
-        ownerName: [''],
+        ownerName: [this.organization?.ownerName || ''], // 事業主氏名（修正17）
         phoneNumber: [submitterPhone]
       }),
       insuredPerson: this.fb.group({
@@ -2017,11 +2211,18 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         identificationType: 'personal_number',
         personalNumber: employee.insuranceInfo.myNumber
       });
-    } else if (employee.insuranceInfo?.pensionNumber) {
+    }
+    // 基礎年金番号はマイナンバーがあっても設定する（申請フォームで選択可能なため）
+    if (employee.insuranceInfo?.pensionNumber) {
       insuredPersonGroup.patchValue({
-        identificationType: 'basic_pension_number',
         basicPensionNumber: employee.insuranceInfo.pensionNumber
       });
+      // マイナンバーがない場合は基礎年金番号を選択状態にする
+      if (!employee.insuranceInfo?.myNumber) {
+        insuredPersonGroup.patchValue({
+          identificationType: 'basic_pension_number'
+        });
+      }
     }
 
     // 変更前氏名を設定
@@ -2191,20 +2392,18 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private initializeRewardBaseForm(): void {
     const today = new Date();
     
-    const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
-                                  this.organization?.officeNumber || '';
-    const submitterAddress = this.organization?.address 
-      ? `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`
-      : '';
+    const submitterOfficeNumber = this.organization?.insuranceSettings?.pensionInsurance?.officeNumber || '';
+    const submitterAddress = this.buildAddressWithPostalCode();
     const submitterName = this.organization?.name || '';
     const submitterPhone = this.organization?.phoneNumber || '';
 
     this.rewardBaseForm = this.fb.group({
       businessInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [this.organization?.insuranceSettings?.healthInsurance?.officeSymbol || '', [Validators.required]],
+        officeNumber: [submitterOfficeNumber], // 事業所番号
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
-        ownerName: [''],
+        ownerName: [this.organization?.ownerName || ''], // 事業主氏名（修正17）
         phoneNumber: [submitterPhone]
       }),
       insuredPersons: this.fb.array([])
@@ -2220,8 +2419,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private initializeRewardChangeForm(): void {
     const today = new Date();
     
-    const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
-                                  this.organization?.officeNumber || '';
     const submitterAddress = this.organization?.address 
       ? `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`
       : '';
@@ -2230,7 +2427,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
 
     this.rewardChangeForm = this.fb.group({
       businessInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [this.organization?.insuranceSettings?.healthInsurance?.officeSymbol || '', [Validators.required]],
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
         ownerName: [''],
@@ -2249,20 +2446,18 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private initializeBonusPaymentForm(): void {
     const today = new Date();
     
-    const submitterOfficeNumber = this.organization?.insuranceSettings?.healthInsurance?.officeNumber || 
-                                  this.organization?.officeNumber || '';
-    const submitterAddress = this.organization?.address 
-      ? `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`
-      : '';
+    const submitterOfficeNumber = this.organization?.insuranceSettings?.pensionInsurance?.officeNumber || '';
+    const submitterAddress = this.buildAddressWithPostalCode();
     const submitterName = this.organization?.name || '';
     const submitterPhone = this.organization?.phoneNumber || '';
 
     this.bonusPaymentForm = this.fb.group({
       businessInfo: this.fb.group({
-        officeSymbol: [''],
+        officeSymbol: [this.organization?.insuranceSettings?.healthInsurance?.officeSymbol || '', [Validators.required]],
+        officeNumber: [submitterOfficeNumber], // 事業所番号
         officeAddress: [submitterAddress, [Validators.required]],
         officeName: [submitterName, [Validators.required]],
-        ownerName: [''],
+        ownerName: [this.organization?.ownerName || ''], // 事業主氏名（修正17）
         phoneNumber: [submitterPhone]
       }),
       commonPaymentDate: this.fb.group({
@@ -3047,19 +3242,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         }
       }
 
-      // 期限を計算
-      let deadline: Date | null = null;
-      if (this.organization?.applicationFlowSettings?.notificationSettings) {
-        const notificationSettings = this.organization.applicationFlowSettings.notificationSettings;
-        const days = this.selectedApplicationType.category === 'internal' 
-          ? notificationSettings.internalDeadlineDays 
-          : notificationSettings.externalDeadlineDays;
-        if (days) {
-          deadline = new Date();
-          deadline.setDate(deadline.getDate() + days);
-        }
-      }
-
       // 申請データを準備
       let applicationData: Record<string, any> = {};
       
@@ -3090,6 +3272,42 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         applicationData = {
           description: this.applicationDataForm.value.description || ''
         };
+      }
+
+      // 期限を計算（修正16）
+      let deadline: Date | null = null;
+      if (this.selectedApplicationType.category === 'external') {
+        // 外部申請：法定期限を優先設定（法定期限がない場合のみ管理者設定期限）
+        const legalDeadline = await this.deadlineCalculationService.calculateLegalDeadline(
+          {
+            id: this.editingApplication?.id,
+            type: this.selectedApplicationType.id,
+            category: 'external',
+            employeeId: this.editingApplication?.employeeId || '',
+            organizationId: this.organizationId!,
+            status: status || this.editingApplication?.status || 'draft',
+            data: applicationData,
+            createdAt: this.editingApplication?.createdAt || new Date(),
+            updatedAt: new Date()
+          },
+          this.selectedApplicationType
+        );
+        
+        if (legalDeadline) {
+          deadline = legalDeadline;
+        } else if (this.organization?.applicationFlowSettings?.notificationSettings?.externalDeadlineDays) {
+          // 法定期限がない場合のみ管理者設定期限を使用
+          const days = this.organization.applicationFlowSettings.notificationSettings.externalDeadlineDays;
+          deadline = new Date();
+          deadline.setDate(deadline.getDate() + days);
+        }
+      } else {
+        // 内部申請：管理者設定期限（internalDeadlineDays）
+        if (this.organization?.applicationFlowSettings?.notificationSettings?.internalDeadlineDays) {
+          const days = this.organization.applicationFlowSettings.notificationSettings.internalDeadlineDays;
+          deadline = new Date();
+          deadline.setDate(deadline.getDate() + days);
+        }
       }
 
       // 申請を更新
@@ -3254,7 +3472,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const si = data['submitterInfo'];
       
       submitterItems.push({ label: '事業所記号', value: si.officeSymbol || '', isEmpty: !si.officeSymbol });
-      submitterItems.push({ label: '事業所番号', value: si.officeNumber || '', isEmpty: !si.officeNumber });
       
       // 住所に郵便番号を追加（組織情報から取得）
       const postalCode = si.postalCode || (this.organization?.address as any)?.postalCode || '';
@@ -3335,7 +3552,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const submitterItems: FormattedItem[] = [];
       const si = data['submitterInfo'];
       submitterItems.push({ label: '事業所記号', value: si.officeSymbol || '', isEmpty: !si.officeSymbol });
-      submitterItems.push({ label: '事業所番号', value: si.officeNumber || '', isEmpty: !si.officeNumber });
       
       // 住所に郵便番号を追加（組織情報から取得）
       const postalCode = si.postalCode || (this.organization?.address as any)?.postalCode || '';
@@ -3567,7 +3783,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（組織情報から取得）
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
@@ -3647,7 +3862,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（組織情報から取得）
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
@@ -3704,7 +3918,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（組織情報から取得）
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
@@ -3776,7 +3989,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（組織情報から取得）
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
@@ -3842,7 +4054,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const biItems: FormattedItem[] = [];
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
-      biItems.push({ label: '事業所番号', value: bi.officeNumber || '', isEmpty: !bi.officeNumber });
       
       // 住所に郵便番号を追加（組織情報から取得）
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';

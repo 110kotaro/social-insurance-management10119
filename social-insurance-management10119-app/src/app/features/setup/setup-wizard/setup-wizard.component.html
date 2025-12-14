@@ -23,27 +23,11 @@
           </div>
 
           <div class="form-row">
-            <mat-form-field appearance="outline" class="half-width">
+            <mat-form-field appearance="outline" class="full-width">
               <mat-label>法人番号</mat-label>
               <input matInput formControlName="corporateNumber" placeholder="1234567890123" required>
               <mat-error *ngIf="organizationForm.get('corporateNumber')?.hasError('required')">
                 法人番号を入力してください
-              </mat-error>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="half-width">
-              <mat-label>事業所整理記号</mat-label>
-              <input matInput formControlName="officeSymbol" placeholder="例: 1234">
-              <mat-hint>各申請の事業所整理記号に使用されます</mat-hint>
-            </mat-form-field>
-          </div>
-
-          <div class="form-row">
-            <mat-form-field appearance="outline" class="half-width">
-              <mat-label>事業所番号</mat-label>
-              <input matInput formControlName="officeNumber" placeholder="12345678" required>
-              <mat-error *ngIf="organizationForm.get('officeNumber')?.hasError('required')">
-                事業所番号を入力してください
               </mat-error>
             </mat-form-field>
           </div>
@@ -58,13 +42,27 @@
           <h3>所在地</h3>
           <div class="form-row">
             <mat-form-field appearance="outline" class="half-width">
+              <mat-label>郵便番号</mat-label>
+              <input matInput formControlName="postalCode" placeholder="123-4567" maxlength="8" required>
+              <mat-hint>例: 123-4567（ハイフンなしでも可）</mat-hint>
+              <mat-error *ngIf="organizationForm.get('postalCode')?.hasError('required')">
+                郵便番号を入力してください
+              </mat-error>
+              <mat-error *ngIf="organizationForm.get('postalCode')?.hasError('pattern')">
+                正しい郵便番号の形式で入力してください（例: 123-4567）
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="half-width">
               <mat-label>都道府県</mat-label>
               <input matInput formControlName="prefecture" placeholder="東京都" required>
               <mat-error *ngIf="organizationForm.get('prefecture')?.hasError('required')">
                 都道府県を入力してください
               </mat-error>
             </mat-form-field>
+          </div>
 
+          <div class="form-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>市区町村</mat-label>
               <input matInput formControlName="city" placeholder="千代田区" required>
@@ -233,26 +231,16 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="half-width">
-                <mat-label>事業所番号</mat-label>
-                <input matInput formControlName="healthInsuranceOfficeNumber" placeholder="12345678" required>
-                <mat-error *ngIf="insuranceForm.get('healthInsuranceOfficeNumber')?.hasError('required')">
-                  事業所番号を入力してください
+                <mat-label>事業所整理記号</mat-label>
+                <input matInput formControlName="healthInsuranceOfficeSymbol" placeholder="例: 1234" required>
+                <mat-hint>各申請の事業所整理記号に使用されます</mat-hint>
+                <mat-error *ngIf="insuranceForm.get('healthInsuranceOfficeSymbol')?.hasError('required')">
+                  事業所整理記号を入力してください
                 </mat-error>
               </mat-form-field>
             </div>
 
             <div class="form-row">
-              <mat-form-field appearance="outline" class="half-width">
-                <mat-label>端数処理方式</mat-label>
-                <mat-select formControlName="healthInsuranceRoundingMethod" required>
-                  <mat-option value="round">四捨五入</mat-option>
-                  <mat-option value="ceil">切り上げ</mat-option>
-                  <mat-option value="floor">切り捨て</mat-option>
-                </mat-select>
-                <mat-error *ngIf="insuranceForm.get('healthInsuranceRoundingMethod')?.hasError('required')">
-                  端数処理方式を選択してください
-                </mat-error>
-              </mat-form-field>
 
               <mat-form-field appearance="outline" class="half-width">
                 <mat-label>保険証の形式（任意）</mat-label>
@@ -320,6 +308,8 @@
             </div>
 
             <!-- 雇用保険 -->
+            <!-- 雇用保険情報は不要のためコメントアウト -->
+            <!--
             <h3>雇用保険</h3>
             <div class="form-row">
               <mat-form-field appearance="outline" class="half-width">
@@ -338,6 +328,7 @@
                 </mat-error>
               </mat-form-field>
             </div>
+            -->
 
             <div class="error-message" *ngIf="errorMessage">
               {{ errorMessage }}
@@ -983,8 +974,8 @@
                   <span class="value">{{ getStepSummary().step3.healthInsuranceType }}</span>
                 </div>
                 <div class="summary-item">
-                  <span class="label">事業所番号:</span>
-                  <span class="value">{{ getStepSummary().step3.healthInsuranceOfficeNumber }}</span>
+                  <span class="label">事業所整理記号:</span>
+                  <span class="value">{{ getStepSummary().step3.healthInsuranceOfficeSymbol }}</span>
                 </div>
                 <div class="summary-item">
                   <span class="label">端数処理方式:</span>

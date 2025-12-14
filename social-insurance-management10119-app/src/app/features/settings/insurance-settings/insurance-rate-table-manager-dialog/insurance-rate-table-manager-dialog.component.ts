@@ -236,6 +236,9 @@ export class InsuranceRateTableManagerDialogComponent implements OnInit {
       return;
     }
 
+    // 厚生年金の等級・折半額・全額の空欄を自動補完
+    this.fillPensionInsuranceBlanks(importedTables);
+
     this.rateTables = importedTables;
     this.importedCount = importedTables.length;
     this.successMessage = `データを読み込みました（${importedTables.length}件）`;
@@ -395,6 +398,136 @@ export class InsuranceRateTableManagerDialogComponent implements OnInit {
           createdAt: now,
           updatedAt: now
         } as InsuranceRateTable);
+      }
+    }
+
+    // 厚生年金の等級・折半額・全額の空欄を自動補完
+    this.fillPensionInsuranceBlanks(importedTables);
+  }
+
+  /**
+   * 厚生年金の等級・折半額・全額の空欄を自動補完
+   * 1級より上の空欄は1級の値を反映、最多級より下の空欄は最多級の値を反映
+   */
+  private fillPensionInsuranceBlanks(tables: InsuranceRateTable[]): void {
+    if (tables.length === 0) {
+      return;
+    }
+
+    // 健保等級（grade）でソート（元の順序を保持）
+    const sortedTables = [...tables].sort((a, b) => {
+      return a.grade - b.grade;
+    });
+
+    // 最初の有効な等級（pensionGrade !== null）のインデックスを取得
+    let firstValidIndex = -1;
+    for (let i = 0; i < sortedTables.length; i++) {
+      const pensionGrade = sortedTables[i].pensionGrade ?? null;
+      if (pensionGrade !== null) {
+        firstValidIndex = i;
+        break;
+      }
+    }
+
+    // 最後の有効な等級（pensionGrade !== null）のインデックスを取得
+    let lastValidIndex = -1;
+    for (let i = sortedTables.length - 1; i >= 0; i--) {
+      const pensionGrade = sortedTables[i].pensionGrade ?? null;
+      if (pensionGrade !== null) {
+        lastValidIndex = i;
+        break;
+      }
+    }
+
+    // 有効な等級が存在しない場合は処理を終了
+    if (firstValidIndex === -1 || lastValidIndex === -1) {
+      return;
+    }
+
+    // 1級の値を取得（pensionGrade === 1 または最小の等級）
+    let grade1Table: InsuranceRateTable | null = null;
+    for (const table of sortedTables) {
+      const pensionGrade = table.pensionGrade ?? null;
+      if (pensionGrade === 1) {
+        grade1Table = table;
+        break;
+      }
+    }
+    if (!grade1Table && sortedTables.length > 0) {
+      const firstPensionGrade = sortedTables[firstValidIndex].pensionGrade ?? null;
+      if (firstPensionGrade !== null) {
+        grade1Table = sortedTables[firstValidIndex];
+      }
+    }
+
+    // 最多級の値を取得（最大のpensionGrade）
+    let maxGradeTable: InsuranceRateTable | null = null;
+    let maxGrade = 0;
+    for (const table of sortedTables) {
+      const pensionGrade = table.pensionGrade ?? null;
+      if (pensionGrade !== null && pensionGrade > maxGrade) {
+        maxGrade = pensionGrade;
+        maxGradeTable = table;
+      }
+    }
+
+    // 各tableがソート済み配列のどの位置にあるかをマッピング
+    const tableToIndexMap = new Map<InsuranceRateTable, number>();
+    for (let i = 0; i < sortedTables.length; i++) {
+      tableToIndexMap.set(sortedTables[i], i);
+    }
+
+    // 空欄を補完
+    for (const table of tables) {
+      const pensionGrade = table.pensionGrade ?? null;
+      const sortedIndex = tableToIndexMap.get(table) ?? -1;
+
+      // 空欄の場合のみ補完処理を行う
+      if (pensionGrade === null) {
+        // 最初の有効な等級より前の位置にある場合 → 1級の値を補完
+        if (sortedIndex >= 0 && sortedIndex < firstValidIndex) {
+          if (grade1Table && grade1Table.pensionGrade !== null && grade1Table.pensionGrade !== undefined) {
+            table.pensionGrade = grade1Table.pensionGrade;
+            table.pensionInsurance.total = grade1Table.pensionInsurance.total;
+            table.pensionInsurance.half = grade1Table.pensionInsurance.half;
+          }
+        }
+        // 最後の有効な等級より後の位置にある場合 → 最多級の値を補完
+        else if (sortedIndex >= 0 && sortedIndex > lastValidIndex) {
+          if (maxGradeTable && maxGradeTable.pensionGrade !== null && maxGradeTable.pensionGrade !== undefined) {
+            table.pensionGrade = maxGradeTable.pensionGrade;
+            table.pensionInsurance.total = maxGradeTable.pensionInsurance.total;
+            table.pensionInsurance.half = maxGradeTable.pensionInsurance.half;
+          }
+        }
+        // 中間の位置にある場合 → 1級の値を補完（デフォルト）
+        else if (sortedIndex >= 0 && sortedIndex >= firstValidIndex && sortedIndex <= lastValidIndex) {
+          if (grade1Table && grade1Table.pensionGrade !== null && grade1Table.pensionGrade !== undefined) {
+            table.pensionGrade = grade1Table.pensionGrade;
+            table.pensionInsurance.total = grade1Table.pensionInsurance.total;
+            table.pensionInsurance.half = grade1Table.pensionInsurance.half;
+          }
+        }
+      }
+
+      // 折半額・全額が0または空欄の場合も補完
+      if (table.pensionInsurance.total === 0 || table.pensionInsurance.half === 0) {
+        const currentGrade = table.pensionGrade ?? null;
+        if (currentGrade === 1 && grade1Table) {
+          if (table.pensionInsurance.total === 0) {
+            table.pensionInsurance.total = grade1Table.pensionInsurance.total;
+          }
+          if (table.pensionInsurance.half === 0) {
+            table.pensionInsurance.half = grade1Table.pensionInsurance.half;
+          }
+        } else if (maxGradeTable && currentGrade === maxGrade) {
+          if (table.pensionInsurance.total === 0) {
+            table.pensionInsurance.total = maxGradeTable.pensionInsurance.total;
+          }
+          if (table.pensionInsurance.half === 0) {
+            table.pensionInsurance.half = maxGradeTable.pensionInsurance.half;
+          }
+        }
       }
     }
   }
@@ -741,8 +874,16 @@ export class InsuranceRateTableManagerDialogComponent implements OnInit {
         );
         
         if (choice === 'overwrite') {
-          // 既存テーブルを削除して上書き
-          await this.insuranceRateTableService.deleteAllByOrganization(this.organizationId);
+          // 適用開始月が同じ既存テーブルのみを削除して上書き
+          const tablesToDelete = existingTables.filter(table => {
+            const tableFrom = this.getYearMonthFromDate(new Date(table.effectiveFrom));
+            return this.compareYearMonth(tableFrom.year, tableFrom.month, newFrom.year, newFrom.month) === 0;
+          });
+          
+          const promises = tablesToDelete
+            .filter(table => table.id)
+            .map(table => this.insuranceRateTableService.deleteRateTable(table.id!));
+          await Promise.all(promises);
           return true;
         } else {
           return false; // 新規を修正する場合は保存をキャンセル

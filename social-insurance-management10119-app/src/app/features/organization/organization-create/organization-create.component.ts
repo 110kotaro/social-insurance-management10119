@@ -40,8 +40,7 @@ export class OrganizationCreateComponent implements OnInit {
       prefecture: [''],
       city: [''],
       street: [''],
-      building: [''],
-      officeNumber: ['']
+      building: ['']
     });
   }
 
@@ -80,7 +79,6 @@ export class OrganizationCreateComponent implements OnInit {
       const organization: Omit<Organization, 'id' | 'createdAt' | 'updatedAt'> = {
         name: formValue.name,
         corporateNumber: formValue.corporateNumber?.trim() || undefined,
-        officeNumber: formValue.officeNumber?.trim() || undefined,
         address: {
           prefecture: formValue.prefecture?.trim() || '',
           city: formValue.city?.trim() || '',

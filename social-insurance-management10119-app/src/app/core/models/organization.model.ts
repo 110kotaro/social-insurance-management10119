@@ -2,8 +2,8 @@ export interface Organization {
   id?: string;
   name: string;
   corporateNumber?: string;
-  officeSymbol?: string; // 事業所整理記号
-  officeNumber?: string; // 事業所番号
+  // officeSymbol?: string; // 事業所整理記号（削除：保険情報の健康保険に移動）
+  // officeNumber?: string; // 事業所番号（削除：保険情報の健康保険・厚生年金に移動）
   address: {
     postalCode?: string; // 郵便番号
     prefecture: string;
@@ -12,6 +12,7 @@ export interface Organization {
     building?: string;
   };
   phoneNumber?: string;
+  ownerName?: string; // 事業主氏名（修正17）
   email?: string;
   industry?: string;
   logoUrl?: string;
@@ -20,22 +21,22 @@ export interface Organization {
   insuranceSettings?: {
     healthInsurance?: {
       type: 'kyokai' | 'kumiai';
-      officeNumber?: string;
-      roundingMethod?: 'round' | 'ceil' | 'floor'; // 端数処理方式：四捨五入、切り上げ、切り捨て
+      officeSymbol?: string; // 事業所整理記号（必須）
+      // roundingMethod?: 'round' | 'ceil' | 'floor'; // 端数処理方式：削除（計算ロジックで実装済み）
       cardFormat?: 'none' | 'card' | 'paper' | 'ic'; // 保険証の形式：指定なし、カード型、紙型、IC型
     };
     pensionInsurance?: {
-      officeNumber?: string;
-      roundingMethod?: 'round' | 'ceil' | 'floor'; // 端数処理方式：四捨五入、切り上げ、切り捨て
+      officeNumber?: string; // 事業所番号（厚生年金用）
+      // roundingMethod?: 'round' | 'ceil' | 'floor'; // 端数処理方式：削除（計算ロジックで実装済み）
       businessCategory?: string; // 厚生年金適用事業所区分
     };
     careInsurance?: {
       targetOffice: boolean;
     };
-    employmentInsurance?: {
-      officeNumber?: string;
-      laborInsuranceNumber?: string;
-    };
+    // employmentInsurance?: { // 雇用保険情報：コメントアウト（不要）
+    //   officeNumber?: string;
+    //   laborInsuranceNumber?: string;
+    // };
   };
   applicationFlowSettings?: {
     applicationTypes?: any[];
@@ -59,21 +60,21 @@ export interface Organization {
 export interface InsuranceSettings {
   healthInsurance: {
     type: 'kyokai' | 'kumiai';
-    officeNumber?: string;
-    roundingMethod?: 'round' | 'ceil' | 'floor';
+    officeSymbol?: string; // 事業所整理記号（必須）
+    // roundingMethod?: 'round' | 'ceil' | 'floor'; // 端数処理方式：削除
     cardFormat?: 'none' | 'card' | 'paper' | 'ic';
   };
   pensionInsurance: {
-    officeNumber?: string;
-    roundingMethod?: 'round' | 'ceil' | 'floor';
+    officeNumber?: string; // 事業所番号（厚生年金用）
+    // roundingMethod?: 'round' | 'ceil' | 'floor'; // 端数処理方式：削除
     businessCategory?: string;
   };
   careInsurance: {
     targetOffice: boolean;
   };
-  employmentInsurance: {
-    officeNumber?: string;
-    laborInsuranceNumber?: string;
-  };
+  // employmentInsurance: { // 雇用保険情報：コメントアウト（不要）
+  //   officeNumber?: string;
+  //   laborInsuranceNumber?: string;
+  // };
 }
 

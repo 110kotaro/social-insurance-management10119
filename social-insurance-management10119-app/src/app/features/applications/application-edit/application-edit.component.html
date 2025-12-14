@@ -107,17 +107,26 @@
                           </button>
                         </mat-card-header>
                         <mat-card-content>
-                          <!-- 社員選択 -->
-                          <mat-form-field appearance="outline" class="full-width">
-                            <mat-label>社員を選択（情報を自動入力）</mat-label>
-                            <mat-select (selectionChange)="onEmployeeSelect(i, $event.value)" [value]="null">
-                              <mat-option value="">選択してください</mat-option>
-                              <mat-option *ngFor="let employee of employees" [value]="employee.id">
-                                {{ getEmployeeDisplayName(employee) }}
-                              </mat-option>
-                            </mat-select>
-                            <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
-                          </mat-form-field>
+                          <!-- 社員選択（既存の場合は固定表示、新規追加時のみ選択可能） -->
+                          <div *ngIf="person.get('employeeId')?.value; else employeeSelectTemplate">
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>社員</mat-label>
+                              <input matInput [value]="getEmployeeDisplayNameById(person.get('employeeId')?.value)" readonly>
+                              <mat-hint>編集時は社員を変更できません。変更する場合は一度削除して新規追加してください。</mat-hint>
+                            </mat-form-field>
+                          </div>
+                          <ng-template #employeeSelectTemplate>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>社員を選択（情報を自動入力）</mat-label>
+                              <mat-select (selectionChange)="onEmployeeSelect(i, $event.value)" [value]="null">
+                                <mat-option value="">選択してください</mat-option>
+                                <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                                  {{ getEmployeeDisplayName(employee) }}
+                                </mat-option>
+                              </mat-select>
+                              <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
+                            </mat-form-field>
+                          </ng-template>
 
                           <mat-divider style="margin: 16px 0;"></mat-divider>
 
@@ -435,17 +444,26 @@
                           </button>
                         </mat-card-header>
                         <mat-card-content>
-                          <!-- 社員選択 -->
-                          <mat-form-field appearance="outline" class="full-width">
-                            <mat-label>社員を選択（情報を自動入力）</mat-label>
-                            <mat-select (selectionChange)="onEmployeeSelectForLoss(i, $event.value)" [value]="null">
-                              <mat-option value="">選択してください</mat-option>
-                              <mat-option *ngFor="let employee of employees" [value]="employee.id">
-                                {{ getEmployeeDisplayName(employee) }}
-                              </mat-option>
-                            </mat-select>
-                            <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
-                          </mat-form-field>
+                          <!-- 社員選択（既存の場合は固定表示、新規追加時のみ選択可能） -->
+                          <div *ngIf="person.get('employeeId')?.value; else employeeSelectForLossTemplate">
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>社員</mat-label>
+                              <input matInput [value]="getEmployeeDisplayNameById(person.get('employeeId')?.value)" readonly>
+                              <mat-hint>編集時は社員を変更できません。変更する場合は一度削除して新規追加してください。</mat-hint>
+                            </mat-form-field>
+                          </div>
+                          <ng-template #employeeSelectForLossTemplate>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>社員を選択（情報を自動入力）</mat-label>
+                              <mat-select (selectionChange)="onEmployeeSelectForLoss(i, $event.value)" [value]="null">
+                                <mat-option value="">選択してください</mat-option>
+                                <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                                  {{ getEmployeeDisplayName(employee) }}
+                                </mat-option>
+                              </mat-select>
+                              <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
+                            </mat-form-field>
+                          </ng-template>
 
                           <mat-divider style="margin: 16px 0;"></mat-divider>
 
@@ -1194,23 +1212,65 @@
                 </mat-card-content>
               </mat-card>
 
+              <!-- 提出日 -->
+              <mat-card class="form-section" formGroupName="submissionDate">
+                <mat-card-header>
+                  <mat-card-title>提出日</mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>年号</mat-label>
+                      <mat-select formControlName="era">
+                        <mat-option value="reiwa">令和</mat-option>
+                        <mat-option value="heisei">平成</mat-option>
+                        <mat-option value="showa">昭和</mat-option>
+                        <mat-option value="taisho">大正</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>年</mat-label>
+                      <input matInput type="number" formControlName="year">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>月</mat-label>
+                      <input matInput type="number" formControlName="month" min="1" max="12">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>日</mat-label>
+                      <input matInput type="number" formControlName="day" min="1" max="31">
+                    </mat-form-field>
+                  </div>
+                  <mat-hint>被保険者が送信した年月日が自動転記されます</mat-hint>
+                </mat-card-content>
+              </mat-card>
+
               <!-- 被保険者情報 -->
               <mat-card class="form-section" formGroupName="insuredPerson">
                 <mat-card-header>
                   <mat-card-title>被保険者情報</mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
-                  <!-- 社員選択 -->
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>社員を選択（情報を自動入力）</mat-label>
-                    <mat-select (selectionChange)="onEmployeeSelectForDependentChange($event.value)" [value]="null">
-                      <mat-option value="">選択してください</mat-option>
-                      <mat-option *ngFor="let employee of employees" [value]="employee.id">
-                        {{ getEmployeeDisplayName(employee) }}
-                      </mat-option>
-                    </mat-select>
-                    <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
-                  </mat-form-field>
+                  <!-- 社員選択（既存の場合は固定表示、新規追加時のみ選択可能） -->
+                  <div *ngIf="dependentChangeForm.get('insuredPerson.employeeId')?.value; else employeeSelectForDependentChangeTemplate">
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>社員</mat-label>
+                      <input matInput [value]="getEmployeeDisplayNameById(dependentChangeForm.get('insuredPerson.employeeId')?.value)" readonly>
+                      <mat-hint>編集時は社員を変更できません。変更する場合は一度削除して新規追加してください。</mat-hint>
+                    </mat-form-field>
+                  </div>
+                  <ng-template #employeeSelectForDependentChangeTemplate>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>社員を選択（情報を自動入力）</mat-label>
+                      <mat-select (selectionChange)="onEmployeeSelectForDependentChange($event.value)" [value]="null">
+                        <mat-option value="">選択してください</mat-option>
+                        <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                          {{ getEmployeeDisplayName(employee) }}
+                        </mat-option>
+                      </mat-select>
+                      <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
+                    </mat-form-field>
+                  </ng-template>
 
                   <mat-divider style="margin: 16px 0;"></mat-divider>
 

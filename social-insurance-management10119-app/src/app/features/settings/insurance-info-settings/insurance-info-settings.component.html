@@ -6,7 +6,7 @@
     </mat-card-title>
   </mat-card-header>
   <mat-card-content>
-    <p class="description">健康保険、厚生年金、介護保険、雇用保険の設定を行ってください。</p>
+    <p class="description">健康保険、厚生年金、介護保険の設定を行ってください。</p>
     
     <form [formGroup]="insuranceForm">
       <!-- 健康保険 -->
@@ -19,26 +19,16 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="half-width">
-            <mat-label>事業所番号</mat-label>
-            <input matInput formControlName="healthInsuranceOfficeNumber" placeholder="12345678" required>
-            <mat-error *ngIf="insuranceForm.get('healthInsuranceOfficeNumber')?.hasError('required')">
-              事業所番号を入力してください
+            <mat-label>事業所整理記号</mat-label>
+            <input matInput formControlName="healthInsuranceOfficeSymbol" placeholder="例: 1234" required>
+            <mat-hint>各申請の事業所整理記号に使用されます</mat-hint>
+            <mat-error *ngIf="insuranceForm.get('healthInsuranceOfficeSymbol')?.hasError('required')">
+              事業所整理記号を入力してください
             </mat-error>
           </mat-form-field>
         </div>
 
         <div class="form-row">
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>端数処理方式</mat-label>
-            <mat-select formControlName="healthInsuranceRoundingMethod" required>
-              <mat-option value="round">四捨五入</mat-option>
-              <mat-option value="ceil">切り上げ</mat-option>
-              <mat-option value="floor">切り捨て</mat-option>
-            </mat-select>
-            <mat-error *ngIf="insuranceForm.get('healthInsuranceRoundingMethod')?.hasError('required')">
-              端数処理方式を選択してください
-            </mat-error>
-          </mat-form-field>
 
           <mat-form-field appearance="outline" class="half-width">
             <mat-label>保険証の形式（任意）</mat-label>
@@ -76,20 +66,6 @@
             </mat-error>
           </mat-form-field>
         </div>
-
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>端数処理方式</mat-label>
-            <mat-select formControlName="pensionInsuranceRoundingMethod" required>
-              <mat-option value="round">四捨五入</mat-option>
-              <mat-option value="ceil">切り上げ</mat-option>
-              <mat-option value="floor">切り捨て</mat-option>
-            </mat-select>
-            <mat-error *ngIf="insuranceForm.get('pensionInsuranceRoundingMethod')?.hasError('required')">
-              端数処理方式を選択してください
-            </mat-error>
-          </mat-form-field>
-        </div>
       </div>
 
       <!-- 介護保険 -->
@@ -110,6 +86,8 @@
       </div>
 
       <!-- 雇用保険 -->
+      <!-- 雇用保険情報は不要のためコメントアウト -->
+      <!--
       <div class="settings-section">
         <h3>雇用保険</h3>
         <div class="form-row">
@@ -130,6 +108,7 @@
           </mat-form-field>
         </div>
       </div>
+      -->
 
       <div class="button-group">
         <button mat-raised-button color="primary" (click)="saveInsuranceSettings()" [disabled]="insuranceForm.invalid || isLoading">

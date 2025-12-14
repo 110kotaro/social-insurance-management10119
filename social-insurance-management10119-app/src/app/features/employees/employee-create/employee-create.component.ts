@@ -124,7 +124,8 @@ export class EmployeeCreateComponent implements OnInit {
       prefecture: ['', [Validators.required]],
       city: ['', [Validators.required]],
       street: ['', [Validators.required]],
-      building: [''] // 建物名・部屋番号は任意
+      building: [''], // 建物名・部屋番号は任意
+      kana: [''] // 住所カナ（修正17）
     });
 
     // ステップ6: 休職情報
@@ -142,6 +143,14 @@ export class EmployeeCreateComponent implements OnInit {
     }
 
     this.organizationId = currentUser.organizationId;
+
+    // 入社日変更時に保険適用開始日を自動設定（修正17）
+    this.basicInfoForm.get('joinDate')?.valueChanges.subscribe(joinDate => {
+      if (joinDate && !this.insuranceInfoForm.get('insuranceStartDate')?.value) {
+        // 保険適用開始日が未設定の場合のみ自動設定
+        this.insuranceInfoForm.patchValue({ insuranceStartDate: joinDate }, { emitEvent: false });
+      }
+    });
     this.loadDepartments();
   }
 
@@ -358,14 +367,15 @@ export class EmployeeCreateComponent implements OnInit {
             })
           : undefined;
 
-      // 住所情報（officialのみ使用）
+      // 住所情報（officialのみ使用）（修正17）
       const address: { official: Address } = {
         official: {
           postalCode: this.addressForm.value.postalCode,
           prefecture: this.addressForm.value.prefecture,
           city: this.addressForm.value.city,
           street: this.addressForm.value.street,
-          ...(this.addressForm.value.building && { building: this.addressForm.value.building })
+          ...(this.addressForm.value.building && { building: this.addressForm.value.building }),
+          ...(this.addressForm.value.kana && { kana: this.addressForm.value.kana })
         }
       };
 
