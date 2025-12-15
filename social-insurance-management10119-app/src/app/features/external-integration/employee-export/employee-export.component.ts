@@ -56,6 +56,9 @@ export class EmployeeExportComponent implements OnInit {
   private authService = inject(AuthService);
   private employeeService = inject(EmployeeService);
   private departmentService = inject(DepartmentService);
+  private salaryDataService = inject(SalaryDataService);
+  private bonusDataService = inject(BonusDataService);
+  private calculationService = inject(CalculationService);
   private snackBar = inject(MatSnackBar);
   private fb = inject(FormBuilder);
 
@@ -96,6 +99,9 @@ export class EmployeeExportComponent implements OnInit {
     { value: 'bonusPremium', label: '保険料情報（賞与）', selected: true },
     { value: 'salary', label: '給与情報', selected: true }
   ];
+
+  // 出力形式（'excel' | 'csv'）
+  exportFormat: 'excel' | 'csv' = 'excel';
 
   constructor() {
     this.filterForm = this.fb.group({
@@ -248,6 +254,17 @@ export class EmployeeExportComponent implements OnInit {
   /**
    * エクスポート実行
    */
+  async exportData(): Promise<void> {
+    if (this.exportFormat === 'excel') {
+      await this.exportToExcel();
+    } else {
+      await this.exportToCsv();
+    }
+  }
+
+  /**
+   * Excel形式でエクスポート
+   */
   async exportToExcel(): Promise<void> {
     const selectedEmployees = this.allEmployees.filter(emp => this.selectedEmployeeIds.has(emp.id!));
     
@@ -378,6 +395,104 @@ export class EmployeeExportComponent implements OnInit {
         XLSX.utils.book_append_sheet(workbook, otherCompanySheet, '他社勤務情報');
       }
 
+      // 保険料情報（月次）シート
+      if (selectedDataTypes.includes('monthlyPremium')) {
+        const monthlyPremiumData: any[] = [];
+        for (const emp of selectedEmployees) {
+          if (!emp.id) continue;
+          const calculation = await this.calculationService.getCalculationsByEmployee(
+            emp.id,
+            this.selectedYear,
+            this.selectedMonth
+          );
+          if (calculation) {
+            monthlyPremiumData.push({
+              '社員番号': emp.employeeNumber,
+              '氏名': `${emp.lastName} ${emp.firstName}`,
+              '年': this.selectedYear,
+              '月': this.selectedMonth,
+              '標準報酬月額': calculation.standardReward || '',
+              '健康保険等級': calculation.grade || '',
+              '健康保険料（全額）': calculation.healthInsurancePremium || '',
+              '厚生年金料（全額）': calculation.pensionInsurancePremium || '',
+              '介護保険料（全額）': calculation.careInsurancePremium || '',
+              '合計保険料（全額）': calculation.totalPremium || '',
+              '会社負担額（折半額）': calculation.companyShare || '',
+              '従業員負担額（折半額）': calculation.employeeShare || '',
+              'ステータス': this.getStatusLabel(calculation.status)
+            });
+          }
+        }
+        if (monthlyPremiumData.length > 0) {
+          const monthlyPremiumSheet = XLSX.utils.json_to_sheet(monthlyPremiumData);
+          XLSX.utils.book_append_sheet(workbook, monthlyPremiumSheet, `保険料情報（月次）_${this.selectedYear}年${this.selectedMonth}月`);
+        }
+      }
+
+      // 保険料情報（賞与）シート
+      if (selectedDataTypes.includes('bonusPremium')) {
+        const bonusPremiumData: any[] = [];
+        for (const emp of selectedEmployees) {
+          if (!emp.id) continue;
+          const calculation = await this.calculationService.getBonusCalculationsByEmployee(
+            emp.id,
+            this.selectedYear,
+            this.selectedMonth
+          );
+          if (calculation) {
+            bonusPremiumData.push({
+              '社員番号': emp.employeeNumber,
+              '氏名': `${emp.lastName} ${emp.firstName}`,
+              '年': this.selectedYear,
+              '月': this.selectedMonth,
+              '賞与額': calculation.bonusAmount || '',
+              '標準賞与額': calculation.standardBonusAmount || '',
+              '健康保険料（全額）': calculation.healthInsurancePremium || '',
+              '厚生年金料（全額）': calculation.pensionInsurancePremium || '',
+              '介護保険料（全額）': calculation.careInsurancePremium || '',
+              '合計保険料（全額）': calculation.totalPremium || '',
+              '会社負担額（折半額）': calculation.companyShare || '',
+              '従業員負担額（折半額）': calculation.employeeShare || '',
+              'ステータス': this.getStatusLabel(calculation.status)
+            });
+          }
+        }
+        if (bonusPremiumData.length > 0) {
+          const bonusPremiumSheet = XLSX.utils.json_to_sheet(bonusPremiumData);
+          XLSX.utils.book_append_sheet(workbook, bonusPremiumSheet, `保険料情報（賞与）_${this.selectedYear}年${this.selectedMonth}月`);
+        }
+      }
+
+      // 給与情報シート
+      if (selectedDataTypes.includes('salary')) {
+        const salaryData: any[] = [];
+        for (const emp of selectedEmployees) {
+          if (!emp.id) continue;
+          const salary = await this.salaryDataService.getSalaryData(
+            emp.id,
+            this.selectedYear,
+            this.selectedMonth
+          );
+          if (salary) {
+            salaryData.push({
+              '社員番号': emp.employeeNumber,
+              '氏名': `${emp.lastName} ${emp.firstName}`,
+              '年': this.selectedYear,
+              '月': this.selectedMonth,
+              '基礎日数': salary.baseDays || '',
+              '固定賃金': salary.fixedSalary || '',
+              '総支給額': salary.totalPayment || '',
+              '遡及支払額': salary.retroactivePayment || '',
+              '確定済み': salary.isConfirmed ? 'はい' : 'いいえ'
+            });
+          }
+        }
+        if (salaryData.length > 0) {
+          const salarySheet = XLSX.utils.json_to_sheet(salaryData);
+          XLSX.utils.book_append_sheet(workbook, salarySheet, `給与情報_${this.selectedYear}年${this.selectedMonth}月`);
+        }
+      }
+
       // ファイル名を生成
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const filename = `社員データ_${dateStr}.xlsx`;
@@ -423,7 +538,10 @@ export class EmployeeExportComponent implements OnInit {
       'active': '在籍',
       'leave': '休職',
       'retired': '退職',
-      'pre_join': '未入社'
+      'pre_join': '未入社',
+      'draft': '下書き',
+      'confirmed': '確定',
+      'exported': '出力済み'
     };
     return labels[status] || status;
   }
@@ -454,5 +572,299 @@ export class EmployeeExportComponent implements OnInit {
     return this.dataTypeOptions.some(opt => 
       opt.selected && (opt.value === 'monthlyPremium' || opt.value === 'bonusPremium' || opt.value === 'salary')
     );
+  }
+
+  /**
+   * CSV形式でエクスポート
+   */
+  async exportToCsv(): Promise<void> {
+    const selectedEmployees = this.allEmployees.filter(emp => this.selectedEmployeeIds.has(emp.id!));
+    
+    if (selectedEmployees.length === 0) {
+      this.snackBar.open('エクスポートする社員が選択されていません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const selectedDataTypes = this.dataTypeOptions.filter(opt => opt.selected).map(opt => opt.value);
+    
+    if (selectedDataTypes.length === 0) {
+      this.snackBar.open('エクスポートするデータ種別が選択されていません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    try {
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      let exportedCount = 0;
+
+      // 基本情報CSV
+      if (selectedDataTypes.includes('basic')) {
+        const basicData = selectedEmployees.map(emp => ({
+          '社員番号': emp.employeeNumber,
+          '姓': emp.lastName,
+          '名': emp.firstName,
+          '姓（カナ）': emp.lastNameKana,
+          '名（カナ）': emp.firstNameKana,
+          'メールアドレス': emp.email,
+          '部署名': this.getDepartmentName(emp.departmentId),
+          '入社日': this.formatDate(emp.joinDate),
+          '生年月日': this.formatDate(emp.birthDate),
+          '退職日': this.formatDate(emp.retirementDate),
+          'ステータス': this.getStatusLabel(emp.status),
+          '権限': this.getRoleLabel(emp.role)
+        }));
+        this.downloadCsv(basicData, `基本情報_${dateStr}.csv`);
+        exportedCount++;
+      }
+
+      // 住所情報CSV
+      if (selectedDataTypes.includes('address')) {
+        const addressData = selectedEmployees.map(emp => ({
+          '社員番号': emp.employeeNumber,
+          '氏名': `${emp.lastName} ${emp.firstName}`,
+          '郵便番号': emp.address?.official?.postalCode || '',
+          '都道府県': emp.address?.official?.prefecture || '',
+          '市区町村': emp.address?.official?.city || '',
+          '町名・番地': emp.address?.official?.street || '',
+          '建物名・部屋番号': emp.address?.official?.building || ''
+        }));
+        this.downloadCsv(addressData, `住所情報_${dateStr}.csv`);
+        exportedCount++;
+      }
+
+      // 保険情報CSV
+      if (selectedDataTypes.includes('insurance')) {
+        const insuranceData = selectedEmployees.map(emp => ({
+          '社員番号': emp.employeeNumber,
+          '氏名': `${emp.lastName} ${emp.firstName}`,
+          '健康保険被保険者番号': emp.insuranceInfo?.healthInsuranceNumber || '',
+          '厚生年金被保険者番号': emp.insuranceInfo?.pensionNumber || '',
+          'マイナンバー': emp.insuranceInfo?.myNumber || '',
+          '標準報酬月額': emp.insuranceInfo?.standardReward || '',
+          '保険適用開始日': this.formatDate(emp.insuranceInfo?.insuranceStartDate)
+        }));
+        this.downloadCsv(insuranceData, `保険情報_${dateStr}.csv`);
+        exportedCount++;
+      }
+
+      // 扶養情報CSV
+      if (selectedDataTypes.includes('dependent')) {
+        const dependentData: any[] = [];
+        selectedEmployees.forEach(emp => {
+          if (emp.dependentInfo && emp.dependentInfo.length > 0) {
+            emp.dependentInfo.forEach(dep => {
+              dependentData.push({
+                '社員番号': emp.employeeNumber,
+                '社員名': `${emp.lastName} ${emp.firstName}`,
+                '扶養者名': dep.name,
+                '扶養者名（カナ）': dep.nameKana,
+                '続柄': dep.relationship,
+                '生年月日': this.formatDate(dep.birthDate),
+                '年収': dep.income || '',
+                '同一世帯': dep.livingTogether ? 'はい' : 'いいえ',
+                '被扶養者になった年月日': this.formatDate(dep.becameDependentDate)
+              });
+            });
+          } else {
+            dependentData.push({
+              '社員番号': emp.employeeNumber,
+              '社員名': `${emp.lastName} ${emp.firstName}`,
+              '扶養者名': '',
+              '扶養者名（カナ）': '',
+              '続柄': '',
+              '生年月日': '',
+              '年収': '',
+              '同一世帯': '',
+              '被扶養者になった年月日': ''
+            });
+          }
+        });
+        this.downloadCsv(dependentData, `扶養情報_${dateStr}.csv`);
+        exportedCount++;
+      }
+
+      // 他社勤務情報CSV
+      if (selectedDataTypes.includes('otherCompany')) {
+        const otherCompanyData: any[] = [];
+        selectedEmployees.forEach(emp => {
+          if (emp.otherCompanyInfo && emp.otherCompanyInfo.length > 0) {
+            emp.otherCompanyInfo.forEach(company => {
+              otherCompanyData.push({
+                '社員番号': emp.employeeNumber,
+                '社員名': `${emp.lastName} ${emp.firstName}`,
+                '会社名': company.companyName,
+                '主たる勤務先': company.isPrimary ? 'はい' : 'いいえ'
+              });
+            });
+          } else {
+            otherCompanyData.push({
+              '社員番号': emp.employeeNumber,
+              '社員名': `${emp.lastName} ${emp.firstName}`,
+              '会社名': '',
+              '主たる勤務先': ''
+            });
+          }
+        });
+        this.downloadCsv(otherCompanyData, `他社勤務情報_${dateStr}.csv`);
+        exportedCount++;
+      }
+
+      // 保険料情報（月次）CSV
+      if (selectedDataTypes.includes('monthlyPremium')) {
+        const monthlyPremiumData: any[] = [];
+        for (const emp of selectedEmployees) {
+          if (!emp.id) continue;
+          const calculation = await this.calculationService.getCalculationsByEmployee(
+            emp.id,
+            this.selectedYear,
+            this.selectedMonth
+          );
+          if (calculation) {
+            monthlyPremiumData.push({
+              '社員番号': emp.employeeNumber,
+              '氏名': `${emp.lastName} ${emp.firstName}`,
+              '年': this.selectedYear,
+              '月': this.selectedMonth,
+              '標準報酬月額': calculation.standardReward || '',
+              '健康保険等級': calculation.grade || '',
+              '健康保険料（全額）': calculation.healthInsurancePremium || '',
+              '厚生年金料（全額）': calculation.pensionInsurancePremium || '',
+              '介護保険料（全額）': calculation.careInsurancePremium || '',
+              '合計保険料（全額）': calculation.totalPremium || '',
+              '会社負担額（折半額）': calculation.companyShare || '',
+              '従業員負担額（折半額）': calculation.employeeShare || '',
+              'ステータス': this.getStatusLabel(calculation.status)
+            });
+          }
+        }
+        if (monthlyPremiumData.length > 0) {
+          this.downloadCsv(monthlyPremiumData, `保険料情報（月次）_${this.selectedYear}年${this.selectedMonth}月_${dateStr}.csv`);
+          exportedCount++;
+        }
+      }
+
+      // 保険料情報（賞与）CSV
+      if (selectedDataTypes.includes('bonusPremium')) {
+        const bonusPremiumData: any[] = [];
+        for (const emp of selectedEmployees) {
+          if (!emp.id) continue;
+          const calculation = await this.calculationService.getBonusCalculationsByEmployee(
+            emp.id,
+            this.selectedYear,
+            this.selectedMonth
+          );
+          if (calculation) {
+            bonusPremiumData.push({
+              '社員番号': emp.employeeNumber,
+              '氏名': `${emp.lastName} ${emp.firstName}`,
+              '年': this.selectedYear,
+              '月': this.selectedMonth,
+              '賞与額': calculation.bonusAmount || '',
+              '標準賞与額': calculation.standardBonusAmount || '',
+              '健康保険料（全額）': calculation.healthInsurancePremium || '',
+              '厚生年金料（全額）': calculation.pensionInsurancePremium || '',
+              '介護保険料（全額）': calculation.careInsurancePremium || '',
+              '合計保険料（全額）': calculation.totalPremium || '',
+              '会社負担額（折半額）': calculation.companyShare || '',
+              '従業員負担額（折半額）': calculation.employeeShare || '',
+              'ステータス': this.getStatusLabel(calculation.status)
+            });
+          }
+        }
+        if (bonusPremiumData.length > 0) {
+          this.downloadCsv(bonusPremiumData, `保険料情報（賞与）_${this.selectedYear}年${this.selectedMonth}月_${dateStr}.csv`);
+          exportedCount++;
+        }
+      }
+
+      // 給与情報CSV
+      if (selectedDataTypes.includes('salary')) {
+        const salaryData: any[] = [];
+        for (const emp of selectedEmployees) {
+          if (!emp.id) continue;
+          const salary = await this.salaryDataService.getSalaryData(
+            emp.id,
+            this.selectedYear,
+            this.selectedMonth
+          );
+          if (salary) {
+            salaryData.push({
+              '社員番号': emp.employeeNumber,
+              '氏名': `${emp.lastName} ${emp.firstName}`,
+              '年': this.selectedYear,
+              '月': this.selectedMonth,
+              '基礎日数': salary.baseDays || '',
+              '固定賃金': salary.fixedSalary || '',
+              '総支給額': salary.totalPayment || '',
+              '遡及支払額': salary.retroactivePayment || '',
+              '確定済み': salary.isConfirmed ? 'はい' : 'いいえ'
+            });
+          }
+        }
+        if (salaryData.length > 0) {
+          this.downloadCsv(salaryData, `給与情報_${this.selectedYear}年${this.selectedMonth}月_${dateStr}.csv`);
+          exportedCount++;
+        }
+      }
+
+      this.snackBar.open(`${exportedCount}件のCSVファイルをエクスポートしました`, '閉じる', { duration: 3000 });
+    } catch (error) {
+      console.error('エクスポートに失敗しました:', error);
+      this.snackBar.open('エクスポートに失敗しました', '閉じる', { duration: 3000 });
+    }
+  }
+
+  /**
+   * CSV形式の文字列を生成してダウンロード
+   */
+  private downloadCsv(data: any[], filename: string): void {
+    if (data.length === 0) return;
+
+    // ヘッダー行を取得
+    const headers = Object.keys(data[0]);
+    
+    // CSV形式の文字列を生成
+    const csvRows: string[] = [];
+    
+    // ヘッダー行を追加
+    csvRows.push(headers.map(h => this.escapeCsvValue(h)).join(','));
+
+    // データ行を追加
+    data.forEach(row => {
+      const values = headers.map(header => {
+        const value = row[header];
+        return this.escapeCsvValue(value !== null && value !== undefined ? String(value) : '');
+      });
+      csvRows.push(values.join(','));
+    });
+
+    // BOMを追加（Excelで文字化けを防ぐため）
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+
+    // Blobを作成してダウンロード
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * CSV値のエスケープ処理
+   */
+  private escapeCsvValue(value: string): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    const stringValue = String(value);
+    // カンマ、ダブルクォート、改行が含まれる場合はダブルクォートで囲む
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
   }
 }

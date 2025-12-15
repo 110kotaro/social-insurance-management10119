@@ -157,6 +157,84 @@ export class BonusCalculationDetailComponent implements OnInit {
     return `¥${amount.toLocaleString()}`;
   }
 
+  /**
+   * 修正18: 遡及控除額を含めた合計保険料を計算
+   */
+  getTotalPremiumWithRetroactiveDeduction(): number {
+    if (!this.calculation) {
+      return 0;
+    }
+    let total = this.calculation.totalPremium || 0;
+    
+    // この計算結果に適用されている遡及控除額を加算
+    if (this.calculation.retroactiveDeductions && this.calculation.retroactiveDeductions.length > 0) {
+      const applicableDeductions = this.calculation.retroactiveDeductions.filter(
+        d => d.year === this.calculation!.year && d.month === this.calculation!.month
+      );
+      applicableDeductions.forEach(deduction => {
+        total += (deduction.healthInsurancePremiumDiff || 0) + (deduction.pensionInsurancePremiumDiff || 0);
+      });
+    }
+    
+    return total;
+  }
+
+  /**
+   * 修正18: 遡及控除額を含めた会社負担額を計算
+   */
+  getCompanyShareWithRetroactiveDeduction(): number {
+    if (!this.calculation) {
+      return 0;
+    }
+    let total = this.calculation.companyShare || 0;
+    
+    // この計算結果に適用されている遡及控除額を加算
+    if (this.calculation.retroactiveDeductions && this.calculation.retroactiveDeductions.length > 0) {
+      const applicableDeductions = this.calculation.retroactiveDeductions.filter(
+        d => d.year === this.calculation!.year && d.month === this.calculation!.month
+      );
+      applicableDeductions.forEach(deduction => {
+        total += (deduction.companyShareDiff || 0);
+      });
+    }
+    
+    return total;
+  }
+
+  /**
+   * 修正18: 遡及控除額を含めた従業員負担額を計算
+   */
+  getEmployeeShareWithRetroactiveDeduction(): number {
+    if (!this.calculation) {
+      return 0;
+    }
+    let total = this.calculation.employeeShare || 0;
+    
+    // この計算結果に適用されている遡及控除額を加算
+    if (this.calculation.retroactiveDeductions && this.calculation.retroactiveDeductions.length > 0) {
+      const applicableDeductions = this.calculation.retroactiveDeductions.filter(
+        d => d.year === this.calculation!.year && d.month === this.calculation!.month
+      );
+      applicableDeductions.forEach(deduction => {
+        total += (deduction.employeeShareDiff || 0);
+      });
+    }
+    
+    return total;
+  }
+
+  /**
+   * 修正18: この計算結果に遡及控除が適用されているかチェック
+   */
+  hasRetroactiveDeduction(): boolean {
+    if (!this.calculation || !this.calculation.retroactiveDeductions || this.calculation.retroactiveDeductions.length === 0) {
+      return false;
+    }
+    return this.calculation.retroactiveDeductions.some(
+      d => d.year === this.calculation!.year && d.month === this.calculation!.month
+    );
+  }
+
   getStatusLabel(status: string): string {
     const labels: { [key: string]: string } = {
       draft: '下書き',

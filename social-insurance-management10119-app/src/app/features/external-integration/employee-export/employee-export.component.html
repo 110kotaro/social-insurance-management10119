@@ -139,15 +139,30 @@
         </div>
       </div>
 
+      <!-- 出力形式選択 -->
+      <div class="export-format-section">
+        <h3>出力形式</h3>
+        <mat-form-field>
+          <mat-label>出力形式</mat-label>
+          <mat-select [(ngModel)]="exportFormat" [ngModelOptions]="{standalone: true}">
+            <mat-option value="excel">Excel形式（.xlsx）</mat-option>
+            <mat-option value="csv">CSV形式（.csv）</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <p class="format-note" *ngIf="exportFormat === 'csv'">
+          CSV形式の場合、データ種別ごとに個別のファイルが出力されます。
+        </p>
+      </div>
+
       <!-- アクションボタン -->
       <div class="action-buttons">
         <button 
           mat-raised-button 
           color="primary" 
-          (click)="exportToExcel()"
+          (click)="exportData()"
           [disabled]="isLoading || selectedEmployeeIds.size === 0">
           <mat-icon>download</mat-icon>
-          Excel形式でエクスポート
+          {{ exportFormat === 'excel' ? 'Excel形式でエクスポート' : 'CSV形式でエクスポート' }}
         </button>
       </div>
     </mat-card-content>

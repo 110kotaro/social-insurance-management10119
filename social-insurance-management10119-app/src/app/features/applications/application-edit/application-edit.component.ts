@@ -28,7 +28,7 @@ import { DeadlineCalculationService } from '../../../core/services/deadline-calc
 import { Application, ApplicationStatus, ApplicationCategory, Attachment } from '../../../core/models/application.model';
 import { Organization } from '../../../core/models/organization.model';
 import { ApplicationType } from '../../../core/models/application-flow.model';
-import { Employee } from '../../../core/models/employee.model';
+import { Employee, DependentInfo } from '../../../core/models/employee.model';
 import { Timestamp } from '@angular/fire/firestore';
 import { FormattedSection, FormattedItem } from '../application-detail/application-detail.component';
 import { EXPLANATION_PDFS, getApplicationTypeFolderName } from '../../../core/config/explanation-pdfs.config';
@@ -599,6 +599,48 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       }
       const dataWithoutArray = { ...data };
       delete dataWithoutArray['persons'];
+      
+      // commonBonusPaymentDateをcommonPaymentDate（フォームデータ形式）に変換
+      if (dataWithoutArray['commonBonusPaymentDate'] && !dataWithoutArray['commonPaymentDate']) {
+        const bonusPaymentDate = dataWithoutArray['commonBonusPaymentDate'];
+        let date: Date | null = null;
+        
+        if (bonusPaymentDate instanceof Date) {
+          date = bonusPaymentDate;
+        } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).toDate === 'function') {
+          date = (bonusPaymentDate as any).toDate();
+        } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).seconds === 'number') {
+          date = new Date((bonusPaymentDate as any).seconds * 1000);
+        } else {
+          date = new Date(bonusPaymentDate);
+        }
+        
+        if (date && !isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const day = date.getDate();
+          
+          // 西暦を年号に変換
+          let era = 'reiwa';
+          let eraYear = year - 2018; // 令和
+          if (year < 2019) {
+            era = 'heisei';
+            eraYear = year - 1988; // 平成
+          }
+          if (year < 1989) {
+            era = 'showa';
+            eraYear = year - 1925; // 昭和
+          }
+          
+          dataWithoutArray['commonPaymentDate'] = {
+            era: era,
+            year: eraYear.toString(),
+            month: month.toString(),
+            day: day.toString()
+          };
+        }
+      }
+      
       this.bonusPaymentForm.patchValue(dataWithoutArray);
     } else if (this.isDependentChangeFormInternal && this.dependentChangeFormInternal) {
       // FormArrayの処理（otherDependents）
@@ -1509,6 +1551,11 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       insuredPersonGroup.get('acquisitionDate')?.patchValue(joinDateInfo);
     }
 
+    // 被扶養者情報を自動転記
+    if (employee.dependentInfo && employee.dependentInfo.length > 0) {
+      this.addDependentsFromEmployee(employee.dependentInfo);
+    }
+
     // 住所（基礎年金番号の場合のみ、officialを優先、なければinternal）
     if (employee.address && insuredPersonGroup.get('identificationType')?.value === 'basic_pension_number') {
       const address = employee.address.official; // || employee.address.internal; // internalはコメントアウト
@@ -2387,6 +2434,92 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   /**
+   * 社員情報の被扶養者情報から被扶養者申請の被扶養者情報を追加
+   */
+  private addDependentsFromEmployee(dependentInfo: DependentInfo[]): void {
+    // 現在アクティブなフォームからotherDependentsFormArrayを取得
+    if (this.isDependentChangeFormInternal && this.dependentChangeFormInternal) {
+      this.otherDependentsFormArray = this.dependentChangeFormInternal.get('otherDependents') as FormArray;
+    } else if (this.isDependentChangeForm && this.dependentChangeForm) {
+      this.otherDependentsFormArray = this.dependentChangeForm.get('otherDependents') as FormArray;
+    }
+
+    if (!this.otherDependentsFormArray) {
+      return;
+    }
+
+    // 既存の被扶養者をクリア（オプション：既存データを保持したい場合は削除）
+    // this.otherDependentsFormArray.clear();
+
+    for (const dep of dependentInfo) {
+      // DependentInfoからlastName/firstNameを取得（既に分割されている場合はそれを使用、そうでなければnameから分割）
+      const lastName = dep.lastName || this.splitNameToLastNameFirstName(dep.name).lastName;
+      const firstName = dep.firstName || this.splitNameToLastNameFirstName(dep.name).firstName;
+      const lastNameKana = dep.lastNameKana || this.splitNameToLastNameFirstName(dep.nameKana).lastName;
+      const firstNameKana = dep.firstNameKana || this.splitNameToLastNameFirstName(dep.nameKana).firstName;
+
+      // 生年月日を変換
+      const birthDate = dep.birthDate instanceof Date 
+        ? dep.birthDate 
+        : (dep.birthDate instanceof Timestamp ? dep.birthDate.toDate() : new Date(dep.birthDate));
+      const birthDateInfo = this.convertToEraDate(birthDate);
+
+      const dependentGroup = this.fb.group({
+        lastName: [lastName, [Validators.required]],
+        firstName: [firstName, [Validators.required]],
+        lastNameKana: [lastNameKana, [Validators.required]],
+        firstNameKana: [firstNameKana, [Validators.required]],
+        birthDate: this.fb.group({
+          era: [birthDateInfo.era || 'reiwa'],
+          year: [birthDateInfo.year || ''],
+          month: [birthDateInfo.month || ''],
+          day: [birthDateInfo.day || '']
+        }),
+        relationship: [dep.relationship || '', [Validators.required]],
+        changeType: ['applicable', [Validators.required]], // デフォルトは「適用」
+        changeDate: [''],
+        startReason: [''],
+        startReasonOther: [''],
+        endReason: [''],
+        endReasonOther: [''],
+        income: [dep.income || null],
+        address: this.fb.group({
+          livingTogether: [dep.livingTogether ? 'living_together' : 'separate']
+        }),
+        personalNumber: [''],
+        basicPensionNumber: [dep.dependentId || '']
+      });
+
+      this.otherDependentsFormArray.push(dependentGroup);
+    }
+  }
+
+  /**
+   * 氏名を氏と名に分割するヘルパーメソッド
+   */
+  private splitNameToLastNameFirstName(name: string): { lastName: string, firstName: string } {
+    if (!name) {
+      return { lastName: '', firstName: '' };
+    }
+    // スペースで分割（最初のスペースで分割）
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return {
+        lastName: parts[0],
+        firstName: parts.slice(1).join(' ')
+      };
+    }
+    // 分割できない場合は、最初の1文字を氏、残りを名とする
+    if (name.length > 1) {
+      return {
+        lastName: name.substring(0, 1),
+        firstName: name.substring(1)
+      };
+    }
+    return { lastName: name, firstName: '' };
+  }
+
+  /**
    * 被保険者報酬月額算定基礎届フォームを初期化
    */
   private initializeRewardBaseForm(): void {
@@ -3261,6 +3394,22 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         applicationData = this.rewardChangeForm.value;
       } else if (this.isBonusPaymentForm && this.bonusPaymentForm) {
         applicationData = this.bonusPaymentForm.value;
+        // commonPaymentDateをcommonBonusPaymentDate（Date形式）に変換
+        if (applicationData['commonPaymentDate']) {
+          const commonPaymentDate = applicationData['commonPaymentDate'];
+          if (commonPaymentDate.year && commonPaymentDate.month && commonPaymentDate.day) {
+            // 年号を西暦に変換
+            let year = parseInt(commonPaymentDate.year);
+            if (commonPaymentDate.era === 'reiwa') {
+              year = year + 2018; // 令和年 + 2018 = 西暦
+            } else if (commonPaymentDate.era === 'heisei') {
+              year = year + 1988; // 平成年 + 1988 = 西暦
+            } else if (commonPaymentDate.era === 'showa') {
+              year = year + 1925; // 昭和平年 + 1925 = 西暦
+            }
+            applicationData['commonBonusPaymentDate'] = new Date(year, parseInt(commonPaymentDate.month) - 1, parseInt(commonPaymentDate.day));
+          }
+        }
       } else if (this.isDependentChangeFormInternal && this.dependentChangeFormInternal) {
         applicationData = this.dependentChangeFormInternal.value;
       } else if (this.isAddressChangeFormInternal && this.addressChangeFormInternal) {

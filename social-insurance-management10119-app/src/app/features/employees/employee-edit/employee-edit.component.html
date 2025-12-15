@@ -234,17 +234,41 @@
                     <mat-card-content>
                       <div class="form-row">
                         <mat-form-field appearance="outline" class="form-field">
-                          <mat-label>氏名 *</mat-label>
-                          <input matInput formControlName="name" required>
+                          <mat-label>氏 *</mat-label>
+                          <input matInput formControlName="lastName" required>
+                          <mat-error *ngIf="dependent.get('lastName')?.hasError('required')">
+                            氏を入力してください
+                          </mat-error>
                         </mat-form-field>
 
                         <mat-form-field appearance="outline" class="form-field">
-                          <mat-label>氏名カナ *</mat-label>
-                          <input matInput formControlName="nameKana" required>
-                          <mat-error *ngIf="dependent.get('nameKana')?.hasError('required')">
-                            氏名カナを入力してください
+                          <mat-label>名 *</mat-label>
+                          <input matInput formControlName="firstName" required>
+                          <mat-error *ngIf="dependent.get('firstName')?.hasError('required')">
+                            名を入力してください
                           </mat-error>
-                          <mat-error *ngIf="dependent.get('nameKana')?.hasError('katakana')">
+                        </mat-form-field>
+                      </div>
+
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>氏（カナ） *</mat-label>
+                          <input matInput formControlName="lastNameKana" required>
+                          <mat-error *ngIf="dependent.get('lastNameKana')?.hasError('required')">
+                            氏（カナ）を入力してください
+                          </mat-error>
+                          <mat-error *ngIf="dependent.get('lastNameKana')?.hasError('katakana')">
+                            カタカナで入力してください
+                          </mat-error>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>名（カナ） *</mat-label>
+                          <input matInput formControlName="firstNameKana" required>
+                          <mat-error *ngIf="dependent.get('firstNameKana')?.hasError('required')">
+                            名（カナ）を入力してください
+                          </mat-error>
+                          <mat-error *ngIf="dependent.get('firstNameKana')?.hasError('katakana')">
                             カタカナで入力してください
                           </mat-error>
                         </mat-form-field>

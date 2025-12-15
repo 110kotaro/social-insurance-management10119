@@ -33,7 +33,7 @@
         <mat-list>
           <mat-list-item>
             <span matListItemTitle>計算対象年月</span>
-            <span matListItemLine>{{ calculationYear }}年{{ calculationMonth }}月</span>
+            <span matListItemLine>{{ calculationYear }}年{{ calculationMonth }}月分</span>
           </mat-list-item>
           <mat-divider></mat-divider>
           <mat-list-item>
@@ -67,7 +67,7 @@
       <mat-list>
         <mat-list-item>
           <span matListItemTitle>計算対象年月</span>
-          <span matListItemLine>{{ calculation.year }}年{{ calculation.month }}月</span>
+          <span matListItemLine>{{ calculation.year }}年{{ calculation.month }}月分</span>
         </mat-list-item>
         <mat-divider></mat-divider>
 
@@ -221,7 +221,13 @@
 
             <mat-list-item class="total-item">
               <span matListItemTitle>合計保険料（全額）</span>
-              <span matListItemLine class="total-amount">{{ formatCurrency(calculation.totalPremium) }}</span>
+              <span matListItemLine class="total-amount">
+                {{ formatCurrency(getTotalPremiumWithRetroactiveDeduction()) }}
+                <span *ngIf="hasRetroactiveDeduction()" 
+                      style="color: #666; font-size: 0.9em; margin-left: 8px;">
+                  （遡及控除額含む）
+                </span>
+              </span>
             </mat-list-item>
             <mat-divider></mat-divider>
 
@@ -245,15 +251,23 @@
                 </span>
                 <!-- 復職月の表示（休職中未徴収分を追記） -->
                 <span *ngIf="calculation.postpaidLeaveTotal && calculation.postpaidLeaveTotal > 0">
-                  {{ formatCurrency(calculation.employeeShare) }}
+                  {{ formatCurrency(getEmployeeShareWithRetroactiveDeduction()) }}
                   <span class="leave-note">
                     <br>通常分：{{ formatCurrency(calculation.employeeShare - calculation.postpaidLeaveTotal) }}
                     <br>休職中未徴収分：{{ formatCurrency(calculation.postpaidLeaveTotal) }}
                   </span>
+                  <span *ngIf="hasRetroactiveDeduction()" 
+                        style="color: #666; font-size: 0.9em; margin-left: 8px;">
+                    （遡及控除額含む）
+                  </span>
                 </span>
                 <!-- 通常の表示 -->
                 <span *ngIf="!calculation.isOnLeave && (!calculation.postpaidLeaveTotal || calculation.postpaidLeaveTotal === 0)">
-                  {{ formatCurrency(calculation.employeeShare) }}
+                  {{ formatCurrency(getEmployeeShareWithRetroactiveDeduction()) }}
+                  <span *ngIf="hasRetroactiveDeduction()" 
+                        style="color: #666; font-size: 0.9em; margin-left: 8px;">
+                    （遡及控除額含む）
+                  </span>
                 </span>
               </span>
             </mat-list-item>

@@ -962,6 +962,13 @@ export class NotificationService {
         continue;
       }
 
+      // 修正: 報酬月額変更届、住所変更届、氏名変更届は期限計算を行わないため除外
+      if (applicationType.code === 'REWARD_CHANGE' || 
+          applicationType.code === 'ADDRESS_CHANGE_EXTERNAL' || 
+          applicationType.code === 'NAME_CHANGE_EXTERNAL') {
+        continue;
+      }
+
       // 該当社員の外部申請が既に送信されているかチェック（申請種別ごと）
       const employeeExternalApplications = await this.applicationService.getApplicationsByOrganization(organizationId, {
         employeeId: application.employeeId,
@@ -1136,6 +1143,12 @@ export class NotificationService {
 
     // 申請がない場合の期限超過通知をチェック（applicationIdがnullの通知から）
     await this.checkOverdueNotificationsWithoutApplication(organizationId, reminderSettings, adminUids, skipDuplicateCheck);
+
+    // 修正: 報酬月額変更届の通知をチェック（期限計算なし、対象者通知）
+    await this.checkAndSendRewardChangeNotifications(organizationId, skipDuplicateCheck);
+
+    // 修正: 住所変更届・氏名変更届の通知をチェック（期限計算なし、内部申請作成後1日1回通知）
+    await this.checkAndSendAddressAndNameChangeNotifications(organizationId, skipDuplicateCheck);
   }
 
   /**
@@ -1188,6 +1201,13 @@ export class NotificationService {
       if (!employee.id) continue;
 
       for (const applicationType of externalApplicationTypes) {
+        // 修正: 報酬月額変更届、住所変更届、氏名変更届は期限計算を行わないため除外
+        if (applicationType.code === 'REWARD_CHANGE' || 
+            applicationType.code === 'ADDRESS_CHANGE_EXTERNAL' || 
+            applicationType.code === 'NAME_CHANGE_EXTERNAL') {
+          continue;
+        }
+
         // 該当社員の外部申請が既に送信されているかチェック
         const applicationService = this.injector.get(ApplicationService);
         const externalApplications = await applicationService.getApplicationsByOrganization(organizationId, {
@@ -1273,6 +1293,334 @@ export class NotificationService {
 
           if (notifications.length > 0) {
             await this.createNotifications(notifications);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 修正: 報酬月額変更届の通知をチェックして送信（期限計算なし、対象者通知）
+   * 月変計算確定後に、外部申請が作成されていない社員に対して1日1回通知を送信
+   */
+  async checkAndSendRewardChangeNotifications(organizationId: string, skipDuplicateCheck: boolean = false): Promise<void> {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+    // 組織情報を取得
+    const organization = await this.organizationService.getOrganization(organizationId);
+    if (!organization?.applicationFlowSettings?.applicationTypes) {
+      return;
+    }
+
+    const applicationTypes = organization.applicationFlowSettings.applicationTypes || [];
+    const rewardChangeApplicationType = applicationTypes.find(type => type.code === 'REWARD_CHANGE' && type.category === 'external');
+    if (!rewardChangeApplicationType) {
+      return;
+    }
+
+    const adminUids = await this.getAdminUserUids(organizationId);
+    if (adminUids.length === 0) {
+      return;
+    }
+
+    // 重複チェック用の既存通知を取得（手動送信時はスキップ）
+    let existingNotifications: Notification[] = [];
+    if (!skipDuplicateCheck) {
+      existingNotifications = await this.getUserNotifications(adminUids[0], organizationId, {
+        type: 'reminder',
+        limitCount: 1000
+      });
+    }
+
+    // 月変計算が確定済み（status: 'applied'）の計算結果を取得
+    const standardRewardCalculationService = this.injector.get(StandardRewardCalculationService);
+    const monthlyChangeCalculations = await standardRewardCalculationService.getCalculationsByOrganization(
+      organizationId,
+      'monthly_change'
+    );
+
+    // 確定済みの月変計算をフィルタ
+    const confirmedCalculations = monthlyChangeCalculations.filter(calc => calc.status === 'applied');
+
+    if (confirmedCalculations.length === 0) {
+      return;
+    }
+
+    // 社員一覧を取得
+    const employeeService = this.injector.get(EmployeeService);
+    const employees = await employeeService.getEmployeesByOrganization(organizationId);
+
+    // 対象社員を集計（月変計算が確定済みで、外部申請が作成されていない社員）
+    const targetEmployees: Employee[] = [];
+    const applicationService = this.injector.get(ApplicationService);
+
+    for (const calculation of confirmedCalculations) {
+      if (!calculation.employeeId || !calculation.changeMonth) {
+        continue;
+      }
+
+      const employee = employees.find(emp => emp.id === calculation.employeeId);
+      if (!employee) {
+        continue;
+      }
+
+      // 該当社員の報酬月額変更届（外部申請）が既に作成されているかチェック
+      const externalApplications = await applicationService.getApplicationsByOrganization(organizationId, {
+        employeeId: calculation.employeeId,
+        category: 'external'
+      });
+
+      const hasRewardChangeApplication = externalApplications.some(app => 
+        app.type === rewardChangeApplicationType.id
+      );
+
+      if (!hasRewardChangeApplication) {
+        // 既に通知対象として追加されているかチェック（同じ社員が複数の月変計算で対象になる可能性があるため）
+        if (!targetEmployees.find(emp => emp.id === calculation.employeeId)) {
+          targetEmployees.push(employee);
+        }
+      }
+    }
+
+    if (targetEmployees.length === 0) {
+      return;
+    }
+
+    // 重複チェック（手動送信時はスキップ）
+    if (!skipDuplicateCheck) {
+      const hasTodayNotification = existingNotifications.some(n => {
+        const notificationDate = n.createdAt instanceof Date 
+          ? n.createdAt 
+          : (n.createdAt as any).toDate();
+        return notificationDate >= todayStart && 
+               notificationDate <= todayEnd &&
+               n.title === '報酬月額変更届の申請が必要です' &&
+               n.applicationId === null;
+      });
+
+      if (hasTodayNotification) {
+        return; // 今日既に通知が送信されている場合はスキップ
+      }
+    }
+
+    // 対象社員名を取得（最大5名まで表示）
+    const employeeNames = targetEmployees
+      .map(emp => `${emp.lastName} ${emp.firstName}`)
+      .slice(0, 5);
+    
+    const employeeList = employeeNames.length > 0 
+      ? employeeNames.join('、')
+      : '';
+    
+    const moreCount = targetEmployees.length > 5 
+      ? `他${targetEmployees.length - 5}名`
+      : '';
+    
+    const employeeInfo = employeeList + (moreCount ? `、${moreCount}` : '');
+
+    // 通知を送信
+    const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
+    for (const adminUid of adminUids) {
+      notifications.push({
+        userId: adminUid,
+        applicationId: null,
+        employeeId: null, // 複数社員の場合はnull
+        type: 'reminder',
+        title: '報酬月額変更届の申請が必要です',
+        message: `月変計算が確定済みで、報酬月額変更届の申請が必要な社員がいます（${employeeInfo}）。申請を作成してください。`,
+        read: false,
+        priority: 'high',
+        organizationId
+      });
+    }
+
+    if (notifications.length > 0) {
+      await this.createNotifications(notifications);
+    }
+  }
+
+  /**
+   * 修正: 住所変更届・氏名変更届の通知をチェックして送信（期限計算なし、内部申請作成後1日1回通知）
+   * 内部申請が作成されたら、関連する外部申請が作成されない限り1日1回通知を送信
+   */
+  async checkAndSendAddressAndNameChangeNotifications(organizationId: string, skipDuplicateCheck: boolean = false): Promise<void> {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+    // 組織情報を取得
+    const organization = await this.organizationService.getOrganization(organizationId);
+    if (!organization?.applicationFlowSettings?.applicationTypes) {
+      return;
+    }
+
+    const applicationTypes = organization.applicationFlowSettings.applicationTypes || [];
+    const addressChangeApplicationType = applicationTypes.find(type => type.code === 'ADDRESS_CHANGE_EXTERNAL' && type.category === 'external');
+    const nameChangeApplicationType = applicationTypes.find(type => type.code === 'NAME_CHANGE_EXTERNAL' && type.category === 'external');
+
+    if (!addressChangeApplicationType && !nameChangeApplicationType) {
+      return;
+    }
+
+    const adminUids = await this.getAdminUserUids(organizationId);
+    if (adminUids.length === 0) {
+      return;
+    }
+
+    // 重複チェック用の既存通知を取得（手動送信時はスキップ）
+    let existingNotifications: Notification[] = [];
+    if (!skipDuplicateCheck) {
+      existingNotifications = await this.getUserNotifications(adminUids[0], organizationId, {
+        type: 'reminder',
+        limitCount: 1000
+      });
+    }
+
+    const applicationService = this.injector.get(ApplicationService);
+    
+    // 住所変更届の内部申請を取得
+    if (addressChangeApplicationType) {
+      const addressChangeInternalType = applicationTypes.find(type => type.code === 'ADDRESS_CHANGE' && type.category === 'internal');
+      if (addressChangeInternalType) {
+        const internalApplications = await applicationService.getApplicationsByOrganization(organizationId, {
+          category: 'internal'
+        });
+
+        const addressChangeInternalApplications = internalApplications.filter(app => 
+          app.type === addressChangeInternalType.id &&
+          (app.status === 'pending' || app.status === 'approved')
+        );
+
+        for (const internalApp of addressChangeInternalApplications) {
+          if (!internalApp.employeeId) continue;
+
+          // 該当社員の住所変更届（外部申請）が既に作成されているかチェック
+          const externalApplications = await applicationService.getApplicationsByOrganization(organizationId, {
+            employeeId: internalApp.employeeId,
+            category: 'external'
+          });
+
+          const hasExternalApplication = externalApplications.some(app => 
+            app.type === addressChangeApplicationType.id
+          );
+
+          if (!hasExternalApplication) {
+            // 重複チェック（手動送信時はスキップ）
+            if (!skipDuplicateCheck) {
+              const hasTodayNotification = existingNotifications.some(n => {
+                const notificationDate = n.createdAt instanceof Date 
+                  ? n.createdAt 
+                  : (n.createdAt as any).toDate();
+                return notificationDate >= todayStart && 
+                       notificationDate <= todayEnd &&
+                       n.employeeId === internalApp.employeeId &&
+                       n.title === '住所変更届の申請が必要です';
+              });
+
+              if (hasTodayNotification) {
+                continue; // 今日既に通知が送信されている場合はスキップ
+              }
+            }
+
+            // 社員情報を取得
+            const employeeService = this.injector.get(EmployeeService);
+            const employee = await employeeService.getEmployee(internalApp.employeeId);
+            if (!employee) continue;
+
+            // 通知を送信
+            const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
+            for (const adminUid of adminUids) {
+              notifications.push({
+                userId: adminUid,
+                applicationId: null,
+                employeeId: internalApp.employeeId,
+                type: 'reminder',
+                title: '住所変更届の申請が必要です',
+                message: `${employee.lastName} ${employee.firstName}さんの住所変更届（外部申請）の申請が必要です。`,
+                read: false,
+                priority: 'high',
+                organizationId
+              });
+            }
+
+            if (notifications.length > 0) {
+              await this.createNotifications(notifications);
+            }
+          }
+        }
+      }
+    }
+
+    // 氏名変更届の内部申請を取得
+    if (nameChangeApplicationType) {
+      const nameChangeInternalType = applicationTypes.find(type => type.code === 'NAME_CHANGE' && type.category === 'internal');
+      if (nameChangeInternalType) {
+        const internalApplications = await applicationService.getApplicationsByOrganization(organizationId, {
+          category: 'internal'
+        });
+
+        const nameChangeInternalApplications = internalApplications.filter(app => 
+          app.type === nameChangeInternalType.id &&
+          (app.status === 'pending' || app.status === 'approved')
+        );
+
+        for (const internalApp of nameChangeInternalApplications) {
+          if (!internalApp.employeeId) continue;
+
+          // 該当社員の氏名変更届（外部申請）が既に作成されているかチェック
+          const externalApplications = await applicationService.getApplicationsByOrganization(organizationId, {
+            employeeId: internalApp.employeeId,
+            category: 'external'
+          });
+
+          const hasExternalApplication = externalApplications.some(app => 
+            app.type === nameChangeApplicationType.id
+          );
+
+          if (!hasExternalApplication) {
+            // 重複チェック（手動送信時はスキップ）
+            if (!skipDuplicateCheck) {
+              const hasTodayNotification = existingNotifications.some(n => {
+                const notificationDate = n.createdAt instanceof Date 
+                  ? n.createdAt 
+                  : (n.createdAt as any).toDate();
+                return notificationDate >= todayStart && 
+                       notificationDate <= todayEnd &&
+                       n.employeeId === internalApp.employeeId &&
+                       n.title === '氏名変更届の申請が必要です';
+              });
+
+              if (hasTodayNotification) {
+                continue; // 今日既に通知が送信されている場合はスキップ
+              }
+            }
+
+            // 社員情報を取得
+            const employeeService = this.injector.get(EmployeeService);
+            const employee = await employeeService.getEmployee(internalApp.employeeId);
+            if (!employee) continue;
+
+            // 通知を送信
+            const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
+            for (const adminUid of adminUids) {
+              notifications.push({
+                userId: adminUid,
+                applicationId: null,
+                employeeId: internalApp.employeeId,
+                type: 'reminder',
+                title: '氏名変更届の申請が必要です',
+                message: `${employee.lastName} ${employee.firstName}さんの氏名変更届（外部申請）の申請が必要です。`,
+                read: false,
+                priority: 'high',
+                organizationId
+              });
+            }
+
+            if (notifications.length > 0) {
+              await this.createNotifications(notifications);
+            }
           }
         }
       }

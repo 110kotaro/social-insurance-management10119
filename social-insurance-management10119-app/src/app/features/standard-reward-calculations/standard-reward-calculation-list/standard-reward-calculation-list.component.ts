@@ -424,7 +424,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
   }
 
   navigateToSalaryInput(): void {
-    this.router.navigate(['/salary-input']);
+    this.router.navigate(['/salary-input'], { queryParams: { hideExport: 'true' } });
   }
 
   // 算定タブの選択状態管理

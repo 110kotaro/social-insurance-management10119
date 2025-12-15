@@ -2444,9 +2444,25 @@ export class ApplicationDetailComponent implements OnInit {
           const dependentStartDate = otherDep['dependentStartDate'] || otherDep['changeDate'];
           const becameDependentDate = dependentStartDate ? this.convertEraDateToDate(dependentStartDate) : undefined;
           
+          // lastName/firstNameを優先的に使用、存在しない場合はnameから分割
+          const lastName = otherDep['lastName'] || '';
+          const firstName = otherDep['firstName'] || '';
+          const lastNameKana = otherDep['lastNameKana'] || '';
+          const firstNameKana = otherDep['firstNameKana'] || '';
+          const name = lastName && firstName 
+            ? `${lastName} ${firstName}`.trim() 
+            : (otherDep['name'] || '');
+          const nameKana = lastNameKana && firstNameKana 
+            ? `${lastNameKana} ${firstNameKana}`.trim() 
+            : (otherDep['nameKana'] || '');
+
           const newDependent: DependentInfo = {
-            name: `${otherDep['lastName'] || ''} ${otherDep['firstName'] || ''}`.trim(),
-            nameKana: `${otherDep['lastNameKana'] || ''} ${otherDep['firstNameKana'] || ''}`.trim(),
+            name: name,
+            nameKana: nameKana,
+            lastName: lastName || undefined,
+            firstName: firstName || undefined,
+            lastNameKana: lastNameKana || undefined,
+            firstNameKana: firstNameKana || undefined,
             birthDate: this.convertEraDateToDate(otherDep['birthDate']),
             relationship: otherDep['relationship'] || '',
             income: otherDep['income'] || undefined,

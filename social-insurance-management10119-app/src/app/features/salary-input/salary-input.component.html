@@ -51,7 +51,7 @@
           <mat-icon>upload</mat-icon>
           Excel/CSVインポート
         </button>
-        <button mat-raised-button (click)="exportToExcel()">
+        <button mat-raised-button (click)="exportToExcel()" *ngIf="!hideExport">
           <mat-icon>download</mat-icon>
           Excel出力
         </button>
@@ -144,6 +144,19 @@
             </td>
           </ng-container>
 
+          <!-- 賞与支払日 -->
+          <ng-container matColumnDef="bonusPaymentDate">
+            <th mat-header-cell *matHeaderCellDef>賞与支払日</th>
+            <td mat-cell *matCellDef="let row">
+              <input 
+                type="date" 
+                [(ngModel)]="row.bonusPaymentDate"
+                (blur)="updateSalaryData(row, 'bonusPaymentDate', row.bonusPaymentDate)"
+                [value]="row.bonusPaymentDate ? formatDateForInput(row.bonusPaymentDate) : ''"
+                class="date-input">
+            </td>
+          </ng-container>
+
           <!-- 確定状態 -->
           <ng-container matColumnDef="isConfirmed">
             <th mat-header-cell *matHeaderCellDef>確定状態</th>
@@ -156,10 +169,10 @@
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>操作</th>
             <td mat-cell *matCellDef="let row">
-              <button mat-icon-button color="primary" (click)="saveSalaryData(row)" [disabled]="isSaving">
+              <button mat-icon-button color="primary" (click)="saveSalaryData(row)" [disabled]="isSaving" matTooltip="保存">
                 <mat-icon>save</mat-icon>
               </button>
-              <button mat-icon-button color="accent" (click)="confirmSalaryData(row)" [disabled]="isConfirming || row.isConfirmed">
+              <button mat-icon-button color="accent" (click)="confirmSalaryData(row)" [disabled]="isConfirming || row.isConfirmed" matTooltip="確定">
                 <mat-icon>check_circle</mat-icon>
               </button>
             </td>

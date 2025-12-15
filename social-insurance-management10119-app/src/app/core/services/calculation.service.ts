@@ -1579,8 +1579,38 @@ export class CalculationService {
       throw new Error(`社員 ${employee.employeeNumber} の${year}年${month}月の賞与データが確定されていません`);
     }
 
-    const standardBonusAmount = bonusData.standardBonusAmount;
+    let standardBonusAmount = bonusData.standardBonusAmount;
     const targetDate = new Date(year, month - 1, 1);
+
+    // 修正18: 4月～翌3月の標準賞与額累計が573万円を超える場合の処理
+    // 計算対象月が4月以降ならその年の4月から、3月以前なら前年の4月から開始
+    const fiscalYearStartYear = month >= 4 ? year : year - 1;
+    const fiscalYearStartMonth = 4;
+    
+    // 計算対象月の前月までの期間で過去の賞与計算結果を取得
+    let cumulativeStandardBonusAmount = 0;
+    const endYear = month === 1 ? year - 1 : year;
+    const endMonth = month === 1 ? 12 : month - 1;
+    
+    // 4月から計算対象月の前月まで
+    for (let y = fiscalYearStartYear; y <= endYear; y++) {
+      const monthStart = y === fiscalYearStartYear ? fiscalYearStartMonth : 1;
+      const monthEnd = y === endYear ? endMonth : 12;
+      
+      for (let m = monthStart; m <= monthEnd; m++) {
+        const pastCalculation = await this.getBonusCalculationsByEmployee(employee.id!, y, m);
+        if (pastCalculation && pastCalculation.status !== 'draft') {
+          cumulativeStandardBonusAmount += pastCalculation.standardBonusAmount;
+        }
+      }
+    }
+    
+    // 573万円を超える場合は、使用する標準賞与額を調整
+    const maxStandardBonusAmount = 5730000;
+    if (cumulativeStandardBonusAmount + standardBonusAmount > maxStandardBonusAmount) {
+      const adjustedStandardBonusAmount = Math.max(0, maxStandardBonusAmount - cumulativeStandardBonusAmount);
+      standardBonusAmount = adjustedStandardBonusAmount;
+    }
 
     // 修正12: 他社兼務者の場合、該当月の他社給与データ（賞与）が確定済みかチェック
     if (employee.otherCompanyInfo && employee.otherCompanyInfo.length > 0) {
@@ -1643,8 +1673,10 @@ export class CalculationService {
       // 70歳以上75歳未満：厚生年金を0円にする
       pensionInsurance = { premium: 0, half: 0, grade: null };
     } else {
+      // 修正18: 厚生年金料計算時に標準賞与額が150万円を超える場合は150万円を上限として計算
+      const pensionStandardBonusAmount = Math.min(standardBonusAmount, 1500000);
       // 厚生年金料を計算
-      pensionInsurance = await this.calculatePensionInsurance(standardBonusAmount, validRateTables);
+      pensionInsurance = await this.calculatePensionInsurance(pensionStandardBonusAmount, validRateTables);
     }
     
     // 料率テーブルから料率を取得

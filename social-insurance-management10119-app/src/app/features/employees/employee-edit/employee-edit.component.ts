@@ -491,9 +491,19 @@ export class EmployeeEditComponent implements OnInit {
           ? dep.becameDependentDate
           : (dep.becameDependentDate?.toDate ? dep.becameDependentDate.toDate() : null);
 
+        // nameからlastName/firstNameに分割（既存データの後方互換性対応）
+        const { lastName, firstName } = this.splitNameToLastNameFirstName(
+          dep.lastName && dep.firstName ? `${dep.lastName} ${dep.firstName}` : dep.name
+        );
+        const { lastName: lastNameKana, firstName: firstNameKana } = this.splitNameToLastNameFirstName(
+          dep.lastNameKana && dep.firstNameKana ? `${dep.lastNameKana} ${dep.firstNameKana}` : dep.nameKana
+        );
+
         const dependentGroup = this.fb.group({
-          name: [dep.name, [Validators.required]],
-          nameKana: [dep.nameKana, [Validators.required]],
+          lastName: [lastName, [Validators.required]],
+          firstName: [firstName, [Validators.required]],
+          lastNameKana: [lastNameKana, [Validators.required]],
+          firstNameKana: [firstNameKana, [Validators.required]],
           birthDate: [birthDate, [Validators.required]],
           relationship: [dep.relationship, [Validators.required]],
           income: [dep.income || null],
@@ -563,8 +573,10 @@ export class EmployeeEditComponent implements OnInit {
    */
   addDependent(): void {
     const dependentGroup = this.fb.group({
-      name: ['', [Validators.required]],
-      nameKana: ['', [Validators.required]],
+      lastName: ['', [Validators.required]],
+      firstName: ['', [Validators.required]],
+      lastNameKana: ['', [Validators.required]],
+      firstNameKana: ['', [Validators.required]],
       birthDate: [null, [Validators.required]],
       relationship: ['', [Validators.required]],
       income: [null],
@@ -579,6 +591,38 @@ export class EmployeeEditComponent implements OnInit {
    */
   removeDependent(index: number): void {
     this.dependentsFormArray.removeAt(index);
+  }
+
+  /**
+   * 氏名を氏と名に分割するヘルパーメソッド
+   */
+  private splitNameToLastNameFirstName(name: string): { lastName: string, firstName: string } {
+    if (!name) {
+      return { lastName: '', firstName: '' };
+    }
+    // スペースで分割（最初のスペースで分割）
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return {
+        lastName: parts[0],
+        firstName: parts.slice(1).join(' ')
+      };
+    }
+    // 分割できない場合は、最初の1文字を氏、残りを名とする
+    if (name.length > 1) {
+      return {
+        lastName: name.substring(0, 1),
+        firstName: name.substring(1)
+      };
+    }
+    return { lastName: name, firstName: '' };
+  }
+
+  /**
+   * 氏と名を結合して氏名にするヘルパーメソッド
+   */
+  private combineLastNameFirstNameToName(lastName: string, firstName: string): string {
+    return `${lastName} ${firstName}`.trim();
   }
 
   /**
@@ -713,15 +757,24 @@ export class EmployeeEditComponent implements OnInit {
       // 扶養情報（undefinedを除外）
       const dependentInfo: DependentInfo[] | undefined = 
         this.dependentsFormArray.length > 0 
-          ? this.dependentsFormArray.value.map((dep: any) => ({
-              name: dep.name,
-              nameKana: dep.nameKana,
-              birthDate: dep.birthDate,
-              relationship: dep.relationship,
-              ...(dep.income && { income: dep.income }),
-              livingTogether: dep.livingTogether,
-              ...(dep.becameDependentDate && { becameDependentDate: dep.becameDependentDate })
-            }))
+          ? this.dependentsFormArray.value.map((dep: any) => {
+              // lastName/firstNameをnameに結合（後方互換性のため）
+              const name = this.combineLastNameFirstNameToName(dep.lastName || '', dep.firstName || '');
+              const nameKana = this.combineLastNameFirstNameToName(dep.lastNameKana || '', dep.firstNameKana || '');
+              return {
+                name: name,
+                nameKana: nameKana,
+                lastName: dep.lastName,
+                firstName: dep.firstName,
+                lastNameKana: dep.lastNameKana,
+                firstNameKana: dep.firstNameKana,
+                birthDate: dep.birthDate,
+                relationship: dep.relationship,
+                ...(dep.income && { income: dep.income }),
+                livingTogether: dep.livingTogether,
+                ...(dep.becameDependentDate && { becameDependentDate: dep.becameDependentDate })
+              };
+            })
           : undefined;
 
       // 他社勤務情報（配列から作成）

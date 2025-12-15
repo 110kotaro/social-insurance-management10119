@@ -220,15 +220,81 @@ export class DeadlineCalculationService {
    * 賞与支払い日より5日以内
    */
   private async calculateBonusPaymentDeadline(application: Application): Promise<Date | null> {
-    // 申請データから賞与支払予定日を取得
-    const bonusPaymentDate = application.data?.['bonusPaymentDate'];
-    if (!bonusPaymentDate) {
-      return null;
+    let paymentDate: Date | null = null;
+
+    // 1. 申請データから賞与支払日を取得（commonBonusPaymentDate: Date形式）
+    const commonBonusPaymentDate = application.data?.['commonBonusPaymentDate'];
+    if (commonBonusPaymentDate) {
+      if (commonBonusPaymentDate instanceof Date) {
+        paymentDate = commonBonusPaymentDate;
+      } else if (commonBonusPaymentDate && typeof (commonBonusPaymentDate as any).toDate === 'function') {
+        paymentDate = (commonBonusPaymentDate as any).toDate();
+      } else if (commonBonusPaymentDate && typeof (commonBonusPaymentDate as any).seconds === 'number') {
+        paymentDate = new Date((commonBonusPaymentDate as any).seconds * 1000);
+      } else {
+        paymentDate = new Date(commonBonusPaymentDate);
+      }
     }
 
-    const paymentDate = bonusPaymentDate instanceof Date 
-      ? bonusPaymentDate 
-      : new Date(bonusPaymentDate);
+    // 2. 申請データから賞与支払日を取得（commonPaymentDate: フォームデータ形式 {era, year, month, day}）
+    if (!paymentDate && application.data?.['commonPaymentDate']) {
+      const commonPaymentDate = application.data['commonPaymentDate'];
+      if (commonPaymentDate.year && commonPaymentDate.month && commonPaymentDate.day) {
+        // 年号を西暦に変換
+        let year = parseInt(commonPaymentDate.year);
+        if (commonPaymentDate.era === 'reiwa') {
+          year = year + 2018; // 令和年 + 2018 = 西暦
+        } else if (commonPaymentDate.era === 'heisei') {
+          year = year + 1988; // 平成年 + 1988 = 西暦
+        } else if (commonPaymentDate.era === 'showa') {
+          year = year + 1925; // 昭和平年 + 1925 = 西暦
+        }
+        paymentDate = new Date(year, parseInt(commonPaymentDate.month) - 1, parseInt(commonPaymentDate.day));
+      }
+    }
+
+    // 3. 申請データから賞与支払日を取得（bonusPaymentDate: Date形式、旧形式との互換性）
+    if (!paymentDate && application.data?.['bonusPaymentDate']) {
+      const bonusPaymentDate = application.data['bonusPaymentDate'];
+      if (bonusPaymentDate instanceof Date) {
+        paymentDate = bonusPaymentDate;
+      } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).toDate === 'function') {
+        paymentDate = (bonusPaymentDate as any).toDate();
+      } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).seconds === 'number') {
+        paymentDate = new Date((bonusPaymentDate as any).seconds * 1000);
+      } else {
+        paymentDate = new Date(bonusPaymentDate);
+      }
+    }
+
+    // 4. 申請データから支払日が取得できない場合、該当社員のBonusDataから支払日を取得
+    if (!paymentDate && application.employeeId) {
+      // 申請データから年月を取得（bonusPaymentPersonsから取得、または申請作成時の年月を推測）
+      // 賞与支払届は通常、支払月の申請なので、申請作成日の年月を使用
+      const applicationDate = application.createdAt instanceof Date 
+        ? application.createdAt 
+        : (application.createdAt as any).toDate 
+          ? (application.createdAt as any).toDate() 
+          : new Date();
+      
+      const year = applicationDate.getFullYear();
+      const month = applicationDate.getMonth() + 1;
+
+      const bonusData = await this.bonusDataService.getBonusData(application.employeeId, year, month);
+      if (bonusData?.bonusPaymentDate) {
+        if (bonusData.bonusPaymentDate instanceof Date) {
+          paymentDate = bonusData.bonusPaymentDate;
+        } else if (bonusData.bonusPaymentDate && typeof (bonusData.bonusPaymentDate as any).toDate === 'function') {
+          paymentDate = (bonusData.bonusPaymentDate as any).toDate();
+        } else if (bonusData.bonusPaymentDate && typeof (bonusData.bonusPaymentDate as any).seconds === 'number') {
+          paymentDate = new Date((bonusData.bonusPaymentDate as any).seconds * 1000);
+        }
+      }
+    }
+
+    if (!paymentDate) {
+      return null;
+    }
     
     const deadline = new Date(paymentDate);
     deadline.setDate(deadline.getDate() + 5);

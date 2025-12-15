@@ -628,7 +628,7 @@ export class CalculationListComponent implements OnInit {
    * 給与情報入力ページに遷移
    */
   navigateToSalaryInput(): void {
-    this.router.navigate(['/salary-input']);
+    this.router.navigate(['/salary-input'], { queryParams: { hideExport: 'true' } });
   }
 
   /**

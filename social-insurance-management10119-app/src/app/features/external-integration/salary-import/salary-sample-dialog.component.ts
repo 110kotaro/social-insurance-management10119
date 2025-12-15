@@ -84,6 +84,12 @@ import * as XLSX from 'xlsx';
               <td mat-cell *matCellDef="let row">{{ row.bonus | number }}</td>
             </ng-container>
 
+            <!-- 賞与支払日 -->
+            <ng-container matColumnDef="bonusPaymentDate">
+              <th mat-header-cell *matHeaderCellDef>賞与支払日</th>
+              <td mat-cell *matCellDef="let row">{{ row.bonusPaymentDate || '-' }}</td>
+            </ng-container>
+
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
           </table>
@@ -195,7 +201,7 @@ import * as XLSX from 'xlsx';
 export class SalarySampleDialogComponent {
   displayedColumns: string[] = [
     'employeeNumber', 'employeeName', 'year', 'month', 'baseDays', 
-    'fixedSalary', 'totalPayment', 'retroactivePayment', 'bonus'
+    'fixedSalary', 'totalPayment', 'retroactivePayment', 'bonus', 'bonusPaymentDate'
   ];
   
   sampleData = [
@@ -208,7 +214,8 @@ export class SalarySampleDialogComponent {
       fixedSalary: 300000,
       totalPayment: 350000,
       retroactivePayment: 0,
-      bonus: 0
+      bonus: 0,
+      bonusPaymentDate: ''
     },
     {
       employeeNumber: 'EMP002',
@@ -219,7 +226,8 @@ export class SalarySampleDialogComponent {
       fixedSalary: 280000,
       totalPayment: 320000,
       retroactivePayment: 5000,
-      bonus: 0
+      bonus: 0,
+      bonusPaymentDate: ''
     },
     {
       employeeNumber: 'EMP003',
@@ -230,7 +238,8 @@ export class SalarySampleDialogComponent {
       fixedSalary: 350000,
       totalPayment: 400000,
       retroactivePayment: 0,
-      bonus: 500000
+      bonus: 500000,
+      bonusPaymentDate: '2024-06-25'
     },
     {
       employeeNumber: 'EMP001',
@@ -241,15 +250,16 @@ export class SalarySampleDialogComponent {
       fixedSalary: 300000,
       totalPayment: 360000,
       retroactivePayment: 0,
-      bonus: 0
+      bonus: 0,
+      bonusPaymentDate: ''
     }
   ];
 
-  csvText = `社員番号,社員名,年,月,基礎日数,固定賃金,総支給,遡及支払額,賞与
-EMP001,山田 太郎,2024,4,20,300000,350000,0,0
-EMP002,佐藤 花子,2024,4,22,280000,320000,5000,0
-EMP003,鈴木 一郎,2024,4,18,350000,400000,0,500000
-EMP001,山田 太郎,2024,5,22,300000,360000,0,0`;
+  csvText = `社員番号,社員名,年,月,基礎日数,固定賃金,総支給,遡及支払額,賞与,賞与支払日
+EMP001,山田 太郎,2024,4,20,300000,350000,0,0,
+EMP002,佐藤 花子,2024,4,22,280000,320000,5000,0,
+EMP003,鈴木 一郎,2024,4,18,350000,400000,0,500000,2024-06-25
+EMP001,山田 太郎,2024,5,22,300000,360000,0,0,`;
 
   private dialogRef = inject(MatDialogRef<SalarySampleDialogComponent>);
 

@@ -36,7 +36,7 @@
             <mat-label>月</mat-label>
             <mat-select formControlName="month" (selectionChange)="onSearch()">
               <mat-option *ngFor="let month of months" [value]="month">
-                {{ month }}月
+                {{ month }}月分
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -231,7 +231,7 @@
                   <mat-label>月</mat-label>
                   <mat-select formControlName="month" (selectionChange)="onBonusSearch()">
                     <mat-option *ngFor="let month of months" [value]="month">
-                      {{ month }}月
+                      {{ month }}月分
                     </mat-option>
                   </mat-select>
                 </mat-form-field>

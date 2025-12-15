@@ -14,7 +14,7 @@
           <form [formGroup]="basicInfoForm">
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>社員番号 *</mat-label>
+                <mat-label>社員番号</mat-label>
                 <input matInput formControlName="employeeNumber" required>
                 <mat-error *ngIf="basicInfoForm.get('employeeNumber')?.hasError('required')">
                   社員番号を入力してください
@@ -22,7 +22,7 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>氏 *</mat-label>
+                <mat-label>氏</mat-label>
                 <input matInput formControlName="lastName" required>
                 <mat-error *ngIf="basicInfoForm.get('lastName')?.hasError('required')">
                   氏を入力してください
@@ -30,7 +30,7 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>名 *</mat-label>
+                <mat-label>名</mat-label>
                 <input matInput formControlName="firstName" required>
                 <mat-error *ngIf="basicInfoForm.get('firstName')?.hasError('required')">
                   名を入力してください
@@ -40,7 +40,7 @@
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>氏カナ *</mat-label>
+                <mat-label>氏カナ</mat-label>
                 <input matInput formControlName="lastNameKana" required>
                 <mat-error *ngIf="basicInfoForm.get('lastNameKana')?.hasError('required')">
                   氏カナを入力してください
@@ -51,7 +51,7 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>名カナ *</mat-label>
+                <mat-label>名カナ</mat-label>
                 <input matInput formControlName="firstNameKana" required>
                 <mat-error *ngIf="basicInfoForm.get('firstNameKana')?.hasError('required')">
                   名カナを入力してください
@@ -62,7 +62,7 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>メールアドレス *</mat-label>
+                <mat-label>メールアドレス</mat-label>
                 <input matInput type="email" formControlName="email" required>
                 <mat-error *ngIf="basicInfoForm.get('email')?.hasError('required')">
                   メールアドレスを入力してください
@@ -75,7 +75,7 @@
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>部署 *</mat-label>
+                <mat-label>部署</mat-label>
                 <mat-select formControlName="departmentId" required>
                   <mat-option *ngFor="let dept of departments" [value]="dept.id">
                     {{ dept.name }}
@@ -87,7 +87,7 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>入社日 *</mat-label>
+                <mat-label>入社日</mat-label>
                 <input matInput [matDatepicker]="picker1" formControlName="joinDate" required>
                 <mat-datepicker-toggle matIconSuffix [for]="picker1"></mat-datepicker-toggle>
                 <mat-datepicker #picker1></mat-datepicker>
@@ -99,7 +99,7 @@
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>生年月日 *</mat-label>
+                <mat-label>生年月日</mat-label>
                 <input matInput [matDatepicker]="pickerBirthDate" formControlName="birthDate" required>
                 <mat-datepicker-toggle matIconSuffix [for]="pickerBirthDate"></mat-datepicker-toggle>
                 <mat-datepicker #pickerBirthDate></mat-datepicker>
@@ -109,7 +109,7 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>ステータス *</mat-label>
+                <mat-label>ステータス</mat-label>
                 <mat-select formControlName="status" required>
                   <mat-option value="active">在籍</mat-option>
                   <mat-option value="leave">休職</mat-option>
@@ -121,7 +121,7 @@
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>権限 *</mat-label>
+                <mat-label>権限</mat-label>
                 <mat-select formControlName="role" required>
                   <mat-option value="employee">一般社員</mat-option>
                   <mat-option *ngIf="isAdmin()" value="admin">管理者</mat-option>
@@ -224,17 +224,41 @@
                     <mat-card-content>
                       <div class="form-row">
                         <mat-form-field appearance="outline" class="form-field">
-                          <mat-label>氏名 *</mat-label>
-                          <input matInput formControlName="name" required>
+                          <mat-label>氏</mat-label>
+                          <input matInput formControlName="lastName" required>
+                          <mat-error *ngIf="dependent.get('lastName')?.hasError('required')">
+                            氏を入力してください
+                          </mat-error>
                         </mat-form-field>
 
                         <mat-form-field appearance="outline" class="form-field">
-                          <mat-label>氏名カナ *</mat-label>
-                          <input matInput formControlName="nameKana" required>
-                          <mat-error *ngIf="dependent.get('nameKana')?.hasError('required')">
-                            氏名カナを入力してください
+                          <mat-label>名</mat-label>
+                          <input matInput formControlName="firstName" required>
+                          <mat-error *ngIf="dependent.get('firstName')?.hasError('required')">
+                            名を入力してください
                           </mat-error>
-                          <mat-error *ngIf="dependent.get('nameKana')?.hasError('katakana')">
+                        </mat-form-field>
+                      </div>
+
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>氏（カナ）</mat-label>
+                          <input matInput formControlName="lastNameKana" required>
+                          <mat-error *ngIf="dependent.get('lastNameKana')?.hasError('required')">
+                            氏（カナ）を入力してください
+                          </mat-error>
+                          <mat-error *ngIf="dependent.get('lastNameKana')?.hasError('katakana')">
+                            カタカナで入力してください
+                          </mat-error>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>名（カナ）</mat-label>
+                          <input matInput formControlName="firstNameKana" required>
+                          <mat-error *ngIf="dependent.get('firstNameKana')?.hasError('required')">
+                            名（カナ）を入力してください
+                          </mat-error>
+                          <mat-error *ngIf="dependent.get('firstNameKana')?.hasError('katakana')">
                             カタカナで入力してください
                           </mat-error>
                         </mat-form-field>
@@ -242,14 +266,14 @@
 
                       <div class="form-row">
                         <mat-form-field appearance="outline" class="form-field">
-                          <mat-label>生年月日 *</mat-label>
+                          <mat-label>生年月日</mat-label>
                           <input matInput [matDatepicker]="picker3" formControlName="birthDate" required>
                           <mat-datepicker-toggle matIconSuffix [for]="picker3"></mat-datepicker-toggle>
                           <mat-datepicker #picker3></mat-datepicker>
                         </mat-form-field>
 
                         <mat-form-field appearance="outline" class="form-field">
-                          <mat-label>続柄 *</mat-label>
+                          <mat-label>続柄</mat-label>
                           <input matInput formControlName="relationship" placeholder="例: 配偶者、子" required>
                         </mat-form-field>
                       </div>
@@ -306,7 +330,7 @@
                     <mat-card-content>
                       <div class="form-row">
                         <mat-form-field appearance="outline" class="form-field">
-                          <mat-label>会社名 *</mat-label>
+                          <mat-label>会社名</mat-label>
                           <input matInput formControlName="companyName" required>
                           <mat-error *ngIf="company.get('companyName')?.hasError('required')">
                             会社名を入力してください
@@ -347,7 +371,7 @@
           <form [formGroup]="addressForm">
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>郵便番号 *</mat-label>
+                <mat-label>郵便番号</mat-label>
                 <input matInput formControlName="postalCode" placeholder="例: 123-4567" required>
                 <mat-error *ngIf="addressForm.get('postalCode')?.hasError('required')">
                   郵便番号を入力してください
@@ -357,7 +381,7 @@
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>都道府県 *</mat-label>
+                <mat-label>都道府県</mat-label>
                 <input matInput formControlName="prefecture" required>
                 <mat-error *ngIf="addressForm.get('prefecture')?.hasError('required')">
                   都道府県を入力してください
@@ -365,7 +389,7 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>市区町村 *</mat-label>
+                <mat-label>市区町村</mat-label>
                 <input matInput formControlName="city" required>
                 <mat-error *ngIf="addressForm.get('city')?.hasError('required')">
                   市区町村を入力してください
@@ -375,7 +399,7 @@
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
-                <mat-label>町名・番地 *</mat-label>
+                <mat-label>町名・番地</mat-label>
                 <input matInput formControlName="street" required>
                 <mat-error *ngIf="addressForm.get('street')?.hasError('required')">
                   町名・番地を入力してください
@@ -413,7 +437,7 @@
                 
                 <div class="form-row">
                   <mat-form-field appearance="outline" class="form-field">
-                    <mat-label>休職種別 *</mat-label>
+                    <mat-label>休職種別</mat-label>
                     <mat-select formControlName="type" required>
                       <mat-option value="maternity">産前産後休業</mat-option>
                       <mat-option value="childcare">育児休業</mat-option>
@@ -425,7 +449,7 @@
                   </mat-form-field>
 
                   <mat-form-field appearance="outline" class="form-field">
-                    <mat-label>休職開始（予定）日 *</mat-label>
+                    <mat-label>休職開始（予定）日</mat-label>
                     <input matInput [matDatepicker]="startPicker" formControlName="startDate" required>
                     <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
                     <mat-datepicker #startPicker></mat-datepicker>

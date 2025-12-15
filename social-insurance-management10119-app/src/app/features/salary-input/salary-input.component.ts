@@ -1,6 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormArray, FormControl, FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,6 +13,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import * as XLSX from 'xlsx';
 import { EmployeeService } from '../../core/services/employee.service';
 import { SalaryDataService } from '../../core/services/salary-data.service';
@@ -32,6 +35,7 @@ interface SalaryInputRow {
   totalPayment: number | null;
   retroactivePayment: number | null;
   bonus: number | null;
+  bonusPaymentDate: Date | null; // 賞与支払日
   bonusIsConfirmed: boolean;
   isConfirmed: boolean;
   hasError: boolean;
@@ -55,7 +59,8 @@ interface SalaryInputRow {
     MatSelectModule,
     MatCheckboxModule,
     MatProgressSpinnerModule,
-    MatDialogModule
+    MatDialogModule,
+    MatTooltipModule
   ],
   templateUrl: './salary-input.component.html',
   styleUrl: './salary-input.component.css'
@@ -67,6 +72,7 @@ export class SalaryInputComponent implements OnInit {
   private departmentService = inject(DepartmentService);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private snackBar = inject(MatSnackBar);
   private fb = inject(FormBuilder);
   private dialog = inject(MatDialog);
@@ -75,6 +81,7 @@ export class SalaryInputComponent implements OnInit {
   departments: Department[] = [];
   organizationId: string | null = null;
   currentUser: any = null;
+  hideExport: boolean = false; // 出力ボタンを非表示にするフラグ
 
   // 年月選択
   selectedYear: number = new Date().getFullYear();
@@ -89,7 +96,7 @@ export class SalaryInputComponent implements OnInit {
   confirmedFilter: 'all' | 'confirmed' | 'unconfirmed' = 'all';
 
   // テーブル
-  displayedColumns: string[] = ['employeeNumber', 'employeeName', 'departmentName', 'baseDays', 'fixedSalary', 'totalPayment', 'retroactivePayment', 'bonus', 'isConfirmed', 'actions'];
+  displayedColumns: string[] = ['employeeNumber', 'employeeName', 'departmentName', 'baseDays', 'fixedSalary', 'totalPayment', 'retroactivePayment', 'bonus', 'bonusPaymentDate', 'isConfirmed', 'actions'];
   dataSource = new MatTableDataSource<SalaryInputRow>([]);
   salaryRows: SalaryInputRow[] = [];
 
@@ -113,6 +120,11 @@ export class SalaryInputComponent implements OnInit {
     }
 
     this.organizationId = this.currentUser.organizationId;
+    
+    // クエリパラメータからhideExportを取得
+    this.route.queryParams.subscribe(params => {
+      this.hideExport = params['hideExport'] === 'true';
+    });
     
     // 年のリストを生成（現在年から5年前まで）
     const currentYear = new Date().getFullYear();
@@ -156,6 +168,18 @@ export class SalaryInputComponent implements OnInit {
         const bonusData = await this.bonusDataService.getBonusData(employee.id!, this.selectedYear, this.selectedMonth);
         const department = this.departments.find(d => d.id === employee.departmentId);
         
+        // 賞与支払日をDateオブジェクトに変換
+        let bonusPaymentDate: Date | null = null;
+        if (bonusData?.bonusPaymentDate) {
+          if (bonusData.bonusPaymentDate instanceof Date) {
+            bonusPaymentDate = bonusData.bonusPaymentDate;
+          } else if (bonusData.bonusPaymentDate && typeof (bonusData.bonusPaymentDate as any).toDate === 'function') {
+            bonusPaymentDate = (bonusData.bonusPaymentDate as any).toDate();
+          } else if (bonusData.bonusPaymentDate && typeof (bonusData.bonusPaymentDate as any).seconds === 'number') {
+            bonusPaymentDate = new Date((bonusData.bonusPaymentDate as any).seconds * 1000);
+          }
+        }
+        
         rows.push({
           employeeId: employee.id!,
           employeeNumber: employee.employeeNumber,
@@ -166,6 +190,7 @@ export class SalaryInputComponent implements OnInit {
           totalPayment: salaryData?.totalPayment || null,
           retroactivePayment: salaryData?.retroactivePayment || null,
           bonus: bonusData?.bonusAmount || null,
+          bonusPaymentDate: bonusPaymentDate,
           bonusIsConfirmed: bonusData?.isConfirmed || false,
           isConfirmed: salaryData?.isConfirmed || false,
           hasError: false
@@ -228,9 +253,22 @@ export class SalaryInputComponent implements OnInit {
   updateSalaryData(row: SalaryInputRow, field: string, value: any): void {
     const index = this.salaryRows.findIndex(r => r.employeeId === row.employeeId);
     if (index >= 0) {
+      // 日付文字列をDateオブジェクトに変換
+      if (field === 'bonusPaymentDate' && typeof value === 'string' && value) {
+        value = new Date(value);
+      }
       (this.salaryRows[index] as any)[field] = value;
       this.applyFilters();
     }
+  }
+
+  formatDateForInput(date: Date | null): string {
+    if (!date) return '';
+    const d = date instanceof Date ? date : new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   async saveSalaryData(row: SalaryInputRow): Promise<void> {
@@ -269,6 +307,7 @@ export class SalaryInputComponent implements OnInit {
           year: this.selectedYear,
           month: this.selectedMonth,
           bonusAmount: row.bonus,
+          bonusPaymentDate: row.bonusPaymentDate || undefined,
           isConfirmed: false
         });
       }
@@ -330,7 +369,7 @@ export class SalaryInputComponent implements OnInit {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        // CSV/Excelの列: 社員番号、社員名、年、月、基礎日数、固定賃金、総支給、遡及支払額、賞与
+        // CSV/Excelの列: 社員番号、社員名、年、月、基礎日数、固定賃金、総支給、遡及支払額、賞与、賞与支払日
         const importedData: any[] = [];
         for (const row of jsonData as any[]) {
           const employeeNumber = String(row['社員番号'] || row['employeeNumber'] || '').trim();
@@ -338,6 +377,44 @@ export class SalaryInputComponent implements OnInit {
 
           const employee = this.employees.find(e => e.employeeNumber === employeeNumber);
           if (!employee) continue;
+
+          // 賞与支払日をDateオブジェクトに変換
+          let bonusPaymentDate: Date | null = null;
+          const bonusPaymentDateStr = row['賞与支払日'] || row['bonusPaymentDate'];
+          if (bonusPaymentDateStr) {
+            // Excelの日付シリアル値（数値）の場合
+            if (typeof bonusPaymentDateStr === 'number') {
+              // Excelの日付シリアル値（1900年1月1日を1とする）をDateに変換
+              const excelEpoch = new Date(1899, 11, 30); // 1900年1月1日の前日
+              excelEpoch.setDate(excelEpoch.getDate() + bonusPaymentDateStr);
+              bonusPaymentDate = excelEpoch;
+            } else {
+              // 文字列の場合、様々な形式を試す
+              const dateStr = String(bonusPaymentDateStr).trim();
+              if (dateStr) {
+                // YYYY-MM-DD形式
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                  bonusPaymentDate = new Date(dateStr);
+                }
+                // YYYY/MM/DD形式
+                else if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
+                  bonusPaymentDate = new Date(dateStr.replace(/\//g, '-'));
+                }
+                // その他の形式
+                else {
+                  const parsedDate = new Date(dateStr);
+                  if (!isNaN(parsedDate.getTime())) {
+                    bonusPaymentDate = parsedDate;
+                  }
+                }
+                
+                // 日付が無効な場合はnullに設定
+                if (bonusPaymentDate && isNaN(bonusPaymentDate.getTime())) {
+                  bonusPaymentDate = null;
+                }
+              }
+            }
+          }
 
           importedData.push({
             employeeId: employee.id!,
@@ -347,7 +424,8 @@ export class SalaryInputComponent implements OnInit {
             fixedSalary: parseFloat(row['固定賃金'] || row['fixedSalary'] || 0),
             totalPayment: parseFloat(row['総支給'] || row['totalPayment'] || 0),
             retroactivePayment: parseFloat(row['遡及支払額'] || row['retroactivePayment'] || 0),
-            bonus: parseFloat(row['賞与'] || row['bonus'] || 0)
+            bonus: parseFloat(row['賞与'] || row['bonus'] || 0),
+            bonusPaymentDate: bonusPaymentDate
           });
         }
 
@@ -364,12 +442,13 @@ export class SalaryInputComponent implements OnInit {
             isConfirmed: false
           });
 
-          // 賞与データを保存（賞与が入力されている場合）
-          if (data.bonus > 0) {
+          // 賞与データを保存（賞与が入力されている場合、または賞与支払日が設定されている場合）
+          if (data.bonus > 0 || data.bonusPaymentDate) {
             await this.bonusDataService.saveBonusData(data.employeeId, {
               year: data.year,
               month: data.month,
-              bonusAmount: data.bonus,
+              bonusAmount: data.bonus || 0,
+              bonusPaymentDate: data.bonusPaymentDate || undefined,
               isConfirmed: false
             });
           }
@@ -397,6 +476,7 @@ export class SalaryInputComponent implements OnInit {
       総支給: row.totalPayment || '',
       遡及支払額: row.retroactivePayment || '',
       賞与: row.bonus || '',
+      賞与支払日: row.bonusPaymentDate ? this.formatDateForInput(row.bonusPaymentDate) : '',
       確定済み: row.isConfirmed ? 'はい' : 'いいえ'
     }));
 
