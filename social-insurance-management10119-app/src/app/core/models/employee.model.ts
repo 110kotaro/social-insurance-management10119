@@ -1,8 +1,12 @@
 import { Timestamp } from '@angular/fire/firestore';
 
 export interface DependentInfo {
-  name: string;
-  nameKana: string;
+  name: string; // 氏名（後方互換性のため保持）
+  nameKana: string; // 氏名カナ（後方互換性のため保持）
+  lastName?: string; // 氏（オプショナル、後方互換性のため）
+  firstName?: string; // 名（オプショナル、後方互換性のため）
+  lastNameKana?: string; // 氏カナ（オプショナル、後方互換性のため）
+  firstNameKana?: string; // 名カナ（オプショナル、後方互換性のため）
   birthDate: Date | Timestamp;
   relationship: string; // 続柄（配偶者、子など）
   income?: number; // 年収
@@ -69,6 +73,7 @@ export interface BonusData {
   month: number;
   bonusAmount: number; // 賞与額
   standardBonusAmount: number; // 標準賞与額（1000円未満切り捨て後）
+  bonusPaymentDate?: Date | Timestamp; // 賞与支払日（賞与支払届の期限計算用）
   isConfirmed: boolean; // 確定済みかどうか
   confirmedAt?: Date | Timestamp;
   confirmedBy?: string;

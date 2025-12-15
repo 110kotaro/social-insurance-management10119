@@ -52,7 +52,6 @@ export class NotificationSettingsComponent implements OnInit {
       notifyOnReject: [true],
       // 期限リマインダー設定
       adminDaysBeforeLegalDeadline: [7, [Validators.required, Validators.min(1)]],
-      employeeDaysBeforeAdminDeadline: [3, [Validators.required, Validators.min(1)]],
       notifyOnOverdue: [true],
       notifyOnDeadlineDay: [true],
       notifyBeforeDeadline: [true]
@@ -76,7 +75,6 @@ export class NotificationSettingsComponent implements OnInit {
         notifyOnReject: notificationSettings.notifyOnReject ?? true,
         // 期限リマインダー設定
         adminDaysBeforeLegalDeadline: reminderSettings?.adminDaysBeforeLegalDeadline ?? 7,
-        employeeDaysBeforeAdminDeadline: reminderSettings?.employeeDaysBeforeAdminDeadline ?? 3,
         notifyOnOverdue: reminderSettings?.notifyOnOverdue ?? true,
         notifyOnDeadlineDay: reminderSettings?.notifyOnDeadlineDay ?? true,
         notifyBeforeDeadline: reminderSettings?.notifyBeforeDeadline ?? true
@@ -114,7 +112,6 @@ export class NotificationSettingsComponent implements OnInit {
             notifyOnReject: formValue.notifyOnReject,
             reminderSettings: {
               adminDaysBeforeLegalDeadline: formValue.adminDaysBeforeLegalDeadline,
-              employeeDaysBeforeAdminDeadline: formValue.employeeDaysBeforeAdminDeadline,
               notifyOnOverdue: formValue.notifyOnOverdue,
               notifyOnDeadlineDay: formValue.notifyOnDeadlineDay,
               notifyBeforeDeadline: formValue.notifyBeforeDeadline

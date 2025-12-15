@@ -17,6 +17,7 @@ export interface Organization {
   industry?: string;
   logoUrl?: string;
   payrollDate?: number; // 月次計算予定日（1-31の日付、月末処理あり、月次計算日の通知用）
+  monthlyCalculationTargetMonth?: 'current' | 'next'; // 月次計算通知の対象月（'current': 当月、'next': 翌月=1ヶ月前の計算を促す、デフォルト: 'current'）
   leaveInsuranceCollectionMethod?: 'postpaid' | 'direct_transfer'; // 休職中の保険料徴収方法（後払い/本人振込）
   insuranceSettings?: {
     healthInsurance?: {

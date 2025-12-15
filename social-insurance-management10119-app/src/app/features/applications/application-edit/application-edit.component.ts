@@ -3336,6 +3336,14 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       }
     }
 
+    // status === 'created'の場合、確認ダイアログを表示
+    if (status === 'created') {
+      const confirmed = confirm('この申請を更新しますか？更新後は編集できなくなります。');
+      if (!confirmed) {
+        return;
+      }
+    }
+
     // 権限チェック
     // 管理者モード時は外部申請のみ、社員モード時は内部申請のみ
     if (this.isAdmin && this.isAdminMode && this.selectedApplicationType.category !== 'external') {

@@ -48,10 +48,9 @@ export interface ApplicationFlowSettings {
     notifyOnReject: boolean; // 却下時の通知
     reminderSettings?: {
       adminDaysBeforeLegalDeadline: number; // 管理者向け：法定期限のX日前（デフォルト7日）
-      employeeDaysBeforeAdminDeadline: number; // 社員向け：管理者設定期限のY日前（デフォルト3日）
       notifyOnOverdue: boolean; // 期限超過時の通知（原則毎日通知、デフォルトtrue）
       notifyOnDeadlineDay: boolean; // 期限当日の通知（10時くらい、デフォルトtrue）
-      notifyBeforeDeadline: boolean; // 事前通知（X日前、Y日前の通知、デフォルトtrue）
+      notifyBeforeDeadline: boolean; // 事前通知（X日前の通知、デフォルトtrue）
     };
   };
 }

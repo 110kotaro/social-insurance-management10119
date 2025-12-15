@@ -70,6 +70,14 @@ mat-form-field {
   margin-top: 8px;
 }
 
+.hint-text {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+  margin-top: 4px;
+  margin-bottom: 16px;
+  display: block;
+}
+
 .button-group {
   margin-top: 24px;
   display: flex;

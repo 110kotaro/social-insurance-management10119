@@ -1013,7 +1013,7 @@ export class NotificationService {
       // 期限までの日数を計算
       const daysUntilDeadline = Math.floor((effectiveDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-      // 事前通知（X日前、Y日前）
+      // 事前通知（X日前）
       if (reminderSettings.notifyBeforeDeadline) {
         // 管理者向け：法定期限のX日前
         if (legalDeadline && daysUntilDeadline === reminderSettings.adminDaysBeforeLegalDeadline) {
@@ -1027,26 +1027,6 @@ export class NotificationService {
             existingNotifications,
             skipDuplicateCheck
           });
-        }
-
-        // 社員向け：管理者設定期限のY日前
-        if (adminDeadline && applicationType.category === 'internal') {
-          const daysUntilAdminDeadline = Math.floor((adminDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          if (daysUntilAdminDeadline === reminderSettings.employeeDaysBeforeAdminDeadline) {
-            const employeeUid = await this.getUserUidByEmployeeId(application.employeeId);
-            if (employeeUid) {
-              await this.sendDeadlineReminder({
-                application,
-                applicationType,
-                deadline: adminDeadline,
-                daysUntilDeadline: daysUntilAdminDeadline,
-                targetUserIds: [employeeUid],
-                isAdmin: false,
-                existingNotifications,
-                skipDuplicateCheck
-              });
-            }
-          }
         }
       }
 
@@ -1065,23 +1045,6 @@ export class NotificationService {
             existingNotifications,
             skipDuplicateCheck
           });
-
-          // 社員向け（内部申請の場合）
-          if (applicationType.category === 'internal' && adminDeadline) {
-            const employeeUid = await this.getUserUidByEmployeeId(application.employeeId);
-            if (employeeUid) {
-              await this.sendDeadlineReminder({
-                application,
-                applicationType,
-                deadline: adminDeadline,
-                daysUntilDeadline: 0,
-                targetUserIds: [employeeUid],
-                isAdmin: false,
-                existingNotifications,
-                skipDuplicateCheck
-              });
-            }
-          }
         }
       }
 
@@ -1120,24 +1083,6 @@ export class NotificationService {
           isOverdue: true,
           skipDuplicateCheck
         });
-
-        // 社員向け（内部申請の場合）
-        if (applicationType.category === 'internal' && adminDeadline) {
-          const employeeUid = await this.getUserUidByEmployeeId(application.employeeId);
-          if (employeeUid) {
-            await this.sendDeadlineReminder({
-              application,
-              applicationType,
-              deadline: adminDeadline,
-              daysUntilDeadline: Math.floor((adminDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
-              targetUserIds: [employeeUid],
-              isAdmin: false,
-              existingNotifications,
-              isOverdue: true,
-              skipDuplicateCheck
-            });
-          }
-        }
       }
     }
 
@@ -1823,22 +1768,6 @@ export class NotificationService {
               await this.createNotifications(notifications);
             }
           }
-        } else if (applicationType.category === 'internal') {
-          // 社員向け：管理者設定期限の当日通知（内部申請の場合のみ）
-          const employeeUid = await this.getUserUidByEmployeeId(employeeId);
-          if (employeeUid) {
-            await this.createNotifications([{
-              userId: employeeUid,
-              applicationId: null,
-              employeeId: employeeId,
-              type: 'reminder',
-              title: '申請期限当日のお知らせ',
-              message: `${applicationType.name}の申請の期限は本日（${deadlineStr}）です。`,
-              read: false,
-              priority: 'high',
-              organizationId
-            }]);
-          }
         }
       }
       return; // 当日の場合はここで終了
@@ -1871,23 +1800,6 @@ export class NotificationService {
         }
       }
 
-      // 社員向け：管理者設定期限のY日前を過ぎている場合（内部申請の場合のみ、期限前日以前のみ）
-      if (isAdminDeadline && applicationType.category === 'internal' && daysUntilDeadline < reminderSettings.employeeDaysBeforeAdminDeadline) {
-        const employeeUid = await this.getUserUidByEmployeeId(employeeId);
-        if (employeeUid) {
-          await this.createNotifications([{
-            userId: employeeUid,
-            applicationId: null,
-            employeeId: employeeId,
-            type: 'reminder',
-            title: '申請期限のお知らせ',
-            message: `${applicationType.name}の申請の期限まであと${daysUntilDeadline}日です（期限：${deadlineStr}）。`,
-            read: false,
-            priority: daysUntilDeadline <= 1 ? 'high' : 'medium',
-            organizationId
-          }]);
-        }
-      }
     }
   }
 
@@ -2033,11 +1945,25 @@ export class NotificationService {
     // 循環依存を避けるため、メソッド内で遅延注入
     const calculationService = this.injector.get(CalculationService);
 
+    // 計算対象年月を決定（翌月モードの場合は1ヶ月前）
+    let targetYear = currentYear;
+    let targetMonth = currentMonth;
+    
+    if (organization.monthlyCalculationTargetMonth === 'next') {
+      // 翌月モード: 1ヶ月前の計算を促す
+      targetMonth = currentMonth - 1;
+      if (targetMonth < 1) {
+        targetMonth = 12;
+        targetYear = currentYear - 1;
+      }
+    }
+    // 'current'または未設定の場合は現状通り（当月）
+
     // 計算対象社員を取得
-    const targetEmployees = await calculationService.getCalculationTargetEmployees(organizationId, currentYear, currentMonth);
+    const targetEmployees = await calculationService.getCalculationTargetEmployees(organizationId, targetYear, targetMonth);
     
     // 該当月の計算結果を取得
-    const existingCalculations = await calculationService.getCalculationsByMonth(organizationId, currentYear, currentMonth);
+    const existingCalculations = await calculationService.getCalculationsByMonth(organizationId, targetYear, targetMonth);
     
     // 計算済みの社員IDを取得
     const calculatedEmployeeIds = new Set(
@@ -2058,8 +1984,8 @@ export class NotificationService {
     if (uncalculatedEmployees.length > 0) {
       await this.createMonthlyCalculationReminder({
         organizationId,
-        targetYear: currentYear,
-        targetMonth: currentMonth,
+        targetYear: targetYear,
+        targetMonth: targetMonth,
         uncalculatedEmployees,
         skipDuplicateCheck
       });

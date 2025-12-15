@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { Storage, ref, uploadBytes, getDownloadURL, deleteObject } from '@angular/fire/storage';
 import { Organization } from '../../../core/models/organization.model';
 import { OrganizationService } from '../../../core/services/organization.service';
@@ -30,7 +31,8 @@ import { environment } from '../../../../environments/environment';
     MatSelectModule,
     MatSnackBarModule,
     MatProgressBarModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatCheckboxModule
   ],
   templateUrl: './organization-settings.component.html',
   styleUrl: './organization-settings.component.css'
@@ -81,6 +83,7 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       email: ['', [Validators.email]],
       industry: [''],
       payrollDate: [null, [Validators.min(1), Validators.max(31)]],
+      monthlyCalculationTargetMonthNext: [false], // デフォルト: false（当月モード）
       leaveInsuranceCollectionMethod: ['postpaid'] // デフォルト: 後払い
     });
   }
@@ -116,6 +119,7 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       email: this.organization.email || '',
       industry: this.organization.industry || '',
       payrollDate: this.organization.payrollDate || null,
+      monthlyCalculationTargetMonthNext: this.organization.monthlyCalculationTargetMonth === 'next',
       leaveInsuranceCollectionMethod: this.organization.leaveInsuranceCollectionMethod || 'postpaid'
     });
 
@@ -237,6 +241,7 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
         industry: formValue.industry?.trim() || undefined,
         logoUrl: logoUrl,
         payrollDate: formValue.payrollDate || undefined,
+        monthlyCalculationTargetMonth: formValue.monthlyCalculationTargetMonthNext ? 'next' : 'current',
         leaveInsuranceCollectionMethod: formValue.leaveInsuranceCollectionMethod || 'postpaid'
       };
 
@@ -246,6 +251,9 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       if (this.organization) {
         Object.assign(this.organization, updates);
       }
+
+      // フォームを再読み込み（チェックボックスの状態を反映）
+      this.loadOrganizationData();
 
       this.snackBar.open('組織設定を保存しました', '閉じる', { duration: 3000 });
       

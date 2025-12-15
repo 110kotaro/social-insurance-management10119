@@ -197,14 +197,48 @@ export class EmployeeCreateComponent implements OnInit {
    */
   addDependent(): void {
     const dependentGroup = this.fb.group({
-      name: ['', [Validators.required]],
-      nameKana: ['', [Validators.required]],
+      lastName: ['', [Validators.required]],
+      firstName: ['', [Validators.required]],
+      lastNameKana: ['', [Validators.required]],
+      firstNameKana: ['', [Validators.required]],
       birthDate: [null, [Validators.required]],
       relationship: ['', [Validators.required]],
       income: [null],
       livingTogether: [true]
     });
     this.dependentsFormArray.push(dependentGroup);
+  }
+
+  /**
+   * 氏名を氏と名に分割するヘルパーメソッド
+   */
+  private splitNameToLastNameFirstName(name: string): { lastName: string, firstName: string } {
+    if (!name) {
+      return { lastName: '', firstName: '' };
+    }
+    // スペースで分割（最初のスペースで分割）
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return {
+        lastName: parts[0],
+        firstName: parts.slice(1).join(' ')
+      };
+    }
+    // 分割できない場合は、最初の1文字を氏、残りを名とする
+    if (name.length > 1) {
+      return {
+        lastName: name.substring(0, 1),
+        firstName: name.substring(1)
+      };
+    }
+    return { lastName: name, firstName: '' };
+  }
+
+  /**
+   * 氏と名を結合して氏名にするヘルパーメソッド
+   */
+  private combineLastNameFirstNameToName(lastName: string, firstName: string): string {
+    return `${lastName} ${firstName}`.trim();
   }
 
   /**
@@ -343,14 +377,23 @@ export class EmployeeCreateComponent implements OnInit {
       // 扶養情報（undefinedを除外）
       const dependentInfo: DependentInfo[] | undefined = 
         this.dependentsFormArray.length > 0 
-          ? this.dependentsFormArray.value.map((dep: any) => ({
-              name: dep.name,
-              nameKana: dep.nameKana,
-              birthDate: dep.birthDate,
-              relationship: dep.relationship,
-              ...(dep.income && { income: dep.income }),
-              livingTogether: dep.livingTogether
-            }))
+          ? this.dependentsFormArray.value.map((dep: any) => {
+              // lastName/firstNameをnameに結合（後方互換性のため）
+              const name = this.combineLastNameFirstNameToName(dep.lastName || '', dep.firstName || '');
+              const nameKana = this.combineLastNameFirstNameToName(dep.lastNameKana || '', dep.firstNameKana || '');
+              return {
+                name: name,
+                nameKana: nameKana,
+                lastName: dep.lastName,
+                firstName: dep.firstName,
+                lastNameKana: dep.lastNameKana,
+                firstNameKana: dep.firstNameKana,
+                birthDate: dep.birthDate,
+                relationship: dep.relationship,
+                ...(dep.income && { income: dep.income }),
+                livingTogether: dep.livingTogether
+              };
+            })
           : undefined;
 
       // 他社勤務情報（undefinedを除外）

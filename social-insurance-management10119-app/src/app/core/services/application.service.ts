@@ -244,6 +244,13 @@ export class ApplicationService {
       return; // 既に送信されている場合は通知しない
     }
 
+    // 修正: 住所変更届・氏名変更届は期限計算を行わない（通知はcheckAndSendAddressAndNameChangeNotificationsで送信）
+    if (externalApplicationTypeCode === 'ADDRESS_CHANGE_EXTERNAL' || 
+        externalApplicationTypeCode === 'NAME_CHANGE_EXTERNAL') {
+      return; // 通知はcheckAndSendAddressAndNameChangeNotificationsで送信されるため、ここでは何もしない
+    }
+
+    // 被扶養者異動届は期限計算を行う（内部申請のデータから期限を計算）
     // 仮想的な外部申請データを作成して期限を計算
     const virtualExternalApplication: Application = {
       id: undefined,

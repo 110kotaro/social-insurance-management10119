@@ -295,41 +295,178 @@ export class CalculationService {
           isOnLeave = true;
           leaveTypeLabel = leave.type === 'maternity' ? '産前産後休業' : leave.type === 'childcare' ? '育児休業' : leave.type;
           
-          // 申請承認済みの場合は全額免除（計算をスキップして全額0を返す）
+          // 申請承認済みの場合の処理
           if (leave.isApproved) {
-            const now = new Date();
-            const employeeName = `${employee.lastName} ${employee.firstName}`;
-            
-            return {
-              organizationId: employee.organizationId,
-              year,
-              month,
-              employeeId: employee.id || '',
-              employeeNumber: employee.employeeNumber,
-              employeeName,
-              departmentName: undefined,
-              standardReward: employee.insuranceInfo.standardReward,
-              grade: 0,
-              pensionGrade: null,
-              healthInsurancePremium: 0,
-              pensionInsurancePremium: 0,
-              careInsurancePremium: 0,
-              totalPremium: 0,
-              employeeShare: 0,
-              companyShare: 0,
-              status: 'draft',
-              calculatedBy,
-              calculationDate: now,
-              notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-              dependentInfo: undefined,
-              healthInsuranceRate: 0,
-              healthInsuranceRateWithCare: false,
-              pensionInsuranceRate: 0,
-              birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-              joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-              createdAt: now,
-              updatedAt: now
-            };
+            // 新ルール: 条件1と条件2をチェック
+            if (leaveEndDate) {
+              // 条件1: 休職開始日が含まれる月 = 休職終了日の翌日が含まれる月 が同じかチェック
+              const leaveStartYear = leaveStartDate.getFullYear();
+              const leaveStartMonthNum = leaveStartDate.getMonth() + 1; // 1-12
+              
+              const leaveEndDateNextDay = new Date(leaveEndDate);
+              leaveEndDateNextDay.setDate(leaveEndDateNextDay.getDate() + 1);
+              const nextDayYear = leaveEndDateNextDay.getFullYear();
+              const nextDayMonth = leaveEndDateNextDay.getMonth() + 1; // 1-12
+              
+              const isSameMonth = (leaveStartYear === nextDayYear && leaveStartMonthNum === nextDayMonth);
+              
+              // 条件1を満たす場合、条件2をチェック
+              if (isSameMonth) {
+                // 条件2: その月内で14日以上休職しているかチェック
+                // 計算対象月が条件1で一致した月と一致する場合のみ新ルールを適用
+                if (year === leaveStartYear && month === leaveStartMonthNum) {
+                  // 休職開始日から休職終了日までの日数を計算
+                  const leaveDays = Math.floor((leaveEndDate.getTime() - leaveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                  
+                  if (leaveDays >= 14) {
+                    // 条件1と条件2を両方満たす場合: 免除
+                    const now = new Date();
+                    const employeeName = `${employee.lastName} ${employee.firstName}`;
+                    
+                    return {
+                      organizationId: employee.organizationId,
+                      year,
+                      month,
+                      employeeId: employee.id || '',
+                      employeeNumber: employee.employeeNumber,
+                      employeeName,
+                      departmentName: undefined,
+                      standardReward: employee.insuranceInfo.standardReward,
+                      grade: 0,
+                      pensionGrade: null,
+                      healthInsurancePremium: 0,
+                      pensionInsurancePremium: 0,
+                      careInsurancePremium: 0,
+                      totalPremium: 0,
+                      employeeShare: 0,
+                      companyShare: 0,
+                      status: 'draft',
+                      calculatedBy,
+                      calculationDate: now,
+                      notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+                      dependentInfo: undefined,
+                      healthInsuranceRate: 0,
+                      healthInsuranceRateWithCare: false,
+                      pensionInsuranceRate: 0,
+                      birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+                      joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+                      createdAt: now,
+                      updatedAt: now
+                    };
+                  } else {
+                    // 条件1を満たすが条件2を満たさない場合: 通常計算を続行
+                    // isOnLeaveフラグをfalseに戻して通常計算に進む
+                    isOnLeave = false;
+                    continue;
+                  }
+                } else {
+                  // 計算対象月が条件1で一致した月と異なる場合: 既存ロジック（全額免除）
+                  const now = new Date();
+                  const employeeName = `${employee.lastName} ${employee.firstName}`;
+                  
+                  return {
+                    organizationId: employee.organizationId,
+                    year,
+                    month,
+                    employeeId: employee.id || '',
+                    employeeNumber: employee.employeeNumber,
+                    employeeName,
+                    departmentName: undefined,
+                    standardReward: employee.insuranceInfo.standardReward,
+                    grade: 0,
+                    pensionGrade: null,
+                    healthInsurancePremium: 0,
+                    pensionInsurancePremium: 0,
+                    careInsurancePremium: 0,
+                    totalPremium: 0,
+                    employeeShare: 0,
+                    companyShare: 0,
+                    status: 'draft',
+                    calculatedBy,
+                    calculationDate: now,
+                    notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+                    dependentInfo: undefined,
+                    healthInsuranceRate: 0,
+                    healthInsuranceRateWithCare: false,
+                    pensionInsuranceRate: 0,
+                    birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+                    joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+                    createdAt: now,
+                    updatedAt: now
+                  };
+                }
+              } else {
+                // 条件1を満たさない場合: 既存ロジック（全額免除）
+                const now = new Date();
+                const employeeName = `${employee.lastName} ${employee.firstName}`;
+                
+                return {
+                  organizationId: employee.organizationId,
+                  year,
+                  month,
+                  employeeId: employee.id || '',
+                  employeeNumber: employee.employeeNumber,
+                  employeeName,
+                  departmentName: undefined,
+                  standardReward: employee.insuranceInfo.standardReward,
+                  grade: 0,
+                  pensionGrade: null,
+                  healthInsurancePremium: 0,
+                  pensionInsurancePremium: 0,
+                  careInsurancePremium: 0,
+                  totalPremium: 0,
+                  employeeShare: 0,
+                  companyShare: 0,
+                  status: 'draft',
+                  calculatedBy,
+                  calculationDate: now,
+                  notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+                  dependentInfo: undefined,
+                  healthInsuranceRate: 0,
+                  healthInsuranceRateWithCare: false,
+                  pensionInsuranceRate: 0,
+                  birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+                  joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+                  createdAt: now,
+                  updatedAt: now
+                };
+              }
+            } else {
+              // 休職終了日が未設定の場合: 既存ロジック（全額免除）
+              const now = new Date();
+              const employeeName = `${employee.lastName} ${employee.firstName}`;
+              
+              return {
+                organizationId: employee.organizationId,
+                year,
+                month,
+                employeeId: employee.id || '',
+                employeeNumber: employee.employeeNumber,
+                employeeName,
+                departmentName: undefined,
+                standardReward: employee.insuranceInfo.standardReward,
+                grade: 0,
+                pensionGrade: null,
+                healthInsurancePremium: 0,
+                pensionInsurancePremium: 0,
+                careInsurancePremium: 0,
+                totalPremium: 0,
+                employeeShare: 0,
+                companyShare: 0,
+                status: 'draft',
+                calculatedBy,
+                calculationDate: now,
+                notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+                dependentInfo: undefined,
+                healthInsuranceRate: 0,
+                healthInsuranceRateWithCare: false,
+                pensionInsuranceRate: 0,
+                birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+                joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+                createdAt: now,
+                updatedAt: now
+              };
+            }
           }
           // 申請承認されていない場合は通常計算を続行（後で処理）
           break;
@@ -1532,40 +1669,174 @@ export class CalculationService {
           isOnLeave = true;
           leaveTypeLabel = leave.type === 'maternity' ? '産前産後休業' : leave.type === 'childcare' ? '育児休業' : leave.type;
           
-          // 申請承認済みの場合は全額免除（計算をスキップして全額0を返す）
+          // 申請承認済みの場合の処理
           if (leave.isApproved) {
-            const now = new Date();
-            const employeeName = `${employee.lastName} ${employee.firstName}`;
-            
-            return {
-              organizationId: employee.organizationId,
-              year,
-              month,
-              employeeId: employee.id || '',
-              employeeNumber: employee.employeeNumber,
-              employeeName,
-              departmentName: undefined,
-              bonusAmount: 0,
-              standardBonusAmount: 0,
-              healthInsurancePremium: 0,
-              pensionInsurancePremium: 0,
-              careInsurancePremium: 0,
-              totalPremium: 0,
-              employeeShare: 0,
-              companyShare: 0,
-              status: 'draft',
-              calculatedBy,
-              calculationDate: now,
-              notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-              dependentInfo: undefined,
-              healthInsuranceRate: 0,
-              healthInsuranceRateWithCare: false,
-              pensionInsuranceRate: 0,
-              birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-              joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-              createdAt: now,
-              updatedAt: now
-            };
+            // 新ルール: 条件1と条件2をチェック
+            if (leaveEndDate) {
+              // 条件1: 休職開始日が含まれる月 = 休職終了日の翌日が含まれる月 が同じかチェック
+              const leaveStartYear = leaveStartDate.getFullYear();
+              const leaveStartMonthNum = leaveStartDate.getMonth() + 1; // 1-12
+              
+              const leaveEndDateNextDay = new Date(leaveEndDate);
+              leaveEndDateNextDay.setDate(leaveEndDateNextDay.getDate() + 1);
+              const nextDayYear = leaveEndDateNextDay.getFullYear();
+              const nextDayMonth = leaveEndDateNextDay.getMonth() + 1; // 1-12
+              
+              const isSameMonth = (leaveStartYear === nextDayYear && leaveStartMonthNum === nextDayMonth);
+              
+              // 条件1を満たす場合、条件2をチェック
+              if (isSameMonth) {
+                // 条件2: その月内で14日以上休職しているかチェック
+                // 計算対象月が条件1で一致した月と一致する場合のみ新ルールを適用
+                if (year === leaveStartYear && month === leaveStartMonthNum) {
+                  // 休職開始日から休職終了日までの日数を計算
+                  const leaveDays = Math.floor((leaveEndDate.getTime() - leaveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                  
+                  if (leaveDays >= 14) {
+                    // 条件1と条件2を両方満たす場合: 免除
+                    const now = new Date();
+                    const employeeName = `${employee.lastName} ${employee.firstName}`;
+                    
+                    return {
+                      organizationId: employee.organizationId,
+                      year,
+                      month,
+                      employeeId: employee.id || '',
+                      employeeNumber: employee.employeeNumber,
+                      employeeName,
+                      departmentName: undefined,
+                      bonusAmount: 0,
+                      standardBonusAmount: 0,
+                      healthInsurancePremium: 0,
+                      pensionInsurancePremium: 0,
+                      careInsurancePremium: 0,
+                      totalPremium: 0,
+                      employeeShare: 0,
+                      companyShare: 0,
+                      status: 'draft',
+                      calculatedBy,
+                      calculationDate: now,
+                      notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+                      dependentInfo: undefined,
+                      healthInsuranceRate: 0,
+                      healthInsuranceRateWithCare: false,
+                      pensionInsuranceRate: 0,
+                      birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+                      joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+                      createdAt: now,
+                      updatedAt: now
+                    };
+                  } else {
+                    // 条件1を満たすが条件2を満たさない場合: 通常計算を続行
+                    // isOnLeaveフラグをfalseに戻して通常計算に進む
+                    isOnLeave = false;
+                    continue;
+                  }
+                } else {
+                  // 計算対象月が条件1で一致した月と異なる場合: 既存ロジック（全額免除）
+                  const now = new Date();
+                  const employeeName = `${employee.lastName} ${employee.firstName}`;
+                  
+                  return {
+                    organizationId: employee.organizationId,
+                    year,
+                    month,
+                    employeeId: employee.id || '',
+                    employeeNumber: employee.employeeNumber,
+                    employeeName,
+                    departmentName: undefined,
+                    bonusAmount: 0,
+                    standardBonusAmount: 0,
+                    healthInsurancePremium: 0,
+                    pensionInsurancePremium: 0,
+                    careInsurancePremium: 0,
+                    totalPremium: 0,
+                    employeeShare: 0,
+                    companyShare: 0,
+                    status: 'draft',
+                    calculatedBy,
+                    calculationDate: now,
+                    notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+                    dependentInfo: undefined,
+                    healthInsuranceRate: 0,
+                    healthInsuranceRateWithCare: false,
+                    pensionInsuranceRate: 0,
+                    birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+                    joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+                    createdAt: now,
+                    updatedAt: now
+                  };
+                }
+              } else {
+                // 条件1を満たさない場合: 既存ロジック（全額免除）
+                const now = new Date();
+                const employeeName = `${employee.lastName} ${employee.firstName}`;
+                
+                return {
+                  organizationId: employee.organizationId,
+                  year,
+                  month,
+                  employeeId: employee.id || '',
+                  employeeNumber: employee.employeeNumber,
+                  employeeName,
+                  departmentName: undefined,
+                  bonusAmount: 0,
+                  standardBonusAmount: 0,
+                  healthInsurancePremium: 0,
+                  pensionInsurancePremium: 0,
+                  careInsurancePremium: 0,
+                  totalPremium: 0,
+                  employeeShare: 0,
+                  companyShare: 0,
+                  status: 'draft',
+                  calculatedBy,
+                  calculationDate: now,
+                  notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+                  dependentInfo: undefined,
+                  healthInsuranceRate: 0,
+                  healthInsuranceRateWithCare: false,
+                  pensionInsuranceRate: 0,
+                  birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+                  joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+                  createdAt: now,
+                  updatedAt: now
+                };
+              }
+            } else {
+              // 休職終了日が未設定の場合: 既存ロジック（全額免除）
+              const now = new Date();
+              const employeeName = `${employee.lastName} ${employee.firstName}`;
+              
+              return {
+                organizationId: employee.organizationId,
+                year,
+                month,
+                employeeId: employee.id || '',
+                employeeNumber: employee.employeeNumber,
+                employeeName,
+                departmentName: undefined,
+                bonusAmount: 0,
+                standardBonusAmount: 0,
+                healthInsurancePremium: 0,
+                pensionInsurancePremium: 0,
+                careInsurancePremium: 0,
+                totalPremium: 0,
+                employeeShare: 0,
+                companyShare: 0,
+                status: 'draft',
+                calculatedBy,
+                calculationDate: now,
+                notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
+                dependentInfo: undefined,
+                healthInsuranceRate: 0,
+                healthInsuranceRateWithCare: false,
+                pensionInsuranceRate: 0,
+                birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
+                joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+                createdAt: now,
+                updatedAt: now
+              };
+            }
           }
           // 申請承認されていない場合は通常計算を続行（後で処理）
           break;
@@ -1577,6 +1848,56 @@ export class CalculationService {
     const bonusData = await this.bonusDataService.getBonusData(employee.id!, year, month);
     if (!bonusData || !bonusData.isConfirmed) {
       throw new Error(`社員 ${employee.employeeNumber} の${year}年${month}月の賞与データが確定されていません`);
+    }
+
+    // 判定期間（7月1日～翌6月30日）内の賞与計算回数をチェック
+    // 判定期間の開始年月を決定
+    let periodStartYear: number;
+    let periodStartMonth: number = 7; // 7月
+
+    if (month >= 7) {
+      // 7月～12月の場合: その年の7月1日から
+      periodStartYear = year;
+    } else {
+      // 1月～6月の場合: 前年の7月1日から
+      periodStartYear = year - 1;
+    }
+
+    // 判定期間の終了年月を決定
+    let periodEndYear: number;
+    let periodEndMonth: number = 6; // 6月
+
+    if (month >= 7) {
+      // 7月～12月の場合: 翌年6月30日まで
+      periodEndYear = year + 1;
+    } else {
+      // 1月～6月の場合: その年の6月30日まで
+      periodEndYear = year;
+    }
+
+    // 判定期間内の確定済み賞与計算回数をカウント
+    let bonusCount = 0;
+    for (let y = periodStartYear; y <= periodEndYear; y++) {
+      const monthStart = (y === periodStartYear) ? periodStartMonth : 1;
+      const monthEnd = (y === periodEndYear) ? periodEndMonth : 12;
+      
+      for (let m = monthStart; m <= monthEnd; m++) {
+        // 現在計算しようとしている年月はスキップ（後でカウント）
+        if (y === year && m === month) {
+          continue;
+        }
+        
+        const pastCalculation = await this.getBonusCalculationsByEmployee(employee.id!, y, m);
+        if (pastCalculation && (pastCalculation.status === 'confirmed' || pastCalculation.status === 'exported')) {
+          bonusCount++;
+        }
+      }
+    }
+
+    // 現在の計算を含めて4回以上の場合、エラー
+    if (bonusCount >= 3) { // 現在の計算を含めると4回目以上
+      const currentBonusNumber = bonusCount + 1;
+      throw new Error(`年${currentBonusNumber}回目の賞与です。必要な手続きを行い、月次保険料の再計算をしてください。`);
     }
 
     let standardBonusAmount = bonusData.standardBonusAmount;

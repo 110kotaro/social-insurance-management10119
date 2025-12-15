@@ -130,10 +130,12 @@ export class OrganizationService {
       updateData.address = addressData;
     }
     if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber;
+    if (updates.ownerName !== undefined) updateData.ownerName = updates.ownerName;
     if (updates.email !== undefined) updateData.email = updates.email;
     if (updates.industry !== undefined) updateData.industry = updates.industry;
     if (updates.logoUrl !== undefined) updateData.logoUrl = updates.logoUrl;
     if (updates.payrollDate !== undefined) updateData.payrollDate = updates.payrollDate;
+    if (updates.monthlyCalculationTargetMonth !== undefined) updateData.monthlyCalculationTargetMonth = updates.monthlyCalculationTargetMonth;
     if (updates.insuranceSettings !== undefined) {
       // insuranceSettings内のundefined値を削除
       updateData.insuranceSettings = this.removeUndefinedValues(updates.insuranceSettings);

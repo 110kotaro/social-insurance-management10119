@@ -129,6 +129,11 @@
         <mat-hint>月次計算予定日に通知を送信します（29-31日は存在しない月は月末になります）</mat-hint>
       </mat-form-field>
 
+      <mat-checkbox formControlName="monthlyCalculationTargetMonthNext">
+        翌月の計算を促す
+      </mat-checkbox>
+      <mat-hint class="hint-text">チェックを入れると、月次計算予定日に1ヶ月前の計算を促す通知を送信します（例: 12月12日なら11月分の計算を促す）</mat-hint>
+
       <h3>休職中の保険料徴収方法</h3>
 
       <mat-form-field appearance="outline">
