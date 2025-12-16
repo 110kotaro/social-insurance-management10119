@@ -1532,6 +1532,8 @@ export class ApplicationDetailComponent implements OnInit {
         const applicationTypeName = this.applicationType?.name || this.application.type;
         const employeeName = `${this.employee.lastName} ${this.employee.firstName}`;
         
+        // 【修正20】通知機能を削除するためコメントアウト
+        /*
         await this.notificationService.createExternalApplicationStatusNotification({
           applicationId: this.application.id,
           employeeId: this.application.employeeId,
@@ -1541,6 +1543,7 @@ export class ApplicationDetailComponent implements OnInit {
           employeeName: employeeName,
           notificationSettings: this.organization.applicationFlowSettings?.notificationSettings
         });
+        */
       }
       
       this.snackBar.open('送信ステータスを変更しました', '閉じる', { duration: 3000 });
@@ -2878,6 +2881,8 @@ export class ApplicationDetailComponent implements OnInit {
     const applicationTypeName = this.applicationType?.name || this.application.type;
     const employeeName = `${this.employee.lastName} ${this.employee.firstName}`;
 
+    // 【修正20】通知機能を削除するためコメントアウト
+    /*
     await this.notificationService.createApplicationStatusNotification({
       applicationId: this.application.id!,
       employeeId: this.application.employeeId,
@@ -2890,6 +2895,7 @@ export class ApplicationDetailComponent implements OnInit {
       notificationSettings: this.organization.applicationFlowSettings?.notificationSettings,
       isResubmission: isResubmission
     });
+    */
   }
 
   /**

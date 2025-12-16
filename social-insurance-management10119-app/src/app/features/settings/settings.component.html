@@ -8,12 +8,14 @@
     </mat-card-header>
     <mat-card-content>
       <mat-tab-group [(selectedIndex)]="selectedTabIndex" (selectedIndexChange)="onTabChange($event)">
-    <!-- 通知設定タブ -->
+    <!-- 【修正20】通知機能を削除するためコメントアウト -->
+    <!--
     <mat-tab label="通知設定">
       <ng-template matTabContent>
         <app-notification-settings [organization]="organization"></app-notification-settings>
       </ng-template>
     </mat-tab>
+    -->
 
     <!-- 組織設定タブ -->
     <mat-tab label="組織設定">

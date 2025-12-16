@@ -37,16 +37,16 @@ export interface ApplicationFlowSettings {
   };
   attachmentSettings: AttachmentSetting[]; // 添付書類設定（申請種別ごと）
   notificationSettings: {
-    internalDeadlineDays: number; // デフォルト3
-    externalDeadlineDays: number; // デフォルト7
-    reminderInterval: number; // リマインダー間隔（日数）
+    internalDeadlineDays?: number; // デフォルト3（後方互換性のためオプショナル、新規では使用しない）
+    externalDeadlineDays?: number; // デフォルト7（後方互換性のためオプショナル、新規では使用しない）
+    reminderInterval?: number; // リマインダー間隔（日数）（後方互換性のためオプショナル、新規では使用しない）
     notifyApplicant: boolean; // 申請者への通知
     notifyAdmin: boolean; // 管理者への通知
     notifyOnSubmit: boolean; // 申請提出時の通知
     notifyOnApprove: boolean; // 承認時の通知
     notifyOnReturn: boolean; // 差戻し時の通知
     notifyOnReject: boolean; // 却下時の通知
-    reminderSettings?: {
+    reminderSettings: {
       adminDaysBeforeLegalDeadline: number; // 管理者向け：法定期限のX日前（デフォルト7日）
       notifyOnOverdue: boolean; // 期限超過時の通知（原則毎日通知、デフォルトtrue）
       notifyOnDeadlineDay: boolean; // 期限当日の通知（10時くらい、デフォルトtrue）

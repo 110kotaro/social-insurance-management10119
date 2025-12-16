@@ -95,18 +95,24 @@ export class SetupWizardComponent implements OnInit {
   editingAttachmentSetting: AttachmentSetting | null = null;
   editingAttachmentSettingIndex: number | null = null;
   
+  // 【修正20】通知機能を削除するためコメントアウト
+  /*
   // 通知設定
   notificationSettings = {
-    internalDeadlineDays: 3,
-    externalDeadlineDays: 7,
-    reminderInterval: 1,
     notifyApplicant: true,
     notifyAdmin: true,
     notifyOnSubmit: true,
     notifyOnApprove: true,
     notifyOnReturn: true,
-    notifyOnReject: true
+    notifyOnReject: true,
+    reminderSettings: {
+      adminDaysBeforeLegalDeadline: 7,
+      notifyOnOverdue: true,
+      notifyOnDeadlineDay: true,
+      notifyBeforeDeadline: true
+    }
   };
+  */
   
   // ファイル形式の選択肢
   fileFormatOptions = [
@@ -1896,8 +1902,9 @@ export class SetupWizardComponent implements OnInit {
           method: 'admin_any',
           description: '管理者のいずれか一名の承認'
         },
-        attachmentSettings: this.attachmentSettings,
-        notificationSettings: this.notificationSettings
+        attachmentSettings: this.attachmentSettings
+        // 【修正20】通知機能を削除するためコメントアウト
+        // notificationSettings: this.notificationSettings
       };
 
       // 2. ドキュメント設定を保存

@@ -227,6 +227,8 @@ export class EmployeeService {
       applicationType
     );
 
+    // 【修正20】通知機能を削除するためコメントアウト
+    /*
     if (deadline) {
       // 即時通知を送信（事前通知のリマインダー日を過ぎている場合）
       // 循環依存を避けるため、メソッド内で遅延注入
@@ -239,6 +241,7 @@ export class EmployeeService {
         false // 法定期限
       );
     }
+    */
   }
 
   /**

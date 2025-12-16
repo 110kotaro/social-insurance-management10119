@@ -71,18 +71,7 @@
               </div>
             </div>
             
-            <div 
-              class="summary-item clickable" 
-              (click)="navigateToApplications()"
-              *ngIf="overdueOrNearDeadlineApplicationsCount > 0">
-              <div class="summary-item-icon deadline">
-                <mat-icon>schedule</mat-icon>
-              </div>
-              <div class="summary-item-content">
-                <div class="summary-item-label">期限超過・期限間近の申請</div>
-                <div class="summary-item-value">{{ overdueOrNearDeadlineApplicationsCount }}件</div>
-              </div>
-            </div>
+            <!-- 【修正20】期限超過・期限間近の申請は期限・リマインダーセクションに移動 -->
             
             <div 
               class="summary-item clickable" 
@@ -97,7 +86,19 @@
               </div>
             </div>
             
-            <div class="summary-item no-items" *ngIf="pendingInternalApplicationsCount === 0 && overdueOrNearDeadlineApplicationsCount === 0 && unconfirmedCalculationsCount === 0">
+            <!-- 【修正20】未提出申請（申請種別ごと） -->
+            <div *ngFor="let item of unsubmittedApplicationsByType" class="summary-item clickable" 
+                 (click)="navigateToApplicationsByType(item.typeId, ['draft', 'created', 'returned'])">
+              <div class="summary-item-icon pending">
+                <mat-icon>description</mat-icon>
+              </div>
+              <div class="summary-item-content">
+                <div class="summary-item-label">{{ item.typeName }}（未提出）</div>
+                <div class="summary-item-value">{{ item.count }}件</div>
+              </div>
+            </div>
+            
+            <div class="summary-item no-items" *ngIf="pendingInternalApplicationsCount === 0 && unconfirmedCalculationsCount === 0 && (!unsubmittedApplicationsByType || unsubmittedApplicationsByType.length === 0)">
               <mat-icon>check_circle</mat-icon>
               <span>対応が必要な項目はありません</span>
             </div>
@@ -114,6 +115,26 @@
           </mat-card-title>
         </mat-card-header>
         <mat-card-content>
+          <!-- 【修正20】申請種別ごとの期限超過・期限5日以内件数 -->
+          <div class="deadline-section" *ngIf="overdueApplicationsByType.length > 0">
+            <div class="summary-items" style="display: flex; flex-direction: column; gap: 8px;">
+              <div *ngFor="let item of overdueApplicationsByType" class="summary-item clickable" 
+                   (click)="navigateToApplicationsByType(item.typeId, [])">
+                <div class="summary-item-icon deadline">
+                  <mat-icon>{{ item.overdueCount > 0 ? 'error' : 'schedule' }}</mat-icon>
+                </div>
+                <div class="summary-item-content">
+                  <div class="summary-item-label">{{ item.typeName }}</div>
+                  <div class="summary-item-value">
+                    <span *ngIf="item.overdueCount > 0">期限超過：{{ item.overdueCount }}件</span>
+                    <span *ngIf="item.overdueCount > 0 && item.nearDeadlineCount > 0">、</span>
+                    <span *ngIf="item.nearDeadlineCount > 0">期限5日以内：{{ item.nearDeadlineCount }}件</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- 直近の期限アラート -->
           <div *ngIf="recentDeadlineAlerts.length > 0" class="deadline-section">
             <h4>直近の期限アラート</h4>
@@ -152,7 +173,7 @@
             </div>
           </div>
 
-          <div *ngIf="recentDeadlineAlerts.length === 0 && insuranceAcquisitionDeadlines.length === 0 && !hasMonthlyChangeTargets" class="no-items">
+          <div *ngIf="overdueApplicationsByType.length === 0 && recentDeadlineAlerts.length === 0 && insuranceAcquisitionDeadlines.length === 0 && !hasMonthlyChangeTargets" class="no-items">
             <mat-icon>check_circle</mat-icon>
             <span>期限に関するアラートはありません</span>
           </div>
@@ -206,6 +227,8 @@
       </mat-card>
 
       <!-- 開発・テスト用機能 -->
+      <!-- 【修正20】通知機能を削除するためコメントアウト -->
+      <!--
       <mat-card *ngIf="currentUser?.role === 'owner' || currentUser?.role === 'admin'" class="dev-card">
         <mat-card-header>
           <mat-card-title>
@@ -220,6 +243,7 @@
           </button>
         </mat-card-content>
       </mat-card>
+      -->
     </div>
       </div>
     </mat-card-content>

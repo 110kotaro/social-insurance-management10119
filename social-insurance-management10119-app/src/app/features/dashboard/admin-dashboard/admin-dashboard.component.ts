@@ -76,6 +76,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   pendingInternalApplicationsCount = 0;
   overdueOrNearDeadlineApplicationsCount = 0;
   unconfirmedCalculationsCount = 0;
+  unsubmittedApplicationsByType: Array<{ typeId: string; typeName: string; count: number }> = [];
+  overdueApplicationsByType: Array<{ typeId: string; typeName: string; overdueCount: number; nearDeadlineCount: number }> = [];
   
   // 必須②：期限・リマインダー系
   recentDeadlineAlerts: Application[] = [];
@@ -96,10 +98,11 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     const currentUser = this.authService.getCurrentUser();
     if (currentUser?.organizationId) {
       this.loadOrganization(currentUser.organizationId);
+      // 【修正20】通知機能を削除するためコメントアウト
       // リマインダーをチェック（バックグラウンドで実行、エラーは無視）
-      this.checkReminders(currentUser.organizationId).catch(error => {
-        console.error('リマインダーのチェックに失敗しました:', error);
-      });
+      // this.checkReminders(currentUser.organizationId).catch(error => {
+      //   console.error('リマインダーのチェックに失敗しました:', error);
+      // });
       // ダッシュボードデータを読み込む
       this.loadDashboardData(currentUser.organizationId);
     } else {
@@ -219,8 +222,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   /**
    * リマインダーをチェックして送信
+   * 【修正20】通知機能を削除するためコメントアウト
    */
   private async checkReminders(organizationId: string, skipDuplicateCheck: boolean = false): Promise<void> {
+    // 【修正20】通知機能を削除するためコメントアウト
+    return;
+    /*
     try {
       // 算定計算のリマインダーをチェック
       await this.notificationService.checkAndSendStandardRewardReminders(organizationId, skipDuplicateCheck);
@@ -236,6 +243,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('リマインダーのチェックに失敗しました:', error);
     }
+    */
   }
 
   /**
@@ -273,7 +281,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.loadUnconfirmedCalculations(organizationId),
         this.loadDeadlineAlerts(organizationId),
         this.loadRecentActivities(organizationId),
-        this.loadMonthlySummary(organizationId)
+        this.loadMonthlySummary(organizationId),
+        this.loadUnsubmittedApplications(organizationId) // 【修正20】未提出申請を読み込む
       ]);
     } catch (error) {
       console.error('ダッシュボードデータの読み込みに失敗しました:', error);
@@ -304,14 +313,16 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   /**
    * 期限超過・期限間近の申請を読み込む
+   * 【修正20】申請種別ごとに期限超過件数と期限5日以内件数を集計
    */
   private async loadOverdueApplications(organizationId: string): Promise<void> {
     try {
       const applications = await this.applicationService.getApplicationsByOrganization(organizationId);
       const now = new Date();
-      const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+      const fiveDaysLater = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
       
-      let count = 0;
+      // 申請種別ごとの集計用Map
+      const overdueByType = new Map<string, { overdueCount: number; nearDeadlineCount: number }>();
       const deadlineAlerts: Application[] = [];
       
       for (const app of applications) {
@@ -323,20 +334,105 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         
         if (!deadline) continue;
         
-        // 期限超過または3日以内
-        if (deadline <= threeDaysLater && 
-            (app.status === 'pending' || app.status === 'pending_received' || app.status === 'pending_not_received')) {
-          count++;
-          if (deadlineAlerts.length < 5) {
-            deadlineAlerts.push(app);
+        // 申請ありのものだけをチェック（draft, created, pending）
+        if (app.status === 'draft' || app.status === 'created' || app.status === 'pending') {
+          const typeId = app.type;
+          
+          if (!overdueByType.has(typeId)) {
+            overdueByType.set(typeId, { overdueCount: 0, nearDeadlineCount: 0 });
+          }
+          
+          const counts = overdueByType.get(typeId)!;
+          
+          if (deadline < now) {
+            // 期限超過
+            counts.overdueCount++;
+            if (deadlineAlerts.length < 5) {
+              deadlineAlerts.push(app);
+            }
+          } else if (deadline <= fiveDaysLater) {
+            // 期限5日以内
+            counts.nearDeadlineCount++;
+            if (deadlineAlerts.length < 5) {
+              deadlineAlerts.push(app);
+            }
           }
         }
       }
       
-      this.overdueOrNearDeadlineApplicationsCount = count;
+      // 申請種別ごとの配列に変換
+      this.overdueApplicationsByType = Array.from(overdueByType.entries())
+        .filter(([_, counts]) => counts.overdueCount > 0 || counts.nearDeadlineCount > 0)
+        .map(([typeId, counts]) => {
+          // 申請種別名を取得
+          let typeName = typeId;
+          if (this.organization?.applicationFlowSettings?.applicationTypes) {
+            const applicationType = this.organization.applicationFlowSettings.applicationTypes.find(
+              t => t.id === typeId || t.code === typeId
+            );
+            typeName = applicationType?.name || typeId;
+          }
+          
+          return {
+            typeId,
+            typeName,
+            overdueCount: counts.overdueCount,
+            nearDeadlineCount: counts.nearDeadlineCount
+          };
+        });
+      
+      // 既存の互換性のため（必要に応じて削除可能）
+      const totalOverdueCount = Array.from(overdueByType.values())
+        .reduce((sum, counts) => sum + counts.overdueCount, 0);
+      const totalNearDeadlineCount = Array.from(overdueByType.values())
+        .reduce((sum, counts) => sum + counts.nearDeadlineCount, 0);
+      this.overdueOrNearDeadlineApplicationsCount = totalOverdueCount + totalNearDeadlineCount;
+      
       this.recentDeadlineAlerts = deadlineAlerts;
     } catch (error) {
       console.error('期限超過申請の読み込みに失敗しました:', error);
+    }
+  }
+
+  /**
+   * 【修正20】未提出申請（申請種別ごと）を読み込む
+   */
+  private async loadUnsubmittedApplications(organizationId: string): Promise<void> {
+    try {
+      const applications = await this.applicationService.getApplicationsByOrganization(organizationId);
+      const organization = await this.organizationService.getOrganization(organizationId);
+      
+      if (!organization?.applicationFlowSettings?.applicationTypes) {
+        return;
+      }
+      
+      const applicationTypes = organization.applicationFlowSettings.applicationTypes;
+      
+      // 未提出申請（draft, created, returned）を申請種別ごとに集計
+      const unsubmittedByType = new Map<string, { typeId: string; typeName: string; count: number }>();
+      
+      for (const app of applications) {
+        // 未提出の状態のみをチェック
+        if (app.status === 'draft' || app.status === 'created' || app.status === 'returned') {
+          const applicationType = applicationTypes.find(type => type.id === app.type);
+          if (applicationType) {
+            const existing = unsubmittedByType.get(app.type);
+            if (existing) {
+              existing.count++;
+            } else {
+              unsubmittedByType.set(app.type, {
+                typeId: app.type,
+                typeName: applicationType.name,
+                count: 1
+              });
+            }
+          }
+        }
+      }
+      
+      this.unsubmittedApplicationsByType = Array.from(unsubmittedByType.values());
+    } catch (error) {
+      console.error('未提出申請の読み込みに失敗しました:', error);
     }
   }
 
@@ -492,6 +588,93 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         }
       }
       
+      // 申請ステータス変更
+      const applications = await this.applicationService.getApplicationsByOrganization(organizationId);
+      const employeesMap = new Map<string, Employee>();
+      
+      // 申請に含まれるすべての社員IDを収集
+      const employeeIds = [...new Set(applications.map(app => app.employeeId))];
+      
+      // 社員情報を一括取得してマップに格納
+      for (const employeeId of employeeIds) {
+        try {
+          const employee = await this.employeeService.getEmployee(employeeId);
+          if (employee) {
+            employeesMap.set(employeeId, employee);
+          }
+        } catch (error) {
+          console.error(`社員情報の取得に失敗しました (ID: ${employeeId}):`, error);
+        }
+      }
+      
+      for (const app of applications) {
+        if (app.history && app.history.length > 0) {
+          const employee = employeesMap.get(app.employeeId);
+          const employeeName = employee ? `${employee.lastName} ${employee.firstName}` : '不明';
+          const applicationTypeName = this.getApplicationTypeLabel(app.type);
+          
+          // ステータス変更に関連する履歴を抽出
+          const statusChangeHistories = app.history.filter(hist => {
+            const histDate = hist.createdAt instanceof Date 
+              ? hist.createdAt 
+              : (hist.createdAt as any).toDate ? (hist.createdAt as any).toDate() : null;
+            
+            if (!histDate || histDate < sevenDaysAgo) {
+              return false;
+            }
+            
+            // ステータス変更に関連するactionをチェック
+            return hist.action === 'submit' || 
+                   hist.action === 'approve' || 
+                   hist.action === 'reject' || 
+                   hist.action === 'return' || 
+                   hist.action === 'withdraw' ||
+                   hist.action === 'status_change';
+          });
+          
+          for (const hist of statusChangeHistories.slice(0, 3)) {
+            const histDate = hist.createdAt instanceof Date 
+              ? hist.createdAt 
+              : (hist.createdAt as any).toDate ? (hist.createdAt as any).toDate() : null;
+            
+            if (!histDate) continue;
+            
+            // actionからステータスラベルを取得
+            let statusLabel = '';
+            switch (hist.action) {
+              case 'submit':
+                statusLabel = '送信';
+                break;
+              case 'approve':
+                statusLabel = '承認';
+                break;
+              case 'reject':
+                statusLabel = '却下';
+                break;
+              case 'return':
+                statusLabel = '差戻し';
+                break;
+              case 'withdraw':
+                statusLabel = '取り下げ';
+                break;
+              case 'status_change':
+                // コメントからステータスを推測するか、現在のステータスを使用
+                statusLabel = this.getStatusLabel(app.status);
+                break;
+              default:
+                statusLabel = this.getStatusLabel(app.status);
+            }
+            
+            activities.push({
+              type: 'application_status_change',
+              message: `${applicationTypeName}（${employeeName}）が${statusLabel}されました`,
+              date: histDate,
+              applicationId: app.id
+            });
+          }
+        }
+      }
+      
       // 日付でソート（新しい順）
       activities.sort((a, b) => {
         const dateA = a.date instanceof Date ? a.date : (a.date as any).toDate ? (a.date as any).toDate() : new Date(0);
@@ -499,7 +682,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         return dateB.getTime() - dateA.getTime();
       });
       
-      this.recentActivities = activities.slice(0, 10);
+      this.recentActivities = activities.slice(0, 5);
     } catch (error) {
       console.error('最近の動きの読み込みに失敗しました:', error);
     }
@@ -575,6 +758,31 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * 【修正20】申請種別ごとの申請一覧に遷移
+   */
+  navigateToApplicationsByType(typeId: string, statuses: string[]): void {
+    const queryParams: any = {};
+    queryParams.type = typeId;
+    this.router.navigate(['/applications'], { queryParams });
+  }
+
+  /**
+   * 【修正20】期限超過・期限5日以内の申請一覧に遷移
+   */
+  navigateToApplicationsWithDeadlineFilter(isOverdue: boolean): void {
+    const queryParams: any = {
+      status: 'draft,created,pending',
+      hasDeadline: 'true'
+    };
+    if (isOverdue) {
+      queryParams.overdue = 'true';
+    } else {
+      queryParams.nearDeadline = 'true';
+    }
+    this.router.navigate(['/applications'], { queryParams });
+  }
+
+  /**
    * 申請種別のラベルを取得
    */
   getApplicationTypeLabel(typeId: string): string {
@@ -590,13 +798,32 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * ステータスラベルを取得
+   */
+  getStatusLabel(status: ApplicationStatus): string {
+    const labels: Record<ApplicationStatus, string> = {
+      draft: '下書き',
+      created: '作成済み',
+      pending: '承認待ち',
+      pending_received: '処理待ち（受理済み）',
+      pending_not_received: '処理待ち（未受理）',
+      approved: '承認済み',
+      rejected: '却下',
+      returned: '差戻し',
+      withdrawn: '取り下げ'
+    };
+    return labels[status] || status;
+  }
+
+  /**
    * アクティビティタイプのアイコンを取得
    */
   getActivityIcon(type: string): string {
     const icons: { [key: string]: string } = {
       'employee_update': 'person',
       'standard_reward_change': 'assessment',
-      'calculation_confirmed': 'check_circle'
+      'calculation_confirmed': 'check_circle',
+      'application_status_change': 'description'
     };
     return icons[type] || 'info';
   }

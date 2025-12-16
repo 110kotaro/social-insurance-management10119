@@ -186,10 +186,11 @@ export class ApplicationService {
     const cleanedData = this.removeUndefinedValues(appData);
     await setDoc(appRef, cleanedData);
 
+    // 【修正20】通知機能を削除するためコメントアウト
     // 内部申請が送信された場合、関連する外部申請の期限設定と即時通知を送信
-    if (application.category === 'internal' && application.status === 'pending') {
-      await this.setDeadlineAndSendReminderForInternalApplication(appRef.id, application);
-    }
+    // if (application.category === 'internal' && application.status === 'pending') {
+    //   await this.setDeadlineAndSendReminderForInternalApplication(appRef.id, application);
+    // }
 
     return appRef.id;
   }
@@ -269,6 +270,8 @@ export class ApplicationService {
       externalApplicationType
     );
 
+    // 【修正20】通知機能を削除するためコメントアウト
+    /*
     if (deadline) {
       // 即時通知を送信（事前通知のリマインダー日を過ぎている場合）
       // 循環依存を避けるため、メソッド内で遅延注入
@@ -281,6 +284,7 @@ export class ApplicationService {
         false // 法定期限
       );
     }
+    */
   }
 
   /**

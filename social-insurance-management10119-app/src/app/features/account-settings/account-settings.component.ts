@@ -7,7 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+// 【修正20】通知機能を削除するためコメントアウト
+// import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../core/auth/auth.service';
 import { User } from '../../core/models/user.model';
@@ -25,7 +26,8 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, User a
     MatFormFieldModule,
     MatInputModule,
     MatSnackBarModule,
-    MatSlideToggleModule,
+    // 【修正20】通知機能を削除するためコメントアウト
+    // MatSlideToggleModule,
     MatDividerModule
   ],
   templateUrl: './account-settings.component.html',
@@ -37,10 +39,12 @@ export class AccountSettingsComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
 
   passwordForm: FormGroup;
-  notificationForm: FormGroup;
+  // 【修正20】通知機能を削除するためコメントアウト
+  // notificationForm: FormGroup;
   currentUser: User | null = null;
   isChangingPassword = false;
-  isSavingNotifications = false;
+  // 【修正20】通知機能を削除するためコメントアウト
+  // isSavingNotifications = false;
 
   constructor() {
     this.passwordForm = this.fb.group({
@@ -49,10 +53,13 @@ export class AccountSettingsComponent implements OnInit {
       confirmPassword: ['', Validators.required]
     }, { validators: this.passwordMatchValidator });
 
+    // 【修正20】通知機能を削除するためコメントアウト
+    /*
     this.notificationForm = this.fb.group({
       emailNotificationEnabled: [true],
       inAppNotificationEnabled: [true]
     });
+    */
   }
 
   ngOnInit(): void {
@@ -66,6 +73,8 @@ export class AccountSettingsComponent implements OnInit {
     try {
       this.currentUser = this.authService.getCurrentUser();
       
+      // 【修正20】通知機能を削除するためコメントアウト
+      /*
       if (this.currentUser) {
         // 通知設定を読み込む（デフォルト値はtrue）
         this.notificationForm.patchValue({
@@ -73,6 +82,7 @@ export class AccountSettingsComponent implements OnInit {
           inAppNotificationEnabled: this.currentUser.inAppNotificationEnabled ?? true
         });
       }
+      */
     } catch (error) {
       console.error('設定の読み込みに失敗しました:', error);
       this.snackBar.open('設定の読み込みに失敗しました', '閉じる', { duration: 3000 });
@@ -140,7 +150,9 @@ export class AccountSettingsComponent implements OnInit {
 
   /**
    * 通知設定を保存
+   * 【修正20】通知機能を削除するためコメントアウト
    */
+  /*
   async saveNotificationSettings(): Promise<void> {
     if (!this.currentUser?.uid) {
       this.snackBar.open('ユーザー情報が見つかりません', '閉じる', { duration: 3000 });
@@ -170,6 +182,7 @@ export class AccountSettingsComponent implements OnInit {
       this.isSavingNotifications = false;
     }
   }
+  */
 
   /**
    * パスワード一致バリデーター

@@ -6,7 +6,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../core/auth/auth.service';
 import { OrganizationService } from '../../core/services/organization.service';
 import { Organization } from '../../core/models/organization.model';
-import { NotificationSettingsComponent } from './notification-settings/notification-settings.component';
+// 【修正20】通知機能を削除するためコメントアウト
+// import { NotificationSettingsComponent } from './notification-settings/notification-settings.component';
 import { InsuranceInfoSettingsComponent } from './insurance-info-settings/insurance-info-settings.component';
 import { DepartmentSettingsComponent } from './department-settings/department-settings.component';
 import { OrganizationSettingsComponent } from './organization-settings/organization-settings.component';
@@ -23,7 +24,8 @@ import { PermissionSettingsComponent } from './permission-settings/permission-se
     MatTabsModule,
     MatCardModule,
     MatIconModule,
-    NotificationSettingsComponent,
+    // 【修正20】通知機能を削除するためコメントアウト
+    // NotificationSettingsComponent,
     InsuranceInfoSettingsComponent,
     DepartmentSettingsComponent,
     OrganizationSettingsComponent,

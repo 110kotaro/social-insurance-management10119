@@ -118,6 +118,10 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
         this.selectedCategory = params['category'] as ApplicationCategory;
         this.searchForm.patchValue({ category: this.selectedCategory });
       }
+      if (params['type']) {
+        this.selectedType = params['type'] as string;
+        this.searchForm.patchValue({ type: this.selectedType });
+      }
     });
 
     // モードの変更を監視

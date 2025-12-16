@@ -643,7 +643,7 @@
       <mat-step>
         <ng-template matStepLabel>申請フロー設定</ng-template>
         <div class="step-content">
-          <p class="step-description">申請種別、承認ルール、添付書類設定、通知設定を設定してください。</p>
+          <p class="step-description">申請種別、承認ルール、添付書類設定を設定してください。</p>
           
           <form [formGroup]="applicationFlowForm">
             <!-- タブ構成 -->
@@ -795,7 +795,8 @@
                 </div>
               </mat-tab>
 
-              <!-- タブ4: 通知設定 -->
+              <!-- 【修正20】通知機能を削除するためコメントアウト -->
+              <!--
               <mat-tab label="通知設定">
                 <div class="tab-content">
                   <h3>通知タイミング設定</h3>
@@ -808,25 +809,30 @@
                   <mat-checkbox [(ngModel)]="notificationSettings.notifyApplicant" [ngModelOptions]="{standalone: true}">申請者への通知</mat-checkbox>
                   <mat-checkbox [(ngModel)]="notificationSettings.notifyAdmin" [ngModelOptions]="{standalone: true}">管理者への通知（全申請）</mat-checkbox>
 
-                  <h3>リマインダー設定</h3>
+                  <h3>期限リマインダー設定</h3>
                   <mat-form-field appearance="outline">
-                    <mat-label>内部申請の承認期限（日数）</mat-label>
-                    <input matInput type="number" [(ngModel)]="notificationSettings.internalDeadlineDays" [ngModelOptions]="{standalone: true}" min="1" required>
+                    <mat-label>管理者向け：法定期限のX日前（日数）</mat-label>
+                    <input matInput type="number" [(ngModel)]="notificationSettings.reminderSettings.adminDaysBeforeLegalDeadline" [ngModelOptions]="{standalone: true}" min="1" required>
+                    <mat-hint>デフォルト：7日</mat-hint>
                   </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>外部申請の提出期限（日数）</mat-label>
-                    <input matInput type="number" [(ngModel)]="notificationSettings.externalDeadlineDays" [ngModelOptions]="{standalone: true}" min="1" required>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>リマインダー送信間隔（日数）</mat-label>
-                    <mat-select [(ngModel)]="notificationSettings.reminderInterval" [ngModelOptions]="{standalone: true}">
-                      <mat-option [value]="1">1日ごと</mat-option>
-                      <mat-option [value]="3">3日ごと</mat-option>
-                      <mat-option [value]="7">7日ごと</mat-option>
-                    </mat-select>
-                  </mat-form-field>
+                  <div class="checkbox-group">
+                    <mat-checkbox [(ngModel)]="notificationSettings.reminderSettings.notifyOnOverdue" [ngModelOptions]="{standalone: true}">
+                      期限超過時の通知（原則毎日通知）
+                    </mat-checkbox>
+                  </div>
+                  <div class="checkbox-group">
+                    <mat-checkbox [(ngModel)]="notificationSettings.reminderSettings.notifyOnDeadlineDay" [ngModelOptions]="{standalone: true}">
+                      期限当日の通知（10時くらい）
+                    </mat-checkbox>
+                  </div>
+                  <div class="checkbox-group">
+                    <mat-checkbox [(ngModel)]="notificationSettings.reminderSettings.notifyBeforeDeadline" [ngModelOptions]="{standalone: true}">
+                      事前通知（X日前の通知）
+                    </mat-checkbox>
+                  </div>
                 </div>
               </mat-tab>
+              -->
             </mat-tab-group>
 
             <div class="button-group">

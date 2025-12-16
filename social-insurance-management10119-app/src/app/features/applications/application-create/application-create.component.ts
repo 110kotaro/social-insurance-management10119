@@ -26,6 +26,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { ModeService } from '../../../core/services/mode.service';
 import { StandardRewardCalculationService } from '../../../core/services/standard-reward-calculation.service';
 import { DeadlineCalculationService } from '../../../core/services/deadline-calculation.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { StandardRewardCalculation } from '../../../core/models/standard-reward-calculation.model';
 import { Application, ApplicationStatus, ApplicationCategory } from '../../../core/models/application.model';
 import { Organization } from '../../../core/models/organization.model';
@@ -74,6 +75,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   private modeService = inject(ModeService);
   private standardRewardCalculationService = inject(StandardRewardCalculationService);
   private deadlineCalculationService = inject(DeadlineCalculationService);
+  private notificationService = inject(NotificationService);
   private snackBar = inject(MatSnackBar);
 
   // ステップ1: 申請種別選択
@@ -3076,7 +3078,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       // 期限を計算（修正16）
       let deadline: Date | null = null;
       if (this.selectedApplicationType.category === 'external') {
-        // 外部申請：法定期限を優先設定（法定期限がない場合のみ管理者設定期限）
+        // 外部申請：法定期限を設定（法定期限がない場合は期限設定なし）
         const legalDeadline = await this.deadlineCalculationService.calculateLegalDeadline(
           {
             type: this.selectedApplicationType.id,
@@ -3093,19 +3095,11 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         
         if (legalDeadline) {
           deadline = legalDeadline;
-        } else if (this.organization?.applicationFlowSettings?.notificationSettings?.externalDeadlineDays) {
-          // 法定期限がない場合のみ管理者設定期限を使用
-          const days = this.organization.applicationFlowSettings.notificationSettings.externalDeadlineDays;
-          deadline = new Date();
-          deadline.setDate(deadline.getDate() + days);
         }
+        // 法定期限がない場合は期限設定なし（deadline = null）
       } else {
-        // 内部申請：管理者設定期限（internalDeadlineDays）
-        if (this.organization?.applicationFlowSettings?.notificationSettings?.internalDeadlineDays) {
-          const days = this.organization.applicationFlowSettings.notificationSettings.internalDeadlineDays;
-          deadline = new Date();
-          deadline.setDate(deadline.getDate() + days);
-        }
+        // 内部申請：期限設定なし
+        // deadline = null（デフォルト値のまま）
       }
 
       // 申請を作成
@@ -3804,7 +3798,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         if (person.lossDate && typeof person.lossDate === 'object' && !(person.lossDate instanceof Date) && !(person.lossDate instanceof Timestamp)) {
           personItems.push({ label: '喪失年月日', value: this.formatEraDate(person.lossDate), isEmpty: !person.lossDate.era || !person.lossDate.year || !person.lossDate.month || !person.lossDate.day });
         } else {
-          personItems.push({ label: '喪失年月日', value: this.formatDateValue(person.lossDate), isEmpty: !person.lossDate });
+        personItems.push({ label: '喪失年月日', value: this.formatDateValue(person.lossDate), isEmpty: !person.lossDate });
         }
         
         personItems.push({ label: '喪失理由', value: this.formatLossReason(person.lossReason), isEmpty: !person.lossReason });
@@ -3814,14 +3808,14 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           if (person.retirementDate && typeof person.retirementDate === 'object' && !(person.retirementDate instanceof Date) && !(person.retirementDate instanceof Timestamp)) {
             personItems.push({ label: '退職年月日', value: this.formatEraDate(person.retirementDate), isEmpty: !person.retirementDate.era || !person.retirementDate.year || !person.retirementDate.month || !person.retirementDate.day });
           } else {
-            personItems.push({ label: '退職年月日', value: this.formatDateValue(person.retirementDate), isEmpty: !person.retirementDate });
+          personItems.push({ label: '退職年月日', value: this.formatDateValue(person.retirementDate), isEmpty: !person.retirementDate });
           }
         } else if (person.lossReason === 'death') {
           // 死亡年月日（FormGroupの場合は年号付き日付として処理）
           if (person.deathDate && typeof person.deathDate === 'object' && !(person.deathDate instanceof Date) && !(person.deathDate instanceof Timestamp)) {
             personItems.push({ label: '死亡年月日', value: this.formatEraDate(person.deathDate), isEmpty: !person.deathDate.era || !person.deathDate.year || !person.deathDate.month || !person.deathDate.day });
           } else {
-            personItems.push({ label: '死亡年月日', value: this.formatDateValue(person.deathDate), isEmpty: !person.deathDate });
+          personItems.push({ label: '死亡年月日', value: this.formatDateValue(person.deathDate), isEmpty: !person.deathDate });
           }
         }
         
@@ -3834,7 +3828,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           if (typeof person.over70NotApplicableDate === 'object' && !(person.over70NotApplicableDate instanceof Date) && !(person.over70NotApplicableDate instanceof Timestamp)) {
             personItems.push({ label: '70歳以上被用者該当日', value: this.formatEraDate(person.over70NotApplicableDate) });
           } else {
-            personItems.push({ label: '70歳以上被用者該当日', value: this.formatDateValue(person.over70NotApplicableDate) });
+          personItems.push({ label: '70歳以上被用者該当日', value: this.formatDateValue(person.over70NotApplicableDate) });
           }
         }
 
@@ -3911,7 +3905,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         if (sd.changeDate && typeof sd.changeDate === 'object' && !(sd.changeDate instanceof Date) && !(sd.changeDate instanceof Timestamp)) {
           sdItems.push({ label: '異動年月日', value: this.formatEraDate(sd.changeDate), isEmpty: !sd.changeDate.era || !sd.changeDate.year || !sd.changeDate.month || !sd.changeDate.day });
         } else {
-          sdItems.push({ label: '異動年月日', value: this.formatDateValue(sd.changeDate), isEmpty: !sd.changeDate });
+        sdItems.push({ label: '異動年月日', value: this.formatDateValue(sd.changeDate), isEmpty: !sd.changeDate });
         }
         
         sdItems.push({ label: '被扶養者となった理由', value: this.formatDependentStartReason(sd.becameDependentReason), isEmpty: !sd.becameDependentReason });
@@ -3931,7 +3925,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           if (sd.deathDate && typeof sd.deathDate === 'object' && !(sd.deathDate instanceof Date) && !(sd.deathDate instanceof Timestamp)) {
             sdItems.push({ label: '死亡年月日', value: this.formatEraDate(sd.deathDate), isEmpty: !sd.deathDate.era || !sd.deathDate.year || !sd.deathDate.month || !sd.deathDate.day });
           } else {
-            sdItems.push({ label: '死亡年月日', value: this.formatDateValue(sd.deathDate), isEmpty: !sd.deathDate });
+          sdItems.push({ label: '死亡年月日', value: this.formatDateValue(sd.deathDate), isEmpty: !sd.deathDate });
           }
         }
         if (sd.overseasException) {
@@ -3946,7 +3940,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
             if (sd.domesticTransferDate && typeof sd.domesticTransferDate === 'object' && !(sd.domesticTransferDate instanceof Date) && !(sd.domesticTransferDate instanceof Timestamp)) {
               sdItems.push({ label: '国内転出年月日', value: this.formatEraDate(sd.domesticTransferDate), isEmpty: !sd.domesticTransferDate.era || !sd.domesticTransferDate.year || !sd.domesticTransferDate.month || !sd.domesticTransferDate.day });
             } else {
-              sdItems.push({ label: '国内転出年月日', value: this.formatDateValue(sd.domesticTransferDate), isEmpty: !sd.domesticTransferDate });
+            sdItems.push({ label: '国内転出年月日', value: this.formatDateValue(sd.domesticTransferDate), isEmpty: !sd.domesticTransferDate });
             }
           }
         }
@@ -3983,7 +3977,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         if (dep.changeDate && typeof dep.changeDate === 'object' && !(dep.changeDate instanceof Date) && !(dep.changeDate instanceof Timestamp)) {
           depItems.push({ label: '異動年月日', value: this.formatEraDate(dep.changeDate), isEmpty: !dep.changeDate.era || !dep.changeDate.year || !dep.changeDate.month || !dep.changeDate.day });
         } else {
-          depItems.push({ label: '異動年月日', value: this.formatDateValue(dep.changeDate), isEmpty: !dep.changeDate });
+        depItems.push({ label: '異動年月日', value: this.formatDateValue(dep.changeDate), isEmpty: !dep.changeDate });
         }
         
         depItems.push({ label: '被扶養者となった理由', value: this.formatOtherDependentStartReason(dep.startReason), isEmpty: !dep.startReason });
@@ -4003,7 +3997,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           if (dep.deathDate && typeof dep.deathDate === 'object' && !(dep.deathDate instanceof Date) && !(dep.deathDate instanceof Timestamp)) {
             depItems.push({ label: '死亡年月日', value: this.formatEraDate(dep.deathDate), isEmpty: !dep.deathDate.era || !dep.deathDate.year || !dep.deathDate.month || !dep.deathDate.day });
           } else {
-            depItems.push({ label: '死亡年月日', value: this.formatDateValue(dep.deathDate), isEmpty: !dep.deathDate });
+          depItems.push({ label: '死亡年月日', value: this.formatDateValue(dep.deathDate), isEmpty: !dep.deathDate });
           }
         }
         if (dep.endReason === 'other') {
@@ -4021,7 +4015,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
             if (dep.domesticTransferDate && typeof dep.domesticTransferDate === 'object' && !(dep.domesticTransferDate instanceof Date) && !(dep.domesticTransferDate instanceof Timestamp)) {
               depItems.push({ label: '国内転出年月日', value: this.formatEraDate(dep.domesticTransferDate), isEmpty: !dep.domesticTransferDate.era || !dep.domesticTransferDate.year || !dep.domesticTransferDate.month || !dep.domesticTransferDate.day });
             } else {
-              depItems.push({ label: '国内転出年月日', value: this.formatDateValue(dep.domesticTransferDate), isEmpty: !dep.domesticTransferDate });
+            depItems.push({ label: '国内転出年月日', value: this.formatDateValue(dep.domesticTransferDate), isEmpty: !dep.domesticTransferDate });
             }
           }
           if (dep.overseasExceptionEndReason === 'other') {

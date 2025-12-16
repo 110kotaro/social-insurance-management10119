@@ -88,6 +88,9 @@ export class EmployeeImportComponent implements OnInit {
   isLoading = false;
   isValidating = false;
 
+  // ヘッダー行から列インデックスをマッピング
+  private headerMap: Map<string, number> = new Map();
+
   ngOnInit(): void {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser?.organizationId) {
@@ -123,6 +126,7 @@ export class EmployeeImportComponent implements OnInit {
     const file = input.files[0];
     this.importErrors = [];
     this.importedEmployees = [];
+    this.headerMap.clear();
 
     try {
       if (file.name.endsWith('.csv')) {
@@ -162,7 +166,11 @@ export class EmployeeImportComponent implements OnInit {
       return;
     }
 
-    // ヘッダー行をスキップ（1行目）
+    // ヘッダー行を解析（1行目）
+    const headerRow = this.parseCsvLine(lines[0]);
+    this.parseHeaderRow(headerRow);
+
+    // データ行を処理（2行目以降）
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
@@ -211,7 +219,11 @@ export class EmployeeImportComponent implements OnInit {
       return;
     }
 
-    // ヘッダー行をスキップ（1行目）
+    // ヘッダー行を解析（1行目）
+    const headerRow = data[0] || [];
+    this.parseHeaderRow(headerRow.map((cell: any) => String(cell || '').trim()));
+
+    // データ行を処理（2行目以降）
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       if (!row || row.length === 0) continue;
@@ -221,10 +233,29 @@ export class EmployeeImportComponent implements OnInit {
   }
 
   /**
+   * ヘッダー行を解析して列インデックスをマッピング
+   */
+  private parseHeaderRow(headerRow: string[]): void {
+    this.headerMap.clear();
+    
+    headerRow.forEach((header, index) => {
+      const normalizedHeader = header.trim();
+      if (normalizedHeader) {
+        this.headerMap.set(normalizedHeader, index);
+      }
+    });
+  }
+
+  /**
+   * ヘッダーマップから列インデックスを取得（見つからない場合はデフォルトインデックスを返す）
+   */
+  private getColumnIndex(headerName: string, defaultIndex: number): number {
+    return this.headerMap.get(headerName) ?? defaultIndex;
+  }
+
+  /**
    * 社員データ行をパース
-   * 想定フォーマット: 社員番号, 氏名, 氏名カナ, メールアドレス, 部署名, 入社日, 生年月日, ステータス, [保険情報...], [他社勤務情報...], [住所情報...]
-   * 必須項目: 1-8列（生年月日を含む）
-   * 任意項目: 9-21列
+   * ヘッダー行から列インデックスを取得してデータを読み込む
    */
   private parseEmployeeRow(row: any[], rowNumber: number): void {
     const errors: string[] = [];
@@ -333,9 +364,11 @@ export class EmployeeImportComponent implements OnInit {
       }
     }
 
-    // 任意項目（10-21列）「-」や「ー」は空欄として扱う
-    const healthInsuranceNumber = this.normalizeValue(row[9]);
-    const pensionNumber = this.normalizeValue(row[10]);
+    // 任意項目（ヘッダーマップから列インデックスを取得）「-」や「ー」は空欄として扱う
+    const healthInsuranceNumberIndex = this.getColumnIndex('被保険者整理番号', 9);
+    const pensionNumberIndex = this.getColumnIndex('基礎年金番号', 10);
+    const healthInsuranceNumber = this.normalizeValue(row[healthInsuranceNumberIndex]);
+    const pensionNumber = this.normalizeValue(row[pensionNumberIndex]);
     const myNumber = this.normalizeValue(row[11]);
     const standardRewardRaw = this.normalizeValue(row[12]);
     const standardReward = standardRewardRaw ? parseFloat(String(standardRewardRaw)) : undefined;

@@ -109,7 +109,7 @@ export class NotificationListComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser?.organizationId) {
       this.router.navigate(['/dashboard']);
@@ -120,8 +120,16 @@ export class NotificationListComponent implements OnInit, OnDestroy {
     this.organizationId = currentUser.organizationId;
 
     this.loadOrganization(currentUser.organizationId);
-    this.loadNotifications();
-    this.loadEmployees(currentUser.organizationId);
+    
+    // 通知と社員情報を並列で読み込み、両方完了後にグループ化を実行
+    await Promise.all([
+      this.loadNotifications(),
+      this.loadEmployees(currentUser.organizationId)
+    ]);
+
+    // 両方の読み込みが完了したらグループ化を実行
+    this.groupNotifications();
+    this.applyFilters();
 
     // 検索フォームの変更を監視
     this.searchForm.valueChanges.subscribe(() => {
@@ -134,7 +142,7 @@ export class NotificationListComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * 通知を読み込む
+   * 通知を読み込む（グループ化は実行しない）
    */
   private async loadNotifications(): Promise<void> {
     if (!this.userId || !this.organizationId) {
@@ -165,9 +173,6 @@ export class NotificationListComponent implements OnInit, OnDestroy {
           console.error(`申請情報の読み込みに失敗しました (${applicationId}):`, error);
         }
       }
-
-      this.groupNotifications();
-      this.applyFilters();
     } catch (error) {
       console.error('通知の読み込みに失敗しました:', error);
       this.snackBar.open('通知の読み込みに失敗しました', '閉じる', { duration: 3000 });

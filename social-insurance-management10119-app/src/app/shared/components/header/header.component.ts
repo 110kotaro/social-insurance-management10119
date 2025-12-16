@@ -4,12 +4,14 @@ import { Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatBadgeModule } from '@angular/material/badge';
+// 【修正20】通知機能を削除するためコメントアウト
+// import { MatBadgeModule } from '@angular/material/badge';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ModeService } from '../../../core/services/mode.service';
-import { NotificationService } from '../../../core/services/notification.service';
+// 【修正20】通知機能を削除するためコメントアウト
+// import { NotificationService } from '../../../core/services/notification.service';
 import { User } from '../../../core/models/user.model';
 import { environment } from '../../../../environments/environment';
 import { Subscription } from 'rxjs';
@@ -22,7 +24,8 @@ import { Subscription } from 'rxjs';
     MatToolbarModule,
     MatIconModule,
     MatButtonModule,
-    MatBadgeModule,
+    // 【修正20】通知機能を削除するためコメントアウト
+    // MatBadgeModule,
     MatMenuModule,
     MatDividerModule
   ],
@@ -32,12 +35,14 @@ import { Subscription } from 'rxjs';
 export class HeaderComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private modeService = inject(ModeService);
-  private notificationService = inject(NotificationService);
+  // 【修正20】通知機能を削除するためコメントアウト
+  // private notificationService = inject(NotificationService);
   private router = inject(Router);
   
   currentUser: User | null = null;
   appName = environment.appName;
-  unreadNotificationCount = 0;
+  // 【修正20】通知機能を削除するためコメントアウト
+  // unreadNotificationCount = 0;
   isAdminMode = false;
   
   private subscriptions = new Subscription();
@@ -49,12 +54,15 @@ export class HeaderComponent implements OnInit, OnDestroy {
     // ユーザー情報の変更を監視
     const userSub = this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
+      // 【修正20】通知機能を削除するためコメントアウト
+      /*
       // ユーザーが変更されたら通知数を更新
       if (user?.organizationId) {
         this.loadUnreadCount(user.uid, user.organizationId);
       } else {
         this.unreadNotificationCount = 0;
       }
+      */
     });
     
     // モードの変更を監視
@@ -65,15 +73,20 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.subscriptions.add(userSub);
     this.subscriptions.add(modeSub);
 
+    // 【修正20】通知機能を削除するためコメントアウト
+    /*
     // 初期の未読通知数を読み込む
     if (this.currentUser?.organizationId) {
       this.loadUnreadCount(this.currentUser.uid, this.currentUser.organizationId);
     }
+    */
   }
 
   /**
    * 未読通知数を読み込む
+   * 【修正20】通知機能を削除するためコメントアウト
    */
+  /*
   private loadUnreadCount(userId: string, organizationId: string): void {
     // リアルタイムで未読通知数を監視
     const countSub = this.notificationService.getUnreadCount$(userId, organizationId).subscribe(count => {
@@ -81,6 +94,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     });
     this.subscriptions.add(countSub);
   }
+  */
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
@@ -104,8 +118,13 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.modeService.setAdminMode(!currentMode);
   }
 
+  /**
+   * 【修正20】通知機能を削除するためコメントアウト
+   */
+  /*
   navigateToNotifications(): void {
     this.router.navigate(['/notifications']);
   }
+  */
 }
 

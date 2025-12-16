@@ -84,15 +84,15 @@ import * as XLSX from 'xlsx';
               <td mat-cell *matCellDef="let row">{{ row.role || '一般社員' }}</td>
             </ng-container>
 
-            <!-- 健康保険被保険者番号 -->
+            <!-- 被保険者整理番号 -->
             <ng-container matColumnDef="healthInsuranceNumber">
-              <th mat-header-cell *matHeaderCellDef>健康保険被保険者番号</th>
+              <th mat-header-cell *matHeaderCellDef>被保険者整理番号</th>
               <td mat-cell *matCellDef="let row">{{ row.healthInsuranceNumber || '-' }}</td>
             </ng-container>
 
-            <!-- 厚生年金被保険者番号 -->
+            <!-- 基礎年金番号 -->
             <ng-container matColumnDef="pensionNumber">
-              <th mat-header-cell *matHeaderCellDef>厚生年金被保険者番号</th>
+              <th mat-header-cell *matHeaderCellDef>基礎年金番号</th>
               <td mat-cell *matCellDef="let row">{{ row.pensionNumber || '-' }}</td>
             </ng-container>
 
@@ -346,7 +346,7 @@ export class SampleDialogComponent {
     }
   ];
 
-  csvText = `社員番号,氏名,氏名カナ,メールアドレス,部署名,入社日,生年月日,ステータス,権限,健康保険被保険者番号,厚生年金被保険者番号,マイナンバー,標準報酬月額,保険適用開始日,郵便番号,都道府県,市区町村,町名・番地,建物名・部屋番号
+  csvText = `社員番号,氏名,氏名カナ,メールアドレス,部署名,入社日,生年月日,ステータス,権限,被保険者整理番号,基礎年金番号,マイナンバー,標準報酬月額,保険適用開始日,郵便番号,都道府県,市区町村,町名・番地,建物名・部屋番号
 EMP001,山田 太郎,ヤマダ タロウ,yamada.taro@example.com,営業部,2024-04-01,1990-05-15,在籍,一般社員,12345678,87654321,1234567890123,300000,2024-04-01,100-0001,東京都,千代田区,千代田1-1-1,サンプルビル101
 EMP002,佐藤 花子,サトウ ハナコ,sato.hanako@example.com,総務部,2023-10-01,1992-08-20,在籍,管理者,23456789,98765432,2345678901234,280000,2023-10-01,150-0001,東京都,渋谷区,渋谷2-2-2,サンプルマンション202
 EMP003,鈴木 一郎,スズキ イチロウ,suzuki.ichiro@example.com,開発部,2022-07-01,1988-12-10,休職,一般社員,34567890,10987654,3456789012345,350000,2022-07-01,200-0002,東京都,港区,港3-3-3,サンプルタワー303

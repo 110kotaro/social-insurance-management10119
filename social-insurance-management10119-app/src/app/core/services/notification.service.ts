@@ -401,6 +401,9 @@ export class NotificationService {
   /**
    * 申請ステータス変更時に通知を作成するヘルパーメソッド
    */
+  /**
+   * 【修正20】通知機能を削除するためコメントアウト
+   */
   async createApplicationStatusNotification(params: {
     applicationId: string;
     employeeId: string;
@@ -422,10 +425,7 @@ export class NotificationService {
       notifyOnSubmit: true,
       notifyOnApprove: true,
       notifyOnReturn: true,
-      notifyOnReject: true,
-      internalDeadlineDays: 3,
-      externalDeadlineDays: 7,
-      reminderInterval: 1
+      notifyOnReject: true
     };
 
     // 申請者のUserのuidを取得
@@ -545,10 +545,7 @@ export class NotificationService {
       notifyOnSubmit: true,
       notifyOnApprove: true,
       notifyOnReturn: true,
-      notifyOnReject: true,
-      internalDeadlineDays: 3,
-      externalDeadlineDays: 7,
-      reminderInterval: 1
+      notifyOnReject: true
     };
 
     // 管理者への通知のみ（外部申請は管理者が管理）
@@ -599,11 +596,41 @@ export class NotificationService {
   async createStandardRewardCalculationReminder(params: {
     organizationId: string;
     targetYear: number;
+    skipDuplicateCheck?: boolean;
   }): Promise<void> {
     const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
     const adminUids = await this.getAdminUserUids(params.organizationId);
 
+    const todayStart = new Date(params.targetYear, 6, 1, 0, 0, 0);
+    const todayEnd = new Date(params.targetYear, 6, 1, 23, 59, 59);
+
+    // 各ユーザーごとに重複チェックを行う
     for (const adminUid of adminUids) {
+      // 重複チェック（手動送信時はスキップ）
+      if (!params.skipDuplicateCheck) {
+        // 該当ユーザーの既存通知を取得
+        const userNotifications = await this.getUserNotifications(adminUid, params.organizationId, {
+          type: 'reminder',
+          limitCount: 100
+        });
+
+        // 今日既に通知が送信されているかチェック
+        const hasTodayNotification = userNotifications.some(notification => {
+          const notificationDate = notification.createdAt instanceof Date 
+            ? notification.createdAt 
+            : (notification.createdAt as any).toDate();
+          return notificationDate >= todayStart && 
+                 notificationDate <= todayEnd &&
+                 notification.title === '算定計算の実行時期です' &&
+                 notification.message.includes(`${params.targetYear}年7月1日`);
+        });
+
+        if (hasTodayNotification) {
+          continue; // 今日既に通知が送信されている場合はスキップ
+        }
+      }
+
+      // 重複がない場合のみ通知を追加
       notifications.push({
         userId: adminUid,
         applicationId: null,
@@ -629,6 +656,7 @@ export class NotificationService {
     changeYear: number;
     changeMonth: number;
     uncalculatedEmployees: Employee[];
+    skipDuplicateCheck?: boolean;
   }): Promise<void> {
     const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
     const adminUids = await this.getAdminUserUids(params.organizationId);
@@ -650,7 +678,36 @@ export class NotificationService {
     
     const message = `${params.changeYear}年${params.changeMonth}月の固定賃金変動で月変計算未計算の社員がいます（${employeeInfo}）。月変計算を実行してください。`;
 
+    // 各ユーザーごとに重複チェックを行う
     for (const adminUid of adminUids) {
+      // 重複チェック（手動送信時はスキップ）
+      if (!params.skipDuplicateCheck) {
+        // 該当ユーザーの既存通知を取得
+        const userNotifications = await this.getUserNotifications(adminUid, params.organizationId, {
+          type: 'reminder',
+          limitCount: 100
+        });
+
+        // 既に通知が送信されているかチェック（同じ年月の通知が既にあるかチェック）
+        const hasNotification = userNotifications.some(notification => {
+          const notificationDate = notification.createdAt instanceof Date 
+            ? notification.createdAt 
+            : (notification.createdAt as any).toDate();
+          const notificationYear = notificationDate.getFullYear();
+          const notificationMonth = notificationDate.getMonth() + 1;
+          
+          return notificationYear === params.changeYear &&
+                 notificationMonth === params.changeMonth &&
+                 notification.title === '月変計算の実行時期です' &&
+                 notification.message.includes(`${params.changeYear}年${params.changeMonth}月`);
+        });
+
+        if (hasNotification) {
+          continue; // このユーザーには送信しない
+        }
+      }
+
+      // 重複がない場合のみ通知を追加
       notifications.push({
         userId: adminUid,
         applicationId: null,
@@ -683,32 +740,6 @@ export class NotificationService {
       const adminUids = await this.getAdminUserUids(organizationId);
       if (adminUids.length === 0) {
         return;
-      }
-
-      // 重複チェック（手動送信時はスキップ）
-      if (!skipDuplicateCheck) {
-        // 既に通知が送信されているかチェック（同じ日付の通知が既にある場合は送信しない）
-        // 今日の日付で既に通知が送信されているかチェック
-        const todayStart = new Date(currentYear, 6, 1, 0, 0, 0);
-        const todayEnd = new Date(currentYear, 6, 1, 23, 59, 59);
-
-        const existingNotifications = await this.getUserNotifications(adminUids[0], organizationId, {
-          type: 'reminder',
-          limitCount: 100
-        });
-
-        const hasTodayNotification = existingNotifications.some(notification => {
-          const notificationDate = notification.createdAt instanceof Date 
-            ? notification.createdAt 
-            : (notification.createdAt as any).toDate();
-          return notificationDate >= todayStart && notificationDate <= todayEnd &&
-                 notification.title === '算定計算の実行時期です' &&
-                 notification.message.includes(`${currentYear}年7月1日`);
-        });
-
-        if (hasTodayNotification) {
-          return;
-        }
       }
 
       // 該当年の算定計算を取得
@@ -764,11 +795,12 @@ export class NotificationService {
       const calculatedEmployeeIds = new Set(calculations.map(c => c.employeeId));
       const uncalculatedEmployees = targetEmployees.filter(emp => !calculatedEmployeeIds.has(emp.id!));
 
-      // 未計算の社員がいる場合のみ通知を送信
+      // 未計算の社員がいる場合のみ通知を送信（各ユーザーごとの重複チェックはcreateStandardRewardCalculationReminder内で実施）
       if (uncalculatedEmployees.length > 0) {
         await this.createStandardRewardCalculationReminder({
           organizationId,
-          targetYear: currentYear
+          targetYear: currentYear,
+          skipDuplicateCheck
         });
       }
     }
@@ -779,7 +811,12 @@ export class NotificationService {
    * 変動月から4か月目に入ったら通知
    * 未計算の社員がいる場合のみ通知を送信
    */
+  /**
+   * 【修正20】通知機能を削除するためコメントアウト
+   */
   async checkAndSendMonthlyChangeReminders(organizationId: string, skipDuplicateCheck: boolean = false): Promise<void> {
+    // 【修正20】通知機能を削除するため早期リターン
+    return;
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
@@ -800,6 +837,8 @@ export class NotificationService {
 
     for (const employee of employees) {
       if (!employee.id) continue;
+      
+      const employeeId: string = employee.id as string; // TypeScriptの型チェック用（ifチェック後なので安全）
 
       // 変動月を検出（過去12か月分をチェック）
       const checkYear = currentYear;
@@ -807,7 +846,7 @@ export class NotificationService {
       
       try {
         const changeMonths = await this.standardRewardCalculationService.detectFixedSalaryChanges(
-          employee.id,
+          employeeId,
           checkYear,
           checkMonth
         );
@@ -850,7 +889,7 @@ export class NotificationService {
           }
         }
       } catch (error) {
-        console.error(`社員 ${employee.id} の変動月検出に失敗しました:`, error);
+        console.error(`社員 ${employeeId} の変動月検出に失敗しました:`, error);
         continue;
       }
     }
@@ -860,45 +899,16 @@ export class NotificationService {
       return;
     }
 
-    // 重複チェック用の既存通知を取得（手動送信時はスキップ）
-    let existingNotifications: Notification[] = [];
-    if (!skipDuplicateCheck) {
-      existingNotifications = await this.getUserNotifications(adminUids[0], organizationId, {
-        type: 'reminder',
-        limitCount: 100
-      });
-    }
-
-    // 変動月ごとに通知を送信
+    // 変動月ごとに通知を送信（各ユーザーごとの重複チェックはcreateMonthlyChangeCalculationReminder内で実施）
     for (const [key, data] of uncalculatedByChangeMonth) {
-      // 重複チェック（手動送信時はスキップ）
-      if (!skipDuplicateCheck) {
-        // 既に通知が送信されているかチェック
-        const hasNotification = existingNotifications.some(notification => {
-          const notificationDate = notification.createdAt instanceof Date 
-            ? notification.createdAt 
-            : (notification.createdAt as any).toDate();
-          const notificationYear = notificationDate.getFullYear();
-          const notificationMonth = notificationDate.getMonth() + 1;
-          
-          return notificationYear === currentYear &&
-                 notificationMonth === currentMonth &&
-                 notification.title === '月変計算の実行時期です' &&
-                 notification.message.includes(`${data.year}年${data.month}月`);
-        });
-
-        if (hasNotification) {
-          continue;
-        }
-      }
-
       // 未計算の社員がいる場合のみ通知を送信
       if (data.employees.length > 0) {
         await this.createMonthlyChangeCalculationReminder({
           organizationId,
           changeYear: data.year,
           changeMonth: data.month,
-          uncalculatedEmployees: data.employees
+          uncalculatedEmployees: data.employees,
+          skipDuplicateCheck
         });
       }
     }
@@ -907,34 +917,46 @@ export class NotificationService {
   /**
    * 期限リマインダーをチェックして送信
    * 事前通知、当日通知、期限超過通知を送信
+   * 
+   * 【修正20】通知機能を削除するためコメントアウト
    */
   async checkAndSendDeadlineReminders(organizationId: string, skipDuplicateCheck: boolean = false): Promise<void> {
+    // 【修正20】通知機能を削除するため早期リターン
+    return;
+    /*
     const now = new Date();
     const currentHour = now.getHours();
 
     // 組織情報を取得
     const organization = await this.organizationService.getOrganization(organizationId);
-    if (!organization?.applicationFlowSettings?.notificationSettings) {
+    if (!organization) {
+      return;
+    }
+    if (!organization.applicationFlowSettings) {
+      return;
+    }
+    const applicationFlowSettings = organization.applicationFlowSettings;
+    if (!applicationFlowSettings.notificationSettings) {
       return;
     }
 
-    const reminderSettings = organization.applicationFlowSettings.notificationSettings.reminderSettings;
+    const reminderSettings = applicationFlowSettings.notificationSettings.reminderSettings;
     if (!reminderSettings) {
       return;
     }
 
-    // 組織の申請一覧を取得（pending, pending_received, pending_not_received のみ）
+    // 組織の申請一覧を取得
     const allApplications = await this.applicationService.getApplicationsByOrganization(organizationId);
 
-    // pending, pending_received, pending_not_received の申請のみをフィルタ
+    // draft, created, pending の申請のみをフィルタ（外部申請がまだ送信されていない状態）
     const targetApplications = allApplications.filter(app => 
-      app.status === 'pending' || 
-      app.status === 'pending_received' || 
-      app.status === 'pending_not_received'
+      app.status === 'draft' || 
+      app.status === 'created' || 
+      app.status === 'pending'
     );
 
     // 申請種別を取得
-    const applicationTypes = organization.applicationFlowSettings.applicationTypes || [];
+    const applicationTypes = applicationFlowSettings.applicationTypes || [];
 
     const adminUids = await this.getAdminUserUids(organizationId);
     if (adminUids.length === 0) {
@@ -1050,28 +1072,7 @@ export class NotificationService {
 
       // 期限超過通知（毎日）
       if (reminderSettings.notifyOnOverdue && daysUntilDeadline < 0) {
-        // 重複チェック（手動送信時はスキップ）
-        if (!skipDuplicateCheck) {
-          // 今日既に通知が送信されているかチェック
-          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-          const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-          
-          const hasTodayNotification = existingNotifications.some(notification => {
-            const notificationDate = notification.createdAt instanceof Date 
-              ? notification.createdAt 
-              : (notification.createdAt as any).toDate();
-            return notificationDate >= todayStart && 
-                   notificationDate <= todayEnd &&
-                   notification.applicationId === application.id &&
-                   notification.title.includes('期限超過');
-          });
-
-          if (hasTodayNotification) {
-            continue; // 今日既に通知が送信されている場合はスキップ
-          }
-        }
-
-        // 管理者向け
+        // 管理者向け（各ユーザーごとの重複チェックはsendDeadlineReminder内で実施）
         await this.sendDeadlineReminder({
           application,
           applicationType,
@@ -1094,11 +1095,14 @@ export class NotificationService {
 
     // 修正: 住所変更届・氏名変更届の通知をチェック（期限計算なし、内部申請作成後1日1回通知）
     await this.checkAndSendAddressAndNameChangeNotifications(organizationId, skipDuplicateCheck);
+    */
   }
 
   /**
-   * 申請がない場合の期限超過通知をチェックして送信
+   * 申請がない場合の期限リマインダー通知をチェックして送信
    * 社員一覧から直接取得して、各社員について各外部申請種別の期限をチェック
+   * 事前通知、当日通知、期限超過通知を送信
+   * 【修正20】通知機能を削除するためコメントアウト
    */
   private async checkOverdueNotificationsWithoutApplication(
     organizationId: string,
@@ -1106,17 +1110,24 @@ export class NotificationService {
     adminUids: string[],
     skipDuplicateCheck: boolean = false
   ): Promise<void> {
-    if (!reminderSettings.notifyOnOverdue) {
+    // 【修正20】通知機能を削除するため早期リターン
+    return;
+    /*
+    // 事前通知、当日通知、期限超過通知のいずれかが有効なら処理を続行
+    if (!reminderSettings.notifyBeforeDeadline && 
+        !reminderSettings.notifyOnDeadlineDay && 
+        !reminderSettings.notifyOnOverdue) {
       return;
     }
 
     const now = new Date();
+    const currentHour = now.getHours();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
     // 組織の申請種別を取得
     const organization = await this.organizationService.getOrganization(organizationId);
-    if (!organization?.applicationFlowSettings?.applicationTypes) {
+    if (!organization || !organization.applicationFlowSettings?.applicationTypes) {
       return;
     }
 
@@ -1128,15 +1139,6 @@ export class NotificationService {
       return;
     }
 
-    // 重複チェック用の既存通知を取得（手動送信時はスキップ）
-    let existingNotifications: Notification[] = [];
-    if (!skipDuplicateCheck) {
-      existingNotifications = await this.getUserNotifications(adminUids[0], organizationId, {
-        type: 'reminder',
-        limitCount: 1000
-      });
-    }
-
     // 社員一覧を取得
     const employeeService = this.injector.get(EmployeeService);
     const employees = await employeeService.getEmployeesByOrganization(organizationId);
@@ -1144,6 +1146,8 @@ export class NotificationService {
     // 各社員について、各外部申請種別の期限超過をチェック
     for (const employee of employees) {
       if (!employee.id) continue;
+      
+      const employeeId: string = employee.id as string; // TypeScriptの型チェック用（ifチェック後なので安全）
 
       for (const applicationType of externalApplicationTypes) {
         // 修正: 報酬月額変更届、住所変更届、氏名変更届は期限計算を行わないため除外
@@ -1153,20 +1157,22 @@ export class NotificationService {
           continue;
         }
 
-        // 該当社員の外部申請が既に送信されているかチェック
+        // 該当社員の外部申請が既に存在するかチェック（created/pending状態または送信済みの場合はスキップ）
         const applicationService = this.injector.get(ApplicationService);
         const externalApplications = await applicationService.getApplicationsByOrganization(organizationId, {
-          employeeId: employee.id,
+          employeeId: employeeId,
           category: 'external'
         });
 
-        const hasSentApplication = externalApplications.some(app => 
+        const hasExistingApplication = externalApplications.some(app => 
           app.type === applicationType.id &&
-          app.externalApplicationStatus === 'sent'
+          (app.status === 'created' || 
+           app.status === 'pending' || 
+           app.externalApplicationStatus === 'sent')
         );
 
-        if (hasSentApplication) {
-          continue; // 既に送信されている場合はスキップ
+        if (hasExistingApplication) {
+          continue; // 申請が既に存在する場合はスキップ（申請あり通知に集約される）
         }
 
         // 仮想的な申請データを作成して期限を計算
@@ -1174,7 +1180,7 @@ export class NotificationService {
           id: undefined,
           type: applicationType.id,
           category: 'external',
-          employeeId: employee.id,
+          employeeId: employeeId,
           organizationId: organizationId,
           status: 'pending',
           data: {},
@@ -1192,46 +1198,102 @@ export class NotificationService {
         // 期限までの日数を計算
         const daysUntilDeadline = Math.floor((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-        // 期限超過の場合
-        if (daysUntilDeadline < 0) {
-          // 重複チェック（手動送信時はスキップ）
-          if (!skipDuplicateCheck) {
-            // 今日既に通知が送信されているかチェック
-            const hasTodayNotification = existingNotifications.some(n => {
-              const notificationDate = n.createdAt instanceof Date 
-                ? n.createdAt 
-                : (n.createdAt as any).toDate();
-              return notificationDate >= todayStart && 
-                     notificationDate <= todayEnd &&
-                     n.employeeId === employee.id &&
-                     n.applicationId === null &&
-                     n.title.includes('期限超過') &&
-                     n.message.includes(applicationType.name);
-            });
+        const deadlineStr = deadline.toLocaleDateString('ja-JP', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
 
-            if (hasTodayNotification) {
-              continue; // 今日既に通知が送信されている場合はスキップ
-            }
-          }
+        let title: string = '';
+        let message: string = '';
+        let shouldSend = false;
 
-          // 期限超過通知を送信
-          const deadlineStr = deadline.toLocaleDateString('ja-JP', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          });
+        // 事前通知（X日前）
+        if (reminderSettings.notifyBeforeDeadline && daysUntilDeadline === reminderSettings.adminDaysBeforeLegalDeadline) {
+          title = '申請期限のお知らせ';
+          message = `${applicationType.name}の申請の期限まであと${daysUntilDeadline}日です（期限：${deadlineStr}）。`;
+          message += ' ※期限日が土日祝の場合は、翌営業日が期限となる可能性があります。';
+          shouldSend = true;
+        }
+        // 当日通知（10時以降）
+        else if (reminderSettings.notifyOnDeadlineDay && currentHour >= 10 && daysUntilDeadline === 0) {
+          title = '申請期限当日のお知らせ';
+          message = `${applicationType.name}の申請の期限は本日（${deadlineStr}）です。`;
+          shouldSend = true;
+        }
+        // 期限超過通知（毎日）
+        else if (reminderSettings.notifyOnOverdue && daysUntilDeadline < 0) {
+          title = '申請期限超過のお知らせ';
+          message = `${applicationType.name}の申請が期限（${deadlineStr}）を超過しています。`;
+          shouldSend = true;
+        }
 
+        if (shouldSend) {
           const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
           for (const adminUid of adminUids) {
+            // 重複チェック（手動送信時はスキップ）
+            if (!skipDuplicateCheck) {
+              // 該当ユーザーの既存通知を取得
+              const userNotifications = await this.getUserNotifications(adminUid, organizationId, {
+                type: 'reminder',
+                limitCount: 1000
+              });
+
+              let hasNotification = false;
+
+              if (daysUntilDeadline < 0) {
+                // 期限超過通知の場合：今日の日付で重複チェック
+                hasNotification = userNotifications.some(n => {
+                  const notificationDate = n.createdAt instanceof Date 
+                    ? n.createdAt 
+                    : (n.createdAt as any).toDate();
+                  return notificationDate >= todayStart && 
+                         notificationDate <= todayEnd &&
+                         n.employeeId === employeeId &&
+                         n.applicationId === null &&
+                         n.title.includes('期限超過') &&
+                         n.message.includes(applicationType.name);
+                });
+              } else {
+                // 事前通知・当日通知の場合：同一社員・同一タイトルで重複チェック
+                // 事前通知と当日通知を区別してチェック
+                hasNotification = userNotifications.some(n => {
+                  if (n.employeeId !== employeeId) {
+                    return false;
+                  }
+                  if (n.applicationId !== null) {
+                    return false;
+                  }
+                  if (!n.message.includes(applicationType.name)) {
+                    return false;
+                  }
+                  
+                  // 現在送信しようとしている通知のタイトルと一致するもののみをチェック
+                  if (daysUntilDeadline === 0) {
+                    // 当日通知の場合：当日通知のタイトルと一致するもののみチェック
+                    return n.title === '申請期限当日のお知らせ';
+                  } else {
+                    // 事前通知の場合：事前通知のタイトルと一致するもののみチェック
+                    return n.title === '申請期限のお知らせ';
+                  }
+                });
+              }
+
+              if (hasNotification) {
+                continue; // 既に通知が送信されている場合はスキップ
+              }
+            }
+
+            // 重複がない場合のみ通知を追加
             notifications.push({
               userId: adminUid,
               applicationId: null,
-              employeeId: employee.id, // 社員IDを必ず含める
+              employeeId: employeeId, // 社員IDを必ず含める
               type: 'reminder',
-              title: '申請期限超過のお知らせ',
-              message: `${applicationType.name}の申請が期限（${deadlineStr}）を超過しています。`,
+              title,
+              message,
               read: false,
-              priority: 'high',
+              priority: daysUntilDeadline < 0 || daysUntilDeadline === 0 ? 'high' : 'medium',
               organizationId
             });
           }
@@ -1242,13 +1304,18 @@ export class NotificationService {
         }
       }
     }
+    */
   }
 
   /**
    * 修正: 報酬月額変更届の通知をチェックして送信（期限計算なし、対象者通知）
    * 月変計算確定後に、外部申請が作成されていない社員に対して1日1回通知を送信
+   * 【修正20】通知機能を削除するためコメントアウト
    */
   async checkAndSendRewardChangeNotifications(organizationId: string, skipDuplicateCheck: boolean = false): Promise<void> {
+    // 【修正20】通知機能を削除するため早期リターン
+    return;
+    /*
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
@@ -1268,15 +1335,6 @@ export class NotificationService {
     const adminUids = await this.getAdminUserUids(organizationId);
     if (adminUids.length === 0) {
       return;
-    }
-
-    // 重複チェック用の既存通知を取得（手動送信時はスキップ）
-    let existingNotifications: Notification[] = [];
-    if (!skipDuplicateCheck) {
-      existingNotifications = await this.getUserNotifications(adminUids[0], organizationId, {
-        type: 'reminder',
-        limitCount: 1000
-      });
     }
 
     // 月変計算が確定済み（status: 'applied'）の計算結果を取得
@@ -1333,23 +1391,6 @@ export class NotificationService {
       return;
     }
 
-    // 重複チェック（手動送信時はスキップ）
-    if (!skipDuplicateCheck) {
-      const hasTodayNotification = existingNotifications.some(n => {
-        const notificationDate = n.createdAt instanceof Date 
-          ? n.createdAt 
-          : (n.createdAt as any).toDate();
-        return notificationDate >= todayStart && 
-               notificationDate <= todayEnd &&
-               n.title === '報酬月額変更届の申請が必要です' &&
-               n.applicationId === null;
-      });
-
-      if (hasTodayNotification) {
-        return; // 今日既に通知が送信されている場合はスキップ
-      }
-    }
-
     // 対象社員名を取得（最大5名まで表示）
     const employeeNames = targetEmployees
       .map(emp => `${emp.lastName} ${emp.firstName}`)
@@ -1365,9 +1406,34 @@ export class NotificationService {
     
     const employeeInfo = employeeList + (moreCount ? `、${moreCount}` : '');
 
-    // 通知を送信
+    // 通知を送信（各ユーザーごとの重複チェックはループ内で実施）
     const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
     for (const adminUid of adminUids) {
+      // 重複チェック（手動送信時はスキップ）
+      if (!skipDuplicateCheck) {
+        // 該当ユーザーの既存通知を取得
+        const userNotifications = await this.getUserNotifications(adminUid, organizationId, {
+          type: 'reminder',
+          limitCount: 1000
+        });
+
+        // 今日既に通知が送信されているかチェック
+        const hasTodayNotification = userNotifications.some(n => {
+          const notificationDate = n.createdAt instanceof Date 
+            ? n.createdAt 
+            : (n.createdAt as any).toDate();
+          return notificationDate >= todayStart && 
+                 notificationDate <= todayEnd &&
+                 n.title === '報酬月額変更届の申請が必要です' &&
+                 n.applicationId === null;
+        });
+
+        if (hasTodayNotification) {
+          continue; // 今日既に通知が送信されている場合はスキップ
+        }
+      }
+
+      // 重複がない場合のみ通知を追加
       notifications.push({
         userId: adminUid,
         applicationId: null,
@@ -1384,13 +1450,18 @@ export class NotificationService {
     if (notifications.length > 0) {
       await this.createNotifications(notifications);
     }
+    */
   }
 
   /**
    * 修正: 住所変更届・氏名変更届の通知をチェックして送信（期限計算なし、内部申請作成後1日1回通知）
    * 内部申請が作成されたら、関連する外部申請が作成されない限り1日1回通知を送信
+   * 【修正20】通知機能を削除するためコメントアウト
    */
   async checkAndSendAddressAndNameChangeNotifications(organizationId: string, skipDuplicateCheck: boolean = false): Promise<void> {
+    // 【修正20】通知機能を削除するため早期リターン
+    return;
+    /*
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
@@ -1412,15 +1483,6 @@ export class NotificationService {
     const adminUids = await this.getAdminUserUids(organizationId);
     if (adminUids.length === 0) {
       return;
-    }
-
-    // 重複チェック用の既存通知を取得（手動送信時はスキップ）
-    let existingNotifications: Notification[] = [];
-    if (!skipDuplicateCheck) {
-      existingNotifications = await this.getUserNotifications(adminUids[0], organizationId, {
-        type: 'reminder',
-        limitCount: 1000
-      });
     }
 
     const applicationService = this.injector.get(ApplicationService);
@@ -1452,31 +1514,39 @@ export class NotificationService {
           );
 
           if (!hasExternalApplication) {
-            // 重複チェック（手動送信時はスキップ）
-            if (!skipDuplicateCheck) {
-              const hasTodayNotification = existingNotifications.some(n => {
-                const notificationDate = n.createdAt instanceof Date 
-                  ? n.createdAt 
-                  : (n.createdAt as any).toDate();
-                return notificationDate >= todayStart && 
-                       notificationDate <= todayEnd &&
-                       n.employeeId === internalApp.employeeId &&
-                       n.title === '住所変更届の申請が必要です';
-              });
-
-              if (hasTodayNotification) {
-                continue; // 今日既に通知が送信されている場合はスキップ
-              }
-            }
-
             // 社員情報を取得
             const employeeService = this.injector.get(EmployeeService);
             const employee = await employeeService.getEmployee(internalApp.employeeId);
             if (!employee) continue;
 
-            // 通知を送信
+            // 通知を送信（各ユーザーごとの重複チェックはループ内で実施）
             const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
             for (const adminUid of adminUids) {
+              // 重複チェック（手動送信時はスキップ）
+              if (!skipDuplicateCheck) {
+                // 該当ユーザーの既存通知を取得
+                const userNotifications = await this.getUserNotifications(adminUid, organizationId, {
+                  type: 'reminder',
+                  limitCount: 1000
+                });
+
+                // 今日既に通知が送信されているかチェック
+                const hasTodayNotification = userNotifications.some(n => {
+                  const notificationDate = n.createdAt instanceof Date 
+                    ? n.createdAt 
+                    : (n.createdAt as any).toDate();
+                  return notificationDate >= todayStart && 
+                         notificationDate <= todayEnd &&
+                         n.employeeId === internalApp.employeeId &&
+                         n.title === '住所変更届の申請が必要です';
+                });
+
+                if (hasTodayNotification) {
+                  continue; // 今日既に通知が送信されている場合はスキップ
+                }
+              }
+
+              // 重複がない場合のみ通知を追加
               notifications.push({
                 userId: adminUid,
                 applicationId: null,
@@ -1525,31 +1595,39 @@ export class NotificationService {
           );
 
           if (!hasExternalApplication) {
-            // 重複チェック（手動送信時はスキップ）
-            if (!skipDuplicateCheck) {
-              const hasTodayNotification = existingNotifications.some(n => {
-                const notificationDate = n.createdAt instanceof Date 
-                  ? n.createdAt 
-                  : (n.createdAt as any).toDate();
-                return notificationDate >= todayStart && 
-                       notificationDate <= todayEnd &&
-                       n.employeeId === internalApp.employeeId &&
-                       n.title === '氏名変更届の申請が必要です';
-              });
-
-              if (hasTodayNotification) {
-                continue; // 今日既に通知が送信されている場合はスキップ
-              }
-            }
-
             // 社員情報を取得
             const employeeService = this.injector.get(EmployeeService);
             const employee = await employeeService.getEmployee(internalApp.employeeId);
             if (!employee) continue;
 
-            // 通知を送信
+            // 通知を送信（各ユーザーごとの重複チェックはループ内で実施）
             const notifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
             for (const adminUid of adminUids) {
+              // 重複チェック（手動送信時はスキップ）
+              if (!skipDuplicateCheck) {
+                // 該当ユーザーの既存通知を取得
+                const userNotifications = await this.getUserNotifications(adminUid, organizationId, {
+                  type: 'reminder',
+                  limitCount: 1000
+                });
+
+                // 今日既に通知が送信されているかチェック
+                const hasTodayNotification = userNotifications.some(n => {
+                  const notificationDate = n.createdAt instanceof Date 
+                    ? n.createdAt 
+                    : (n.createdAt as any).toDate();
+                  return notificationDate >= todayStart && 
+                         notificationDate <= todayEnd &&
+                         n.employeeId === internalApp.employeeId &&
+                         n.title === '氏名変更届の申請が必要です';
+                });
+
+                if (hasTodayNotification) {
+                  continue; // 今日既に通知が送信されている場合はスキップ
+                }
+              }
+
+              // 重複がない場合のみ通知を追加
               notifications.push({
                 userId: adminUid,
                 applicationId: null,
@@ -1570,10 +1648,12 @@ export class NotificationService {
         }
       }
     }
+    */
   }
 
   /**
    * 期限リマインダー通知を送信
+   * 【修正20】通知機能を削除するためコメントアウト
    */
   private async sendDeadlineReminder(params: {
     application: Application;
@@ -1586,6 +1666,9 @@ export class NotificationService {
     isOverdue?: boolean;
     skipDuplicateCheck?: boolean;
   }): Promise<void> {
+    // 【修正20】通知機能を削除するため早期リターン
+    return;
+    /*
     const { application, applicationType, deadline, daysUntilDeadline, targetUserIds, isAdmin, existingNotifications, isOverdue, skipDuplicateCheck = false } = params;
 
     const deadlineStr = deadline.toLocaleDateString('ja-JP', { 
@@ -1626,15 +1709,51 @@ export class NotificationService {
         });
 
         // 既に通知が送信されているかチェック（該当ユーザーの通知のみをチェック）
-        const hasNotification = userNotifications.some(notification => {
-          return notification.applicationId === application.id &&
-                 notification.title.includes(isOverdue ? '期限超過' : '期限') &&
-                 notification.message.includes(applicationType.name);
-        });
+        if (isOverdue) {
+          // 期限超過通知の場合：今日の日付で重複チェック
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          const todayEnd = new Date();
+          todayEnd.setHours(23, 59, 59, 999);
+          
+          const hasTodayNotification = userNotifications.some(notification => {
+            const notificationDate = notification.createdAt instanceof Date 
+              ? notification.createdAt 
+              : (notification.createdAt as any).toDate();
+            return notificationDate >= todayStart && 
+                   notificationDate <= todayEnd &&
+                   notification.applicationId === application.id &&
+                   notification.title.includes('期限超過') &&
+                   notification.message.includes(applicationType.name);
+          });
 
-        // 期限超過通知以外は重複チェック
-        if (hasNotification && !isOverdue) {
-          continue; // このユーザーには送信しない
+          if (hasTodayNotification) {
+            continue; // 今日既に通知が送信されている場合はスキップ
+          }
+        } else {
+          // 事前通知・当日通知の場合：同一申請・同一タイトルで重複チェック
+          // 事前通知と当日通知を区別してチェック
+          const hasNotification = userNotifications.some(notification => {
+            if (notification.applicationId !== application.id) {
+              return false;
+            }
+            if (!notification.message.includes(applicationType.name)) {
+              return false;
+            }
+            
+            // 現在送信しようとしている通知のタイトルと一致するもののみをチェック
+            if (daysUntilDeadline === 0) {
+              // 当日通知の場合：当日通知のタイトルと一致するもののみチェック
+              return notification.title === '申請期限当日のお知らせ';
+            } else {
+              // 事前通知の場合：事前通知のタイトルと一致するもののみチェック（「当日」「超過」を含まない）
+              return notification.title === '申請期限のお知らせ';
+            }
+          });
+
+          if (hasNotification) {
+            continue; // このユーザーには送信しない
+          }
         }
       }
 
@@ -1655,6 +1774,7 @@ export class NotificationService {
     if (notifications.length > 0) {
       await this.createNotifications(notifications);
     }
+    */
   }
 
   /**
@@ -1664,6 +1784,7 @@ export class NotificationService {
    * @param applicationTypeCode 申請種別コード
    * @param deadline 期限
    * @param isAdminDeadline 管理者設定期限かどうか（falseの場合は法定期限）
+   * 【修正20】通知機能を削除するためコメントアウト
    */
   async sendImmediateDeadlineReminderIfNeeded(
     organizationId: string,
@@ -1672,6 +1793,9 @@ export class NotificationService {
     deadline: Date,
     isAdminDeadline: boolean = false
   ): Promise<void> {
+    // 【修正20】通知機能を削除するため早期リターン
+    return;
+    /*
     const now = new Date();
     
     // 組織情報を取得
@@ -1683,7 +1807,7 @@ export class NotificationService {
     const reminderSettings = organization.applicationFlowSettings.notificationSettings.reminderSettings;
 
     // 申請種別を取得
-    const applicationTypes = organization.applicationFlowSettings.applicationTypes || [];
+    const applicationTypes = applicationFlowSettings.applicationTypes || [];
     const applicationType = applicationTypes.find(type => type.code === applicationTypeCode);
     if (!applicationType) {
       return;
@@ -1801,6 +1925,7 @@ export class NotificationService {
       }
 
     }
+    */
   }
 
   /**
