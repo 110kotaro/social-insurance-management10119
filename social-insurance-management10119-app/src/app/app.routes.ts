@@ -6,6 +6,8 @@ export const routes: Routes = [
     path: '',
     redirectTo: '/dashboard',
     pathMatch: 'full'
+    // canActivateはredirectToと併用できないため削除
+    // /dashboardへの直接アクセス時はauth.guard.tsでメール認証チェックが実行される
   },
   {
     path: 'login',

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ViewChild } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormArray, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -14,13 +14,17 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatListModule } from '@angular/material/list';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { EmployeeService } from '../../../core/services/employee.service';
+import { ConfirmDialogComponent } from '../../setup/setup-wizard/confirm-dialog.component';
 import { DepartmentService } from '../../../core/services/department.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { InsuranceRateTableService } from '../../../core/services/insurance-rate-table.service';
+import { OrganizationService } from '../../../core/services/organization.service';
 import { Employee, DependentInfo, InsuranceInfo, OtherCompanyInfo, Address, LeaveInfo, EmployeeChangeHistory, FileAttachment } from '../../../core/models/employee.model';
 import { Department } from '../../../core/models/department.model';
 import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.model';
+import { Organization } from '../../../core/models/organization.model';
 
 @Component({
   selector: 'app-employee-edit',
@@ -39,12 +43,13 @@ import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.mo
     MatCheckboxModule,
     MatCardModule,
     MatSnackBarModule,
-    MatListModule
+    MatListModule,
+    MatDialogModule
   ],
   templateUrl: './employee-edit.component.html',
   styleUrl: './employee-edit.component.css'
 })
-export class EmployeeEditComponent implements OnInit {
+export class EmployeeEditComponent implements OnInit, OnDestroy {
   @ViewChild('stepper') stepper!: MatStepper;
 
   private fb = inject(FormBuilder);
@@ -54,7 +59,9 @@ export class EmployeeEditComponent implements OnInit {
   private departmentService = inject(DepartmentService);
   private authService = inject(AuthService);
   private insuranceRateTableService = inject(InsuranceRateTableService);
+  private organizationService = inject(OrganizationService);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
 
   // ステップ1: 基本情報
   basicInfoForm: FormGroup;
@@ -81,6 +88,7 @@ export class EmployeeEditComponent implements OnInit {
   organizationId: string | null = null;
   employeeId: string | null = null;
   employee: Employee | null = null;
+  organization: Organization | null = null;
   isLoading = false;
   isDataLoading = true;
   
@@ -88,6 +96,11 @@ export class EmployeeEditComponent implements OnInit {
   attachments: File[] = [];
   existingAttachments: FileAttachment[] = [];
   deletedAttachmentIndices: number[] = [];
+  filePreviewUrls: Map<string, string> = new Map(); // ファイルプレビュー用URL（メモリリーク防止のため）
+
+  // Storageルールで許可されているファイル形式（デフォルト）
+  private readonly DEFAULT_ALLOWED_FORMATS = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'xlsx', 'xls', 'docx', 'doc'];
+  private readonly DEFAULT_MAX_FILE_SIZE_MB = 50; // デフォルトの最大ファイルサイズ（MB）
 
   constructor() {
     // ステップ1: 基本情報
@@ -833,12 +846,13 @@ export class EmployeeEditComponent implements OnInit {
         leaveInfo
       };
 
-      // 変更履歴を記録（修正17）
+      // 変更履歴を記録（メール認証後の編集のみ）
       const changes: EmployeeChangeHistory['changes'] = [];
       const currentUser = this.authService.getCurrentUser();
       const changedBy = currentUser?.uid || '';
+      const isEmailVerified = this.employee?.emailVerified === true; // メール認証済みかどうか
 
-      if (this.employee) {
+      if (this.employee && isEmailVerified) {
         // 基本情報の変更をチェック
         if (this.employee.firstName !== employeeData.firstName) {
           changes.push({ field: 'firstName', before: this.employee.firstName, after: employeeData.firstName });
@@ -886,9 +900,101 @@ export class EmployeeEditComponent implements OnInit {
           changes.push({ field: 'birthDate', before: previousBirthDate, after: newBirthDate });
         }
 
-        // 保険情報の変更をチェック
-        if (JSON.stringify(this.employee.insuranceInfo || {}) !== JSON.stringify(insuranceInfo || {})) {
-          changes.push({ field: 'insuranceInfo', before: this.employee.insuranceInfo, after: insuranceInfo });
+        // 保険情報の変更をチェック（各フィールドを個別にチェック）
+        const oldInsuranceInfo = this.employee.insuranceInfo || {};
+        const newInsuranceInfo = insuranceInfo || {};
+        
+        // healthInsuranceNumber
+        if (oldInsuranceInfo.healthInsuranceNumber !== newInsuranceInfo.healthInsuranceNumber) {
+          changes.push({ 
+            field: 'insuranceInfo.healthInsuranceNumber', 
+            before: oldInsuranceInfo.healthInsuranceNumber || null, 
+            after: newInsuranceInfo.healthInsuranceNumber || null 
+          });
+        }
+        
+        // pensionNumber
+        if (oldInsuranceInfo.pensionNumber !== newInsuranceInfo.pensionNumber) {
+          changes.push({ 
+            field: 'insuranceInfo.pensionNumber', 
+            before: oldInsuranceInfo.pensionNumber || null, 
+            after: newInsuranceInfo.pensionNumber || null 
+          });
+        }
+        
+        // myNumber
+        if (oldInsuranceInfo.myNumber !== newInsuranceInfo.myNumber) {
+          changes.push({ 
+            field: 'insuranceInfo.myNumber', 
+            before: oldInsuranceInfo.myNumber || null, 
+            after: newInsuranceInfo.myNumber || null 
+          });
+        }
+        
+        // averageReward
+        if (oldInsuranceInfo.averageReward !== newInsuranceInfo.averageReward) {
+          changes.push({ 
+            field: 'insuranceInfo.averageReward', 
+            before: oldInsuranceInfo.averageReward ?? null, 
+            after: newInsuranceInfo.averageReward ?? null 
+          });
+        }
+        
+        // grade
+        if (oldInsuranceInfo.grade !== newInsuranceInfo.grade) {
+          changes.push({ 
+            field: 'insuranceInfo.grade', 
+            before: oldInsuranceInfo.grade ?? null, 
+            after: newInsuranceInfo.grade ?? null 
+          });
+        }
+        
+        // pensionGrade
+        if (oldInsuranceInfo.pensionGrade !== newInsuranceInfo.pensionGrade) {
+          changes.push({ 
+            field: 'insuranceInfo.pensionGrade', 
+            before: oldInsuranceInfo.pensionGrade ?? null, 
+            after: newInsuranceInfo.pensionGrade ?? null 
+          });
+        }
+        
+        // standardReward
+        if (oldInsuranceInfo.standardReward !== newInsuranceInfo.standardReward) {
+          changes.push({ 
+            field: 'insuranceInfo.standardReward', 
+            before: oldInsuranceInfo.standardReward ?? null, 
+            after: newInsuranceInfo.standardReward ?? null 
+          });
+        }
+        
+        // insuranceStartDate（日付の比較）
+        const previousInsuranceStartDate = oldInsuranceInfo.insuranceStartDate instanceof Date 
+          ? oldInsuranceInfo.insuranceStartDate 
+          : (oldInsuranceInfo.insuranceStartDate ? new Date((oldInsuranceInfo.insuranceStartDate as any).seconds * 1000) : null);
+        const newInsuranceStartDate = newInsuranceInfo.insuranceStartDate instanceof Date 
+          ? newInsuranceInfo.insuranceStartDate 
+          : (newInsuranceInfo.insuranceStartDate ? new Date((newInsuranceInfo.insuranceStartDate as any).seconds * 1000) : null);
+        if (previousInsuranceStartDate?.getTime() !== newInsuranceStartDate?.getTime()) {
+          changes.push({ 
+            field: 'insuranceInfo.insuranceStartDate', 
+            before: previousInsuranceStartDate, 
+            after: newInsuranceStartDate 
+          });
+        }
+        
+        // gradeAndStandardRewardEffectiveDate（日付の比較）
+        const previousGradeEffectiveDate = oldInsuranceInfo.gradeAndStandardRewardEffectiveDate instanceof Date 
+          ? oldInsuranceInfo.gradeAndStandardRewardEffectiveDate 
+          : (oldInsuranceInfo.gradeAndStandardRewardEffectiveDate ? new Date((oldInsuranceInfo.gradeAndStandardRewardEffectiveDate as any).seconds * 1000) : null);
+        const newGradeEffectiveDate = newInsuranceInfo.gradeAndStandardRewardEffectiveDate instanceof Date 
+          ? newInsuranceInfo.gradeAndStandardRewardEffectiveDate 
+          : (newInsuranceInfo.gradeAndStandardRewardEffectiveDate ? new Date((newInsuranceInfo.gradeAndStandardRewardEffectiveDate as any).seconds * 1000) : null);
+        if (previousGradeEffectiveDate?.getTime() !== newGradeEffectiveDate?.getTime()) {
+          changes.push({ 
+            field: 'insuranceInfo.gradeAndStandardRewardEffectiveDate', 
+            before: previousGradeEffectiveDate, 
+            after: newGradeEffectiveDate 
+          });
         }
 
         // 住所情報の変更をチェック
@@ -910,24 +1016,12 @@ export class EmployeeEditComponent implements OnInit {
         if (JSON.stringify(this.employee.leaveInfo || []) !== JSON.stringify(leaveInfo || [])) {
           changes.push({ field: 'leaveInfo', before: this.employee.leaveInfo, after: leaveInfo });
         }
-
-        // 変更があった場合のみ変更履歴を追加
-        if (changes.length > 0) {
-          const changeHistory: EmployeeChangeHistory = {
-            applicationId: 'manual_edit', // 手動編集の場合は特別なID
-            applicationName: '手動編集',
-            changedAt: new Date(),
-            changedBy: changedBy,
-            changes: changes
-          };
-
-          const updatedChangeHistory = [...(this.employee.changeHistory || []), changeHistory];
-          employeeData.changeHistory = updatedChangeHistory;
-        }
       }
 
       // ファイル添付を処理（修正17）
       const uploadedAttachments: FileAttachment[] = [];
+      const addedFiles: FileAttachment[] = []; // 追加されたファイル
+      const deletedFiles: FileAttachment[] = []; // 削除されたファイル
       
       // 既存ファイルから削除されていないものを追加
       if (this.existingAttachments.length > 0) {
@@ -935,6 +1029,10 @@ export class EmployeeEditComponent implements OnInit {
           if (!this.deletedAttachmentIndices.includes(i)) {
             uploadedAttachments.push(this.existingAttachments[i]);
           } else {
+            // 削除されたファイルを記録（メール認証後の場合のみ）
+            if (isEmailVerified) {
+              deletedFiles.push(this.existingAttachments[i]);
+            }
             // 削除されたファイルをStorageから削除
             if (this.existingAttachments[i].fileUrl) {
               await this.employeeService.deleteEmployeeFile(this.existingAttachments[i].fileUrl);
@@ -949,8 +1047,9 @@ export class EmployeeEditComponent implements OnInit {
         const uploadedBy = currentUser?.uid || '';
         
         for (const file of this.attachments) {
+          try {
           const fileUrl = await this.employeeService.uploadEmployeeFile(file, this.organizationId, this.employeeId);
-          uploadedAttachments.push({
+          const newAttachment: FileAttachment = {
             id: crypto.randomUUID(),
             fileName: file.name,
             fileUrl: fileUrl,
@@ -958,7 +1057,22 @@ export class EmployeeEditComponent implements OnInit {
             mimeType: file.type,
             uploadedAt: new Date(),
             uploadedBy: uploadedBy
-          });
+          };
+          uploadedAttachments.push(newAttachment);
+          // 追加されたファイルを記録（メール認証後の場合のみ）
+          if (isEmailVerified) {
+            addedFiles.push(newAttachment);
+          }
+          } catch (error: any) {
+            console.error(`ファイルアップロードエラー (${file.name}):`, error);
+            let errorMessage = `ファイル「${file.name}」のアップロードに失敗しました`;
+            if (error.code === 'storage/unauthorized' || error.message?.includes('Permission denied')) {
+              errorMessage = `ファイル「${file.name}」は許可されていない形式です`;
+            } else if (error.code === 'storage/quota-exceeded') {
+              errorMessage = `ファイル「${file.name}」のサイズが大きすぎます`;
+            }
+            this.snackBar.open(errorMessage, '閉じる', { duration: 5000 });
+          }
         }
       }
 
@@ -968,6 +1082,59 @@ export class EmployeeEditComponent implements OnInit {
       } else if (this.existingAttachments.length > 0 && this.deletedAttachmentIndices.length === this.existingAttachments.length) {
         // すべてのファイルが削除された場合
         employeeData.attachments = [];
+      }
+
+      // 添付ファイルの増減を変更履歴に記録（メール認証後の場合のみ）
+      if (isEmailVerified && this.employee) {
+        // 追加されたファイルを記録
+        for (const addedFile of addedFiles) {
+          changes.push({ 
+            field: 'attachments', 
+            before: null, 
+            after: { action: 'added', fileName: addedFile.fileName, fileUrl: addedFile.fileUrl } 
+          });
+        }
+        // 削除されたファイルを記録
+        for (const deletedFile of deletedFiles) {
+          changes.push({ 
+            field: 'attachments', 
+            before: { action: 'deleted', fileName: deletedFile.fileName, fileUrl: deletedFile.fileUrl }, 
+            after: null 
+          });
+        }
+      }
+
+      // メール認証後の編集で変更がある場合、確認ダイアログを表示
+      if (isEmailVerified && changes.length > 0) {
+        const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+          width: '400px',
+          data: {
+            title: '変更履歴の記録',
+            message: 'この変更は変更履歴に記録されます。\n保存しますか？',
+            confirmText: '保存する',
+            cancelText: 'キャンセル'
+          }
+        });
+
+        const confirmed = await dialogRef.afterClosed().toPromise();
+        if (!confirmed) {
+          this.isLoading = false;
+          return; // キャンセルされた場合は保存しない
+        }
+      }
+
+      // 変更があった場合のみ変更履歴を追加（メール認証後の場合のみ）
+      if (isEmailVerified && changes.length > 0 && this.employee) {
+        const changeHistory: EmployeeChangeHistory = {
+          applicationId: 'manual_edit', // 手動編集の場合は特別なID
+          applicationName: '手動編集',
+          changedAt: new Date(),
+          changedBy: changedBy,
+          changes: changes
+        };
+
+        const updatedChangeHistory = [...(this.employee.changeHistory || []), changeHistory];
+        employeeData.changeHistory = updatedChangeHistory;
       }
 
       await this.employeeService.updateEmployee(this.employeeId, employeeData);
@@ -1010,10 +1177,162 @@ export class EmployeeEditComponent implements OnInit {
   /**
    * ファイル選択（修正17）
    */
-  onFileSelected(event: Event): void {
+  async onFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
-    if (input.files) {
-      this.attachments = Array.from(input.files);
+    if (!input.files || input.files.length === 0) {
+      return;
+    }
+
+    const files = Array.from(input.files);
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    // 組織のドキュメント設定を取得
+    const allowedFormats = this.getAllowedFormats();
+    const maxFileSizeMB = this.getMaxFileSizeMB();
+
+    // 既存のファイル名のセットを作成（重複チェック用）
+    // 新規ファイル（attachments）と既存ファイル（existingAttachments）の両方をチェック
+    const existingFileNames = new Set([
+      ...this.attachments.map(f => f.name),
+      ...(this.existingAttachments || []).map(a => a.fileName)
+    ]);
+
+    for (const file of files) {
+      // ファイル拡張子を取得
+      const fileExtension = this.getFileExtension(file.name);
+      
+      // ファイル形式チェック
+      if (!allowedFormats.includes(fileExtension.toLowerCase())) {
+        errors.push(`${file.name}: 許可されていないファイル形式です（許可形式: ${allowedFormats.join(', ')}）`);
+        continue;
+      }
+
+      // ファイルサイズチェック
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > maxFileSizeMB) {
+        errors.push(`${file.name}: ファイルサイズが大きすぎます（最大: ${maxFileSizeMB}MB）`);
+        continue;
+      }
+
+      // 重複チェック
+      if (existingFileNames.has(file.name)) {
+        // 確認ダイアログを表示
+        const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+          width: '400px',
+          data: {
+            title: 'ファイル名の重複',
+            message: `「${file.name}」という名前のファイルが既に存在します。\n上書きしますか？`,
+            confirmText: '上書き',
+            cancelText: 'キャンセル'
+          }
+        });
+
+        const result = await dialogRef.afterClosed().toPromise();
+        
+        if (result === true) {
+          // OK: 既存のファイルを削除して新しいファイルを追加（上書き）
+          // 新規ファイル（attachments）から削除
+          const index = this.attachments.findIndex(f => f.name === file.name);
+          if (index >= 0) {
+            this.attachments.splice(index, 1);
+          }
+          // 既存ファイル（existingAttachments）の場合は削除インデックスに追加
+          const existingIndex = this.existingAttachments.findIndex(a => a.fileName === file.name);
+          if (existingIndex >= 0 && !this.deletedAttachmentIndices.includes(existingIndex)) {
+            this.deletedAttachmentIndices.push(existingIndex);
+          }
+          validFiles.push(file);
+        } else {
+          // キャンセル: 新しいファイルを追加しない（画面遷移なし）
+          continue;
+        }
+      } else {
+        // 重複なし: そのまま追加
+        validFiles.push(file);
+        existingFileNames.add(file.name); // セットに追加（同じ選択内での重複も防ぐ）
+      }
+    }
+
+    // エラーメッセージを表示
+    if (errors.length > 0) {
+      this.snackBar.open(errors.join('\n'), '閉じる', { duration: 5000 });
+    }
+
+    // 既存のファイルに新しいファイルを追加（置き換えではなく追加）
+    this.attachments = [...this.attachments, ...validFiles];
+
+    // input要素のvalueをリセット（同じファイルを再度選択できるようにする）
+    input.value = '';
+  }
+
+  /**
+   * ファイル拡張子を取得
+   */
+  private getFileExtension(fileName: string): string {
+    const lastDot = fileName.lastIndexOf('.');
+    return lastDot >= 0 ? fileName.substring(lastDot + 1) : '';
+  }
+
+  /**
+   * 許可されているファイル形式を取得
+   */
+  private getAllowedFormats(): string[] {
+    if (!this.organization) {
+      return this.DEFAULT_ALLOWED_FORMATS;
+    }
+
+    // 組織のドキュメント設定を取得
+    const documentSettings = this.organization.documentSettings;
+
+    // 設定がある場合
+    if (documentSettings?.allowedFormats && documentSettings.allowedFormats.length > 0) {
+      return documentSettings.allowedFormats;
+    }
+
+    // 設定がない場合（空配列または未設定）は、Storageルールで許可されている形式をデフォルトとして使用
+    return this.DEFAULT_ALLOWED_FORMATS;
+  }
+
+  /**
+   * 最大ファイルサイズ（MB）を取得
+   */
+  private getMaxFileSizeMB(): number {
+    if (!this.organization) {
+      return this.DEFAULT_MAX_FILE_SIZE_MB;
+    }
+
+    // 組織のドキュメント設定を取得
+    const documentSettings = this.organization.documentSettings;
+
+    // 設定がある場合
+    if (documentSettings?.maxFileSize && documentSettings.maxFileSize > 0) {
+      return documentSettings.maxFileSize;
+    }
+
+    // 設定がない場合はデフォルト値を使用
+    return this.DEFAULT_MAX_FILE_SIZE_MB;
+  }
+
+  ngOnDestroy(): void {
+    // ファイルプレビュー用URLをクリーンアップ（メモリリーク防止）
+    this.filePreviewUrls.forEach((url: string) => URL.revokeObjectURL(url));
+    this.filePreviewUrls.clear();
+  }
+
+  /**
+   * 組織情報を読み込む
+   */
+  private async loadOrganization(): Promise<void> {
+    try {
+      if (!this.organizationId) {
+        return;
+      }
+
+      this.organization = await this.organizationService.getOrganization(this.organizationId);
+    } catch (error) {
+      console.error('組織情報の読み込みに失敗しました:', error);
+      // エラーが発生しても続行可能
     }
   }
 
@@ -1031,6 +1350,34 @@ export class EmployeeEditComponent implements OnInit {
     if (!this.deletedAttachmentIndices.includes(index)) {
       this.deletedAttachmentIndices.push(index);
     }
+  }
+
+  /**
+   * 既存ファイルの削除をキャンセル
+   */
+  cancelDeleteExistingFile(index: number): void {
+    const deleteIndex = this.deletedAttachmentIndices.indexOf(index);
+    if (deleteIndex > -1) {
+      this.deletedAttachmentIndices.splice(deleteIndex, 1);
+    }
+  }
+
+  /**
+   * 既存ファイルが削除予定かどうか
+   */
+  isExistingFileDeleted(index: number): boolean {
+    return this.deletedAttachmentIndices.includes(index);
+  }
+
+  /**
+   * ファイルのプレビューURLを取得（新規ファイル用）
+   */
+  getFilePreviewUrl(file: File): string {
+    if (!this.filePreviewUrls.has(file.name)) {
+      const url = URL.createObjectURL(file);
+      this.filePreviewUrls.set(file.name, url);
+    }
+    return this.filePreviewUrls.get(file.name)!;
   }
 
   /**

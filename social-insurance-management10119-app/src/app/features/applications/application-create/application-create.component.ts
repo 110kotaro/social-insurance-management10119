@@ -19,7 +19,9 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ApplicationService } from '../../../core/services/application.service';
+import { ConfirmDialogComponent } from '../../setup/setup-wizard/confirm-dialog.component';
 import { OrganizationService } from '../../../core/services/organization.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -57,7 +59,8 @@ import { EXPLANATION_PDFS, getApplicationTypeFolderName } from '../../../core/co
     MatRadioModule,
     MatCheckboxModule,
     MatDividerModule,
-    MatExpansionModule
+    MatExpansionModule,
+    MatDialogModule
   ],
   templateUrl: './application-create.component.html',
   styleUrl: './application-create.component.css'
@@ -77,6 +80,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   private deadlineCalculationService = inject(DeadlineCalculationService);
   private notificationService = inject(NotificationService);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
 
   // ステップ1: 申請種別選択
   applicationTypeForm: FormGroup;
@@ -86,6 +90,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
   // ステップ3: 添付ファイル
   attachments: File[] = [];
+  filePreviewUrls: Map<string, string> = new Map(); // ファイルプレビュー用URL（メモリリーク防止のため）
 
   organization: Organization | null = null;
   applicationTypes: ApplicationType[] = [];
@@ -982,6 +987,15 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         addressKana: address.kana || '' // 住所カナを自動転記（修正17）
       });
     }
+
+    // 取得日を社員情報の入社日から転記
+    if (employee.joinDate) {
+      const joinDate = employee.joinDate instanceof Date 
+        ? employee.joinDate 
+        : (employee.joinDate instanceof Timestamp ? employee.joinDate.toDate() : new Date(employee.joinDate));
+      const joinDateInfo = this.convertToEraDate(joinDate);
+      personGroup.get('acquisitionDate')?.patchValue(joinDateInfo);
+    }
   }
 
   /**
@@ -1208,6 +1222,18 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         basicPensionNumber: employee.insuranceInfo.pensionNumber
       });
     }
+
+    // 喪失日を退職予定日から＋1日して転記
+    if (employee.retirementDate) {
+      const retirementDate = employee.retirementDate instanceof Date 
+        ? employee.retirementDate 
+        : (employee.retirementDate instanceof Timestamp ? employee.retirementDate.toDate() : new Date(employee.retirementDate));
+      // 退職予定日 + 1日
+      const lossDate = new Date(retirementDate);
+      lossDate.setDate(lossDate.getDate() + 1);
+      const lossDateInfo = this.convertToEraDate(lossDate);
+      personGroup.get('lossDate')?.patchValue(lossDateInfo);
+    }
   }
 
   /**
@@ -1348,6 +1374,33 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         });
       }
     }
+  }
+
+  /**
+   * 申請データからemployeeIdを除外（表示用のため保存しない）
+   */
+  private removeEmployeeIdFromData(data: any): any {
+    if (!data) {
+      return data;
+    }
+    
+    const cleaned = { ...data };
+    
+    // insuredPersons配列からemployeeIdを除外
+    if (cleaned.insuredPersons && Array.isArray(cleaned.insuredPersons)) {
+      cleaned.insuredPersons = cleaned.insuredPersons.map((person: any) => {
+        const { employeeId, ...rest } = person;
+        return rest;
+      });
+    }
+    
+    // insuredPersonオブジェクトからemployeeIdを除外
+    if (cleaned.insuredPerson && typeof cleaned.insuredPerson === 'object') {
+      const { employeeId, ...rest } = cleaned.insuredPerson;
+      cleaned.insuredPerson = rest;
+    }
+    
+    return cleaned;
   }
 
   /**
@@ -1727,6 +1780,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         phoneNumber: [submitterPhone]
       }),
       insuredPerson: this.fb.group({
+        employeeId: [''], // 社員ID（編集時に使用、保存時は除外）
         insuranceNumber: [''],
         identificationType: ['personal_number', [Validators.required]],
         personalNumber: [''],
@@ -1742,7 +1796,10 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           day: ['', [Validators.required]]
         }),
         newPostalCode: [''],
-        newAddress: [''],
+        newPrefecture: [''],
+        newCity: [''],
+        newStreet: [''],
+        newBuilding: [''],
         newAddressKana: [''],
         oldAddress: [''],
         changeDate: this.fb.group({
@@ -1767,7 +1824,10 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         spouseLastNameKana: [''],
         spouseFirstNameKana: [''],
         spouseNewPostalCode: [''],
-        spouseNewAddress: [''],
+        spouseNewPrefecture: [''],
+        spouseNewCity: [''],
+        spouseNewStreet: [''],
+        spouseNewBuilding: [''],
         spouseNewAddressKana: [''],
         spouseOldAddress: [''],
         spouseChangeDate: this.fb.group({
@@ -1802,7 +1862,10 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           day: ['', [Validators.required]]
         }),
         newPostalCode: [''],
-        newAddress: [''],
+        newPrefecture: [''],
+        newCity: [''],
+        newStreet: [''],
+        newBuilding: [''],
         newAddressKana: [''],
         oldAddress: [''],
         changeDate: this.fb.group({
@@ -1827,7 +1890,10 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         spouseLastNameKana: [''],
         spouseFirstNameKana: [''],
         spouseNewPostalCode: [''],
-        spouseNewAddress: [''],
+        spouseNewPrefecture: [''],
+        spouseNewCity: [''],
+        spouseNewStreet: [''],
+        spouseNewBuilding: [''],
         spouseNewAddressKana: [''],
         spouseOldAddress: [''],
         spouseChangeDate: this.fb.group({
@@ -1943,6 +2009,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         phoneNumber: [submitterPhone]
       }),
       insuredPerson: this.fb.group({
+        employeeId: [''], // 社員ID（編集時に使用、保存時は除外）
         insuranceNumber: [''],
         identificationType: ['personal_number', [Validators.required]],
         personalNumber: [''],
@@ -1994,6 +2061,150 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     if (this.employees.length > 0) {
       this.autoFillCurrentUserInfoForNameChangeInternal();
     }
+  }
+
+  /**
+   * 社員を選択して被保険者情報に自動入力（住所変更届用）
+   */
+  onEmployeeSelectForAddressChange(employeeId: string): void {
+    const employee = this.employees.find(e => e.id === employeeId);
+    if (!employee || !this.addressChangeForm) {
+      return;
+    }
+
+    const insuredPersonGroup = this.addressChangeForm.get('insuredPerson') as FormGroup;
+    if (!insuredPersonGroup) {
+      return;
+    }
+
+    // 社員IDを保存
+    insuredPersonGroup.patchValue({
+      employeeId: employeeId
+    });
+
+    // 氏名を直接設定
+    insuredPersonGroup.patchValue({
+      lastName: employee.lastName,
+      firstName: employee.firstName,
+      lastNameKana: employee.lastNameKana,
+      firstNameKana: employee.firstNameKana
+    });
+
+    // 生年月日を設定
+    if (employee.birthDate) {
+      const birthDate = employee.birthDate instanceof Date 
+        ? employee.birthDate 
+        : (employee.birthDate instanceof Timestamp ? employee.birthDate.toDate() : new Date(employee.birthDate));
+      const birthDateInfo = this.convertToEraDate(birthDate);
+      insuredPersonGroup.get('birthDate')?.patchValue(birthDateInfo);
+    }
+
+    // 被保険者整理番号
+    if (employee.insuranceInfo?.healthInsuranceNumber) {
+      insuredPersonGroup.patchValue({
+        insuranceNumber: employee.insuranceInfo.healthInsuranceNumber
+      });
+    }
+
+    // 個人番号または基礎年金番号
+    if (employee.insuranceInfo?.myNumber) {
+      insuredPersonGroup.patchValue({
+        identificationType: 'personal_number',
+        personalNumber: employee.insuranceInfo.myNumber
+      });
+    }
+    // 基礎年金番号はマイナンバーがあっても設定する（申請フォームで選択可能なため）
+    if (employee.insuranceInfo?.pensionNumber) {
+      insuredPersonGroup.patchValue({
+        basicPensionNumber: employee.insuranceInfo.pensionNumber
+      });
+      // マイナンバーがない場合は基礎年金番号を選択状態にする
+      if (!employee.insuranceInfo?.myNumber) {
+        insuredPersonGroup.patchValue({
+          identificationType: 'basic_pension_number'
+        });
+      }
+    }
+
+    // 変更前住所を設定（officialを優先、郵便番号を含める）
+    if (employee.address) {
+      const address = employee.address.official;
+      if (address) {
+        const oldAddressParts = [
+          address.postalCode ? `〒${address.postalCode}` : '',
+          address.prefecture || '',
+          address.city || '',
+          address.street || '',
+          address.building || ''
+        ].filter(part => part).join(' ');
+        
+        insuredPersonGroup.patchValue({
+          oldAddress: oldAddressParts
+        });
+      }
+    }
+  }
+
+  /**
+   * 社員を選択して被保険者情報に自動入力（氏名変更届用）
+   */
+  onEmployeeSelectForNameChange(employeeId: string): void {
+    const employee = this.employees.find(e => e.id === employeeId);
+    if (!employee || !this.nameChangeForm) {
+      return;
+    }
+
+    const insuredPersonGroup = this.nameChangeForm.get('insuredPerson') as FormGroup;
+    if (!insuredPersonGroup) {
+      return;
+    }
+
+    // 社員IDを保存
+    insuredPersonGroup.patchValue({
+      employeeId: employeeId
+    });
+
+    // 生年月日を設定
+    if (employee.birthDate) {
+      const birthDate = employee.birthDate instanceof Date 
+        ? employee.birthDate 
+        : (employee.birthDate instanceof Timestamp ? employee.birthDate.toDate() : new Date(employee.birthDate));
+      const birthDateInfo = this.convertToEraDate(birthDate);
+      insuredPersonGroup.get('birthDate')?.patchValue(birthDateInfo);
+    }
+
+    // 被保険者整理番号
+    if (employee.insuranceInfo?.healthInsuranceNumber) {
+      insuredPersonGroup.patchValue({
+        insuranceNumber: employee.insuranceInfo.healthInsuranceNumber
+      });
+    }
+
+    // 個人番号または基礎年金番号
+    if (employee.insuranceInfo?.myNumber) {
+      insuredPersonGroup.patchValue({
+        identificationType: 'personal_number',
+        personalNumber: employee.insuranceInfo.myNumber
+      });
+    }
+    // 基礎年金番号はマイナンバーがあっても設定する（申請フォームで選択可能なため）
+    if (employee.insuranceInfo?.pensionNumber) {
+      insuredPersonGroup.patchValue({
+        basicPensionNumber: employee.insuranceInfo.pensionNumber
+      });
+      // マイナンバーがない場合は基礎年金番号を選択状態にする
+      if (!employee.insuranceInfo?.myNumber) {
+        insuredPersonGroup.patchValue({
+          identificationType: 'basic_pension_number'
+        });
+      }
+    }
+
+    // 変更前氏名を設定
+    insuredPersonGroup.patchValue({
+      oldLastName: employee.lastName,
+      oldFirstName: employee.firstName
+    });
   }
 
   /**
@@ -2281,7 +2492,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         ownerName: [this.organization?.ownerName || ''], // 事業主氏名（修正17）
         phoneNumber: [submitterPhone]
       }),
-      commonPaymentDate: this.fb.group({
+      commonBonusPaymentDate: this.fb.group({
         era: ['reiwa', [Validators.required]],
         year: ['', [Validators.required]],
         month: ['', [Validators.required]],
@@ -2452,7 +2663,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         month: ['', [Validators.required]],
         day: ['', [Validators.required]]
       }),
-      paymentDate: this.fb.group({
+      bonusPaymentDate: this.fb.group({
         era: ['reiwa', [Validators.required]],
         year: ['', [Validators.required]],
         month: ['', [Validators.required]],
@@ -2918,14 +3129,142 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     return personGroup?.get('remarks')?.value === 'over70';
   }
 
+  // Storageルールで許可されているファイル形式（デフォルト）
+  private readonly DEFAULT_ALLOWED_FORMATS = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'xlsx', 'xls', 'docx', 'doc'];
+  private readonly DEFAULT_MAX_FILE_SIZE_MB = 50; // デフォルトの最大ファイルサイズ（MB）
+
   /**
    * ファイル選択
    */
-  onFileSelected(event: Event): void {
+  async onFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
-    if (input.files) {
-      this.attachments = Array.from(input.files);
+    if (!input.files || input.files.length === 0) {
+      return;
     }
+
+    const files = Array.from(input.files);
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    // 申請種別ごとの添付ファイル設定を取得
+    const allowedFormats = this.getAllowedFormats();
+    const maxFileSizeMB = this.getMaxFileSizeMB();
+
+    // 既存のファイル名のセットを作成（重複チェック用）
+    const existingFileNames = new Set(this.attachments.map(f => f.name));
+
+    for (const file of files) {
+      // ファイル拡張子を取得
+      const fileExtension = this.getFileExtension(file.name);
+      
+      // ファイル形式チェック
+      if (!allowedFormats.includes(fileExtension.toLowerCase())) {
+        errors.push(`${file.name}: 許可されていないファイル形式です（許可形式: ${allowedFormats.join(', ')}）`);
+        continue;
+      }
+
+      // ファイルサイズチェック
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > maxFileSizeMB) {
+        errors.push(`${file.name}: ファイルサイズが大きすぎます（最大: ${maxFileSizeMB}MB）`);
+        continue;
+      }
+
+      // 重複チェック
+      if (existingFileNames.has(file.name)) {
+        // 確認ダイアログを表示
+        const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+          width: '400px',
+          data: {
+            title: 'ファイル名の重複',
+            message: `「${file.name}」という名前のファイルが既に存在します。\n上書きしますか？`,
+            confirmText: '上書き',
+            cancelText: 'キャンセル'
+          }
+        });
+
+        const result = await dialogRef.afterClosed().toPromise();
+        
+        if (result === true) {
+          // OK: 既存のファイルを削除して新しいファイルを追加（上書き）
+          const index = this.attachments.findIndex(f => f.name === file.name);
+          if (index >= 0) {
+            this.attachments.splice(index, 1);
+          }
+          validFiles.push(file);
+        } else {
+          // キャンセル: 新しいファイルを追加しない（画面遷移なし）
+          continue;
+        }
+      } else {
+        // 重複なし: そのまま追加
+        validFiles.push(file);
+        existingFileNames.add(file.name); // セットに追加（同じ選択内での重複も防ぐ）
+      }
+    }
+
+    // エラーメッセージを表示
+    if (errors.length > 0) {
+      this.snackBar.open(errors.join('\n'), '閉じる', { duration: 5000 });
+    }
+
+    // 既存のファイルに新しいファイルを追加（置き換えではなく追加）
+    this.attachments = [...this.attachments, ...validFiles];
+
+    // input要素のvalueをリセット（同じファイルを再度選択できるようにする）
+    input.value = '';
+  }
+
+  /**
+   * ファイル拡張子を取得
+   */
+  private getFileExtension(fileName: string): string {
+    const lastDot = fileName.lastIndexOf('.');
+    return lastDot >= 0 ? fileName.substring(lastDot + 1) : '';
+  }
+
+  /**
+   * 許可されているファイル形式を取得
+   */
+  private getAllowedFormats(): string[] {
+    if (!this.selectedApplicationType || !this.organization) {
+      return this.DEFAULT_ALLOWED_FORMATS;
+    }
+
+    // 申請種別ごとの添付ファイル設定を取得
+    const attachmentSetting = this.organization.applicationFlowSettings?.attachmentSettings?.find(
+      setting => setting.applicationTypeId === this.selectedApplicationType?.id
+    );
+
+    // 設定がある場合
+    if (attachmentSetting?.allowedFormats && attachmentSetting.allowedFormats.length > 0) {
+      return attachmentSetting.allowedFormats;
+    }
+
+    // 設定がない場合（空配列または未設定）は、Storageルールで許可されている形式をデフォルトとして使用
+    return this.DEFAULT_ALLOWED_FORMATS;
+  }
+
+  /**
+   * 最大ファイルサイズ（MB）を取得
+   */
+  private getMaxFileSizeMB(): number {
+    if (!this.selectedApplicationType || !this.organization) {
+      return this.DEFAULT_MAX_FILE_SIZE_MB;
+    }
+
+    // 申請種別ごとの添付ファイル設定を取得
+    const attachmentSetting = this.organization.applicationFlowSettings?.attachmentSettings?.find(
+      setting => setting.applicationTypeId === this.selectedApplicationType?.id
+    );
+
+    // 設定がある場合
+    if (attachmentSetting?.maxFileSize && attachmentSetting.maxFileSize > 0) {
+      return attachmentSetting.maxFileSize;
+    }
+
+    // 設定がない場合はデフォルト値を使用
+    return this.DEFAULT_MAX_FILE_SIZE_MB;
   }
 
   /**
@@ -2939,12 +3278,18 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
    * 申請を作成
    */
   async createApplication(status: ApplicationStatus = 'created'): Promise<void> {
-    if (!this.selectedApplicationType || !this.organizationId || !this.employeeId) {
+    if (!this.selectedApplicationType || !this.organizationId) {
       return;
     }
 
     if (this.applicationTypeForm.invalid) {
       this.snackBar.open('申請種別を選択してください', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    // 内部申請の場合はemployeeIdが必須
+    if (this.selectedApplicationType.category === 'internal' && !this.employeeId) {
+      this.snackBar.open('社員情報が取得できません', '閉じる', { duration: 3000 });
       return;
     }
 
@@ -3013,12 +3358,25 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       if (this.attachments.length > 0 && this.organizationId) {
         const tempApplicationId = 'temp_' + Date.now();
         for (const file of this.attachments) {
+          try {
           const fileUrl = await this.applicationService.uploadFile(file, this.organizationId, tempApplicationId);
           uploadedAttachments.push({
             fileName: file.name,
             fileUrl,
             uploadedAt: new Date()
           });
+          } catch (error: any) {
+            // Storageのセキュリティルール違反時のエラーをキャッチ
+            console.error(`ファイルアップロードエラー (${file.name}):`, error);
+            let errorMessage = `ファイル「${file.name}」のアップロードに失敗しました`;
+            if (error.code === 'storage/unauthorized' || error.message?.includes('Permission denied')) {
+              errorMessage = `ファイル「${file.name}」は許可されていない形式です`;
+            } else if (error.code === 'storage/quota-exceeded') {
+              errorMessage = `ファイル「${file.name}」のサイズが大きすぎます`;
+            }
+            this.snackBar.open(errorMessage, '閉じる', { duration: 5000 });
+            // エラーが発生したファイルはスキップして続行
+          }
         }
       }
 
@@ -3041,20 +3399,41 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         applicationData = this.rewardChangeForm.value;
       } else if (this.isBonusPaymentForm && this.bonusPaymentForm) {
         applicationData = this.bonusPaymentForm.value;
-        // commonPaymentDateをcommonBonusPaymentDate（Date形式）に変換
-        if (applicationData['commonPaymentDate']) {
-          const commonPaymentDate = applicationData['commonPaymentDate'];
-          if (commonPaymentDate.year && commonPaymentDate.month && commonPaymentDate.day) {
+        // commonBonusPaymentDate（年号形式）をDate形式に変換
+        if (applicationData['commonBonusPaymentDate'] && typeof applicationData['commonBonusPaymentDate'] === 'object' && applicationData['commonBonusPaymentDate'].era) {
+          const commonBonusPaymentDate = applicationData['commonBonusPaymentDate'];
+          if (commonBonusPaymentDate.year && commonBonusPaymentDate.month && commonBonusPaymentDate.day) {
             // 年号を西暦に変換
-            let year = parseInt(commonPaymentDate.year);
-            if (commonPaymentDate.era === 'reiwa') {
+            let year = parseInt(commonBonusPaymentDate.year);
+            if (commonBonusPaymentDate.era === 'reiwa') {
               year = year + 2018; // 令和年 + 2018 = 西暦
-            } else if (commonPaymentDate.era === 'heisei') {
+            } else if (commonBonusPaymentDate.era === 'heisei') {
               year = year + 1988; // 平成年 + 1988 = 西暦
-            } else if (commonPaymentDate.era === 'showa') {
+            } else if (commonBonusPaymentDate.era === 'showa') {
               year = year + 1925; // 昭和平年 + 1925 = 西暦
             }
-            applicationData['commonBonusPaymentDate'] = new Date(year, parseInt(commonPaymentDate.month) - 1, parseInt(commonPaymentDate.day));
+            applicationData['commonBonusPaymentDate'] = new Date(year, parseInt(commonBonusPaymentDate.month) - 1, parseInt(commonBonusPaymentDate.day));
+          }
+        }
+
+        // 各被保険者のbonusPaymentDate（年号形式）をDate形式に変換
+        if (applicationData['insuredPersons'] && Array.isArray(applicationData['insuredPersons'])) {
+          for (const person of applicationData['insuredPersons']) {
+            if (person.bonusPaymentDate && typeof person.bonusPaymentDate === 'object' && person.bonusPaymentDate.era) {
+              const bonusPaymentDate = person.bonusPaymentDate;
+              if (bonusPaymentDate.year && bonusPaymentDate.month && bonusPaymentDate.day) {
+                // 年号を西暦に変換
+                let year = parseInt(bonusPaymentDate.year);
+                if (bonusPaymentDate.era === 'reiwa') {
+                  year = year + 2018;
+                } else if (bonusPaymentDate.era === 'heisei') {
+                  year = year + 1988;
+                } else if (bonusPaymentDate.era === 'showa') {
+                  year = year + 1925;
+                }
+                person.bonusPaymentDate = new Date(year, parseInt(bonusPaymentDate.month) - 1, parseInt(bonusPaymentDate.day));
+              }
+            }
           }
         }
       } else if (this.isDependentChangeFormInternal && this.dependentChangeFormInternal) {
@@ -3070,20 +3449,23 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         };
       }
 
+      // employeeIdを除外（表示用のため保存しない）
+      applicationData = this.removeEmployeeIdFromData(applicationData);
+
       // 計算履歴IDを申請データに含める
       if (this.selectedCalculationId) {
         applicationData['calculationId'] = this.selectedCalculationId;
       }
 
-      // 期限を計算（修正16）
-      let deadline: Date | null = null;
+      // 期限を計算（各被保険者ごとに期限を計算してdata内に保存）
       if (this.selectedApplicationType.category === 'external') {
-        // 外部申請：法定期限を設定（法定期限がない場合は期限設定なし）
-        const legalDeadline = await this.deadlineCalculationService.calculateLegalDeadline(
+        // 外部申請：法定期限を計算してdata内に保存
+        // employeeIdがnullの場合はundefinedを渡す（オーナー権限などで社員として登録されていない場合）
+        await this.deadlineCalculationService.calculateLegalDeadline(
           {
             type: this.selectedApplicationType.id,
             category: 'external',
-            employeeId: this.employeeId!,
+            employeeId: this.employeeId || undefined,
             organizationId: this.organizationId!,
             status: status,
             data: applicationData,
@@ -3092,26 +3474,20 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           },
           this.selectedApplicationType
         );
-        
-        if (legalDeadline) {
-          deadline = legalDeadline;
-        }
-        // 法定期限がない場合は期限設定なし（deadline = null）
-      } else {
-        // 内部申請：期限設定なし
-        // deadline = null（デフォルト値のまま）
+        // 各被保険者ごとに期限を保存するため、Application.deadlineは設定しない
       }
+      // 内部申請：期限設定なし
 
       // 申請を作成
       const application: Omit<Application, 'id' | 'createdAt' | 'updatedAt'> = {
         type: this.selectedApplicationType.id,
         category: this.selectedApplicationType.category,
-        employeeId: this.employeeId,
+        employeeId: this.employeeId || undefined, // 外部申請の場合、オーナーが作成する場合はundefined（nullの場合はundefinedに変換）
         organizationId: this.organizationId,
         status: status,
         data: applicationData,
         attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
-        deadline: deadline,
+        deadline: undefined, // 各被保険者ごとに期限を保存するため、申請全体の期限は設定しない
         relatedInternalApplicationIds: this.selectedInternalApplicationId ? [this.selectedInternalApplicationId] : undefined
       };
 
@@ -3216,7 +3592,21 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   /**
    * コンポーネント破棄時の処理
    */
+  /**
+   * ファイルのプレビューURLを取得
+   */
+  getFilePreviewUrl(file: File): string {
+    if (!this.filePreviewUrls.has(file.name)) {
+      const url = URL.createObjectURL(file);
+      this.filePreviewUrls.set(file.name, url);
+    }
+    return this.filePreviewUrls.get(file.name)!;
+  }
+
   ngOnDestroy(): void {
+    // ファイルプレビュー用URLをクリーンアップ（メモリリーク防止）
+    this.filePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    this.filePreviewUrls.clear();
     if (this.formSubscription) {
       this.formSubscription.unsubscribe();
       this.formSubscription = null;
@@ -4346,14 +4736,24 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       });
     }
 
-    if (data['bonusPaymentPersons'] && Array.isArray(data['bonusPaymentPersons'])) {
-      data['bonusPaymentPersons'].forEach((person: any, index: number) => {
+    if (data['insuredPersons'] && Array.isArray(data['insuredPersons'])) {
+      data['insuredPersons'].forEach((person: any, index: number) => {
         const personItems: FormattedItem[] = [];
         
         personItems.push({ label: '被保険者整理番号', value: person.insuranceNumber || '', isEmpty: !person.insuranceNumber });
         personItems.push({ label: '氏名', value: `${person.lastName || ''} ${person.firstName || ''}`.trim() || '', isEmpty: !person.lastName && !person.firstName });
         personItems.push({ label: '生年月日', value: this.formatEraDateForReward(person.birthDate), isEmpty: !person.birthDate });
         personItems.push({ label: '賞与支払年月日', value: this.formatDateValue(person.bonusPaymentDate), isEmpty: !person.bonusPaymentDate });
+        
+        // 期限を表示
+        if (person.deadline) {
+          const deadline = person.deadline instanceof Date 
+            ? person.deadline 
+            : (person.deadline as any).toDate 
+              ? (person.deadline as any).toDate() 
+              : new Date(person.deadline);
+          personItems.push({ label: '期限', value: this.formatDateValue(deadline), isEmpty: false });
+        }
         
         if (person.bonusAmount) {
           personItems.push({ label: '賞与額（通貨）', value: person.bonusAmount.currency ? `${person.bonusAmount.currency.toLocaleString()}円` : '', isEmpty: !person.bonusAmount.currency });

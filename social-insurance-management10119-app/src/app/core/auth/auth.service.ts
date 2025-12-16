@@ -59,7 +59,14 @@ export class AuthService {
           // Firestoreでユーザー情報を取得して設定
           const user = await this.getUserProfile(firebaseUser.uid);
           if (user && user.isActive) {
+            // メール認証状態をFirebase Authenticationの状態と同期
+            if (firebaseUser.emailVerified !== user.emailVerified) {
+              await this.updateEmailVerificationStatus(firebaseUser.uid, firebaseUser.emailVerified);
+              const updatedUser = await this.getUserProfile(firebaseUser.uid);
+              this.currentUserSubject.next(updatedUser);
+            } else {
             this.currentUserSubject.next(user);
+            }
             
             // 現在ログインしているユーザーのドキュメントを監視
             this.logToStorage('onAuthStateChanged - watchUserDocument を呼び出します（初回ログイン）', { uid: firebaseUser.uid });

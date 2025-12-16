@@ -845,6 +845,20 @@
                   <mat-card-title>被保険者情報</mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
+                  <!-- 社員選択 -->
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>社員を選択（情報を自動入力）</mat-label>
+                    <mat-select (selectionChange)="onEmployeeSelectForAddressChange($event.value)" [value]="null">
+                      <mat-option value="">選択してください</mat-option>
+                      <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                        {{ getEmployeeDisplayName(employee) }}
+                      </mat-option>
+                    </mat-select>
+                    <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
+                  </mat-form-field>
+
+                  <mat-divider style="margin: 16px 0;"></mat-divider>
+
                   <mat-form-field appearance="outline" class="full-width">
                     <mat-label>被保険者整理番号</mat-label>
                     <input matInput formControlName="insuranceNumber">
@@ -912,20 +926,43 @@
                     </mat-form-field>
                   </div>
 
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>変更後郵便番号</mat-label>
-                    <input matInput formControlName="newPostalCode">
-                  </mat-form-field>
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>変更後郵便番号</mat-label>
+                      <input matInput formControlName="newPostalCode" placeholder="例: 123-4567">
+                    </mat-form-field>
+                  </div>
 
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>変更後住所（カナも）</mat-label>
-                    <textarea matInput formControlName="newAddress" rows="2"></textarea>
-                  </mat-form-field>
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>都道府県</mat-label>
+                      <input matInput formControlName="newPrefecture">
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>変更後住所（カナ）</mat-label>
-                    <input matInput formControlName="newAddressKana">
-                  </mat-form-field>
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>市区町村</mat-label>
+                      <input matInput formControlName="newCity">
+                    </mat-form-field>
+                  </div>
+
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>町名・番地</mat-label>
+                      <input matInput formControlName="newStreet">
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>建物名・部屋番号</mat-label>
+                      <input matInput formControlName="newBuilding">
+                    </mat-form-field>
+                  </div>
+
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>住所（カナ）</mat-label>
+                      <input matInput formControlName="newAddressKana" placeholder="例: トウキョウトシブヤク">
+                    </mat-form-field>
+                  </div>
 
                   <mat-form-field appearance="outline" class="full-width">
                     <mat-label>変更前住所</mat-label>
@@ -1037,18 +1074,43 @@
                   <!-- 配偶者情報（別居時） -->
                   <div *ngIf="!addressChangeForm.get('insuredPerson.livingWithSpouse')?.value" class="spouse-section">
                     <div class="form-section-title">配偶者情報</div>
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>配偶者の変更後郵便番号</mat-label>
-                      <input matInput formControlName="spouseNewPostalCode">
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>配偶者の変更後住所（カナも）</mat-label>
-                      <textarea matInput formControlName="spouseNewAddress" rows="2"></textarea>
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>配偶者の変更後住所（カナ）</mat-label>
-                      <input matInput formControlName="spouseNewAddressKana">
-                    </mat-form-field>
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="form-field">
+                        <mat-label>配偶者の変更後郵便番号</mat-label>
+                        <input matInput formControlName="spouseNewPostalCode" placeholder="例: 123-4567">
+                      </mat-form-field>
+                    </div>
+
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="form-field">
+                        <mat-label>都道府県</mat-label>
+                        <input matInput formControlName="spouseNewPrefecture">
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="form-field">
+                        <mat-label>市区町村</mat-label>
+                        <input matInput formControlName="spouseNewCity">
+                      </mat-form-field>
+                    </div>
+
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="form-field">
+                        <mat-label>町名・番地</mat-label>
+                        <input matInput formControlName="spouseNewStreet">
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="form-field">
+                        <mat-label>建物名・部屋番号</mat-label>
+                        <input matInput formControlName="spouseNewBuilding">
+                      </mat-form-field>
+                    </div>
+
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="form-field">
+                        <mat-label>住所（カナ）</mat-label>
+                        <input matInput formControlName="spouseNewAddressKana" placeholder="例: トウキョウトシブヤク">
+                      </mat-form-field>
+                    </div>
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>配偶者の変更前住所</mat-label>
                       <textarea matInput formControlName="spouseOldAddress" rows="2"></textarea>
@@ -1137,6 +1199,20 @@
                   <mat-card-title>被保険者情報</mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
+                  <!-- 社員選択 -->
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>社員を選択（情報を自動入力）</mat-label>
+                    <mat-select (selectionChange)="onEmployeeSelectForNameChange($event.value)" [value]="null">
+                      <mat-option value="">選択してください</mat-option>
+                      <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                        {{ getEmployeeDisplayName(employee) }}
+                      </mat-option>
+                    </mat-select>
+                    <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
+                  </mat-form-field>
+
+                  <mat-divider style="margin: 16px 0;"></mat-divider>
+
                   <mat-form-field appearance="outline" class="full-width">
                     <mat-label>被保険者整理番号</mat-label>
                     <input matInput formControlName="insuranceNumber">
@@ -4377,7 +4453,7 @@
               </mat-card>
 
               <!-- 賞与支払年月日（共通） -->
-              <mat-card class="form-section" formGroupName="commonPaymentDate">
+              <mat-card class="form-section" formGroupName="commonBonusPaymentDate">
                 <mat-card-header>
                   <mat-card-title>賞与支払年月日（共通）</mat-card-title>
                 </mat-card-header>
@@ -4457,7 +4533,7 @@
                           <p class="form-hint">表示形式: {{ formatBirthDateForReward(getBonusPaymentPersonFormGroup(i).get('birthDate')) }}</p>
 
                           <div class="form-section-title">賞与支払年月日 *</div>
-                          <div formGroupName="paymentDate" class="date-input-group">
+                          <div formGroupName="bonusPaymentDate" class="date-input-group">
                             <mat-form-field appearance="outline" class="form-field-small">
                               <mat-label>年号</mat-label>
                               <mat-select formControlName="era" required>
@@ -4608,20 +4684,43 @@
                     </mat-form-field>
                   </div>
 
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>変更後郵便番号</mat-label>
-                    <input matInput formControlName="newPostalCode">
-                  </mat-form-field>
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>変更後郵便番号</mat-label>
+                      <input matInput formControlName="newPostalCode" placeholder="例: 123-4567">
+                    </mat-form-field>
+                  </div>
 
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>変更後住所（カナも）</mat-label>
-                    <textarea matInput formControlName="newAddress" rows="2"></textarea>
-                  </mat-form-field>
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>都道府県</mat-label>
+                      <input matInput formControlName="newPrefecture">
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>変更後住所（カナ）</mat-label>
-                    <input matInput formControlName="newAddressKana">
-                  </mat-form-field>
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>市区町村</mat-label>
+                      <input matInput formControlName="newCity">
+                    </mat-form-field>
+                  </div>
+
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>町名・番地</mat-label>
+                      <input matInput formControlName="newStreet">
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>建物名・部屋番号</mat-label>
+                      <input matInput formControlName="newBuilding">
+                    </mat-form-field>
+                  </div>
+
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field">
+                      <mat-label>住所（カナ）</mat-label>
+                      <input matInput formControlName="newAddressKana" placeholder="例: トウキョウトシブヤク">
+                    </mat-form-field>
+                  </div>
 
                   <mat-form-field appearance="outline" class="full-width">
                     <mat-label>変更前住所</mat-label>
@@ -4997,6 +5096,10 @@
                       <mat-icon matListItemIcon>description</mat-icon>
                       <span matListItemTitle>{{ file.name }}</span>
                       <span matListItemLine>{{ (file.size / 1024).toFixed(2) }} KB</span>
+                      <a mat-button [href]="getFilePreviewUrl(file)" target="_blank" rel="noopener noreferrer" matListItemMeta>
+                        <mat-icon>open_in_new</mat-icon>
+                        開く
+                      </a>
                     </mat-list-item>
                   </mat-list>
                 </mat-card-content>

@@ -523,12 +523,25 @@
               <h3>既存のファイル</h3>
               <mat-list>
                 <mat-list-item *ngFor="let attachment of existingAttachments; let i = index">
-                  <mat-icon matListItemIcon>description</mat-icon>
-                  <span matListItemTitle>{{ attachment.fileName }}</span>
-                  <span matListItemLine *ngIf="attachment.fileSize">{{ (attachment.fileSize / 1024).toFixed(2) }} KB</span>
-                  <button mat-icon-button (click)="removeExistingFile(i)" matListItemMeta [disabled]="deletedAttachmentIndices.includes(i)">
-                    <mat-icon>{{ deletedAttachmentIndices.includes(i) ? 'delete_outline' : 'delete' }}</mat-icon>
-                  </button>
+                  <mat-icon matListItemIcon *ngIf="!isExistingFileDeleted(i)">description</mat-icon>
+                  <span matListItemTitle *ngIf="!isExistingFileDeleted(i)">{{ attachment.fileName }}</span>
+                  <span matListItemLine *ngIf="!isExistingFileDeleted(i) && attachment.fileSize">{{ (attachment.fileSize / 1024).toFixed(2) }} KB</span>
+                  <span matListItemTitle *ngIf="isExistingFileDeleted(i)" style="text-decoration: line-through; color: #999;">{{ attachment.fileName }}</span>
+                  <span matListItemLine *ngIf="isExistingFileDeleted(i)" style="color: #999;">削除予定</span>
+                  <div matListItemMeta *ngIf="!isExistingFileDeleted(i)">
+                    <a mat-button [href]="attachment.fileUrl" target="_blank" rel="noopener noreferrer" style="margin-right: 8px;">
+                      <mat-icon>open_in_new</mat-icon>
+                      開く
+                    </a>
+                    <button mat-icon-button (click)="removeExistingFile(i)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                  <div matListItemMeta *ngIf="isExistingFileDeleted(i)">
+                    <button mat-icon-button (click)="cancelDeleteExistingFile(i)" color="primary">
+                      <mat-icon>undo</mat-icon>
+                    </button>
+                  </div>
                 </mat-list-item>
               </mat-list>
             </div>
@@ -549,9 +562,15 @@
                   <mat-icon matListItemIcon>description</mat-icon>
                   <span matListItemTitle>{{ file.name }}</span>
                   <span matListItemLine>{{ (file.size / 1024).toFixed(2) }} KB</span>
-                  <button mat-icon-button (click)="removeFile(i)" matListItemMeta>
-                    <mat-icon>delete</mat-icon>
-                  </button>
+                  <div matListItemMeta>
+                    <a mat-button [href]="getFilePreviewUrl(file)" target="_blank" rel="noopener noreferrer" style="margin-right: 8px;">
+                      <mat-icon>open_in_new</mat-icon>
+                      開く
+                    </a>
+                    <button mat-icon-button (click)="removeFile(i)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
                 </mat-list-item>
               </mat-list>
             </div>

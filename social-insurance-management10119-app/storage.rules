@@ -1,12 +1,152 @@
 rules_version = '2';
 // Firebase Storage セキュリティルール
-// 開発環境用の簡易ルール（本番環境では適切なセキュリティルールを設定してください）
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // すべてのパスへのアクセスを許可（開発環境用）
-    match /{allPaths=**} {
-      allow read, write: if true;
+    // ============================================
+    // 既存アプリのパス（変更なし）
+    // ============================================
+    // 既存アプリのパスは既存のルールを維持
+    // 以下のパスは既存アプリが使用（推測）:
+    // - existing_app/
+    // - その他の既存アプリのパス
+    match /{existingPath=**} {
+      // 既存アプリのルール（変更なし）
+      allow read, write: if true;  // 既存アプリのルールを維持
+    }
+    
+    // ============================================
+    // 新アプリのパス（social-insurance/で始まる）
+    // ============================================
+    
+    // ヘルパー関数: ユーザーの組織IDを取得（Firestoreから）
+    function getUserOrganization() {
+      return firestore.get(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid)).data.organizationId;
+    }
+    
+    // ヘルパー関数: ユーザーが組織のメンバーかチェック
+    function isOrganizationMember(organizationId) {
+      return request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && getUserOrganization() == organizationId;
+    }
+    
+    // ヘルパー関数: ユーザーが管理者（ownerまたはadmin）かチェック
+    function isAdmin() {
+      return request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && (firestore.get(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid)).data.role == 'owner' 
+            || firestore.get(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // ヘルパー関数: ファイルサイズチェック（バイト単位）
+    function isValidFileSize(maxSizeBytes) {
+      return request.resource.size <= maxSizeBytes;
+    }
+    
+    // ヘルパー関数: ファイル形式チェック
+    function isValidFileType(allowedExtensions) {
+      return request.resource.name.matches('.*\\.(' + allowedExtensions + ')$');
+    }
+    
+    // ============================================
+    // social-insurance/organizations/{orgId}/documents/{applicationId}/{fileName}
+    // 申請添付書類
+    // ============================================
+    match /social-insurance/organizations/{orgId}/documents/{applicationId}/{fileName} {
+      // 読み取り: 組織のメンバーのみ
+      allow read: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOrganizationMember(orgId);
+      
+      // 書き込み: 組織のメンバーのみ、ファイルサイズ50MB以下、PDF/画像/Excel/Word形式
+      // アプリ側の設定（allowedFormats）に合わせて一般的なファイル形式を許可
+      allow write: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOrganizationMember(orgId)
+        && isValidFileSize(50 * 1024 * 1024)  // 50MB
+        && isValidFileType('pdf|jpg|jpeg|png|gif|bmp|webp|xlsx|xls|docx|doc');
+      
+      // 削除: 組織のメンバーのみ
+      allow delete: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOrganizationMember(orgId);
+    }
+    
+    // ============================================
+    // social-insurance/organizations/{orgId}/employees/{employeeId}/{fileName}
+    // 社員ファイル
+    // ============================================
+    match /social-insurance/organizations/{orgId}/employees/{employeeId}/{fileName} {
+      // 読み取り: 管理者は全データ、社員は自分のデータのみ
+      allow read: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          (isAdmin() && isOrganizationMember(orgId))
+          || (firestore.get(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid)).data.employeeId == employeeId)
+        );
+      
+      // 書き込み: 管理者のみ、ファイルサイズ50MB以下、PDF/画像/Excel/Word形式
+      // アプリ側の設定（allowedFormats）に合わせて一般的なファイル形式を許可
+      allow write: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(orgId)
+        && isValidFileSize(50 * 1024 * 1024)  // 50MB
+        && isValidFileType('pdf|jpg|jpeg|png|gif|bmp|webp|xlsx|xls|docx|doc');
+      
+      // 削除: 管理者のみ
+      allow delete: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(orgId);
+    }
+    
+    // ============================================
+    // social-insurance/organizations/{orgId}/logos/{fileName}
+    // 組織ロゴ
+    // ============================================
+    match /social-insurance/organizations/{orgId}/logos/{fileName} {
+      // 読み取り: 組織のメンバーのみ
+      allow read: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOrganizationMember(orgId);
+      
+      // 書き込み: 管理者のみ、ファイルサイズ5MB以下、画像形式のみ
+      allow write: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(orgId)
+        && isValidFileSize(5 * 1024 * 1024)  // 5MB
+        && isValidFileType('jpg|jpeg|png|gif|bmp|webp|svg');
+      
+      // 削除: 管理者のみ
+      allow delete: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(orgId);
+    }
+    
+    // ============================================
+    // social-insurance/templates/{allPaths=**}
+    // テンプレートファイル（CSV、Excel、PDF）
+    // ============================================
+    match /social-insurance/templates/{allPaths=**} {
+      // 読み取り: 認証済みユーザー全員
+      allow read: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid));
+      
+      // 書き込み: 管理者のみ（テンプレートは管理者が手動でアップロード）
+      allow write: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isValidFileSize(10 * 1024 * 1024)  // 10MB
+        && isValidFileType('csv|xlsx|xls|pdf');
+      
+      // 削除: 管理者のみ
+      allow delete: if request.auth != null 
+        && firestore.exists(/databases/(default)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin();
     }
   }
 }

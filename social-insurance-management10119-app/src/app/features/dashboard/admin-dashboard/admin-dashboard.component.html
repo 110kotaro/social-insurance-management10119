@@ -135,8 +135,8 @@
             </div>
           </div>
 
-          <!-- 直近の期限アラート -->
-          <div *ngIf="recentDeadlineAlerts.length > 0" class="deadline-section">
+          <!-- 直近の期限アラート（申請種別ごとの表示と重複するためコメントアウト） -->
+          <!-- <div *ngIf="recentDeadlineAlerts.length > 0" class="deadline-section">
             <h4>直近の期限アラート</h4>
             <mat-list>
               <mat-list-item 
@@ -148,7 +148,7 @@
                 <div matListItemLine>期限: {{ formatDate(app.deadline) }}</div>
               </mat-list-item>
             </mat-list>
-          </div>
+          </div> -->
 
           <!-- 被保険者資格取得届の期限 -->
           <div *ngIf="insuranceAcquisitionDeadlines.length > 0" class="deadline-section">
@@ -173,7 +173,7 @@
             </div>
           </div>
 
-          <div *ngIf="overdueApplicationsByType.length === 0 && recentDeadlineAlerts.length === 0 && insuranceAcquisitionDeadlines.length === 0 && !hasMonthlyChangeTargets" class="no-items">
+          <div *ngIf="overdueApplicationsByType.length === 0 && insuranceAcquisitionDeadlines.length === 0 && !hasMonthlyChangeTargets" class="no-items">
             <mat-icon>check_circle</mat-icon>
             <span>期限に関するアラートはありません</span>
           </div>

@@ -95,27 +95,6 @@
         <input matInput formControlName="industry">
       </mat-form-field>
 
-      <h3>ロゴ</h3>
-
-      <div class="logo-section">
-        <div *ngIf="logoPreviewUrl" class="logo-preview">
-          <img [src]="logoPreviewUrl" alt="ロゴプレビュー">
-          <button mat-icon-button type="button" (click)="removeLogo()" matTooltip="ロゴを削除">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-        
-        <div class="logo-upload">
-          <input type="file" accept="image/*" (change)="onLogoSelected($event)" #logoInput style="display: none;">
-          <button mat-raised-button type="button" (click)="logoInput.click()" [disabled]="isUploadingLogo">
-            <mat-icon>upload</mat-icon>
-            {{ logoPreviewUrl ? 'ロゴを変更' : 'ロゴをアップロード' }}
-          </button>
-          <mat-progress-bar *ngIf="isUploadingLogo" mode="indeterminate"></mat-progress-bar>
-        </div>
-        <p class="hint">対応形式: PNG, JPG, GIF（最大5MB）</p>
-      </div>
-
       <h3>月次計算予定日設定</h3>
 
       <mat-form-field appearance="outline">

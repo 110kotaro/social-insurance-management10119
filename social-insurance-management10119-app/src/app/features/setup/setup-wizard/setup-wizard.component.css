@@ -245,15 +245,27 @@ mat-list-item {
   border-radius: 4px;
 }
 
+.effective-date-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.87);
+}
+
 .effective-date-row {
   display: flex;
   gap: 16px;
   align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.effective-date-row:last-child {
+  margin-bottom: 0;
 }
 
 .effective-date-field {
   flex: 1;
-  min-width: 200px;
+  min-width: 0;
 }
 
 .table-container {

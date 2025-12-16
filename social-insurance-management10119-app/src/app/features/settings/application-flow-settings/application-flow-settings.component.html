@@ -73,10 +73,11 @@
                   <td mat-cell *matCellDef="let type">{{ type.name }}</td>
                 </ng-container>
 
-                <ng-container matColumnDef="code">
+                <!-- コード列は表示しない -->
+                <!-- <ng-container matColumnDef="code">
                   <th mat-header-cell *matHeaderCellDef>コード</th>
                   <td mat-cell *matCellDef="let type">{{ type.code }}</td>
-                </ng-container>
+                </ng-container> -->
 
                 <ng-container matColumnDef="enabled">
                   <th mat-header-cell *matHeaderCellDef>有効</th>
@@ -87,10 +88,11 @@
                   </td>
                 </ng-container>
 
-                <ng-container matColumnDef="description">
+                <!-- 説明列は表示しない -->
+                <!-- <ng-container matColumnDef="description">
                   <th mat-header-cell *matHeaderCellDef>説明</th>
                   <td mat-cell *matCellDef="let type">{{ type.description || '-' }}</td>
-                </ng-container>
+                </ng-container> -->
 
                 <ng-container matColumnDef="actions">
                   <th mat-header-cell *matHeaderCellDef>操作</th>
@@ -109,8 +111,8 @@
         </ng-template>
       </mat-tab>
 
-      <!-- 承認ルールタブ -->
-      <mat-tab label="承認ルール">
+      <!-- 承認ルールタブ（コメントアウト） -->
+      <!-- <mat-tab label="承認ルール">
         <ng-template matTabContent>
           <div class="tab-content">
             <h3>承認ルール</h3>
@@ -130,7 +132,7 @@
             </div>
           </div>
         </ng-template>
-      </mat-tab>
+      </mat-tab> -->
 
       <!-- 添付書類設定タブ -->
       <mat-tab label="添付書類設定">

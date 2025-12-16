@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatStepperModule, MatStepper } from '@angular/material/stepper';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -163,6 +163,13 @@ export class SetupWizardComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
 
+  /**
+   * カスタムバリデーター: careInsuranceTargetOfficeがnullでないことを確認
+   */
+  customRequiredValidator = (control: AbstractControl): ValidationErrors | null => {
+    return control.value === null ? { required: true } : null;
+  }
+
   constructor() {
     // ステップ1: 組織情報フォーム
     this.organizationForm = this.fb.group({
@@ -176,6 +183,7 @@ export class SetupWizardComponent implements OnInit {
       street: ['', Validators.required],
       building: [''],
       phoneNumber: [''],
+      ownerName: [''], // 事業主氏名（修正17）
       email: ['', Validators.email],
       industry: [''],
       leaveInsuranceCollectionMethod: ['postpaid'] // デフォルト: 後払い
@@ -193,8 +201,7 @@ export class SetupWizardComponent implements OnInit {
     this.insuranceForm = this.fb.group({
       // 健康保険
       healthInsuranceType: ['kyokai'], // 協会けんぽ or 組合健保（固定）
-      healthInsuranceOfficeSymbol: [''], // 事業所整理記号（追加）
-      healthInsuranceOfficeNumber: ['', Validators.required], // 必須項目に変更
+      healthInsuranceOfficeSymbol: ['', Validators.required], // 事業所整理記号（必須）
       // healthInsuranceRoundingMethod: [''], // 端数処理方式（削除：計算ロジックで実装済み）
       healthInsuranceCardFormat: ['none'], // 保険証の形式（任意のまま）
       // 厚生年金
@@ -202,7 +209,7 @@ export class SetupWizardComponent implements OnInit {
       // pensionInsuranceRoundingMethod: [''], // 端数処理方式（削除：計算ロジックで実装済み）
       pensionInsuranceBusinessCategory: ['', Validators.required], // 厚生年金適用事業所区分（必須項目に変更）
       // 介護保険
-      careInsuranceTargetOffice: [null, Validators.required], // デフォルトをnullに変更、必須項目に変更
+      careInsuranceTargetOffice: [null, this.customRequiredValidator], // カスタムバリデーターでnull以外を必須とする
       // 雇用保険（コメントアウト：不要）
       // employmentInsuranceOfficeNumber: ['', Validators.required],
       // employmentInsuranceLaborNumber: ['', Validators.required]
@@ -267,7 +274,7 @@ export class SetupWizardComponent implements OnInit {
       const orgFormValue = this.organizationForm.value;
       const step1Complete = orgFormValue.name && 
                            orgFormValue.corporateNumber && 
-                           orgFormValue.officeNumber &&
+                           orgFormValue.postalCode &&
                            orgFormValue.prefecture &&
                            orgFormValue.city &&
                            orgFormValue.street;
@@ -365,6 +372,7 @@ export class SetupWizardComponent implements OnInit {
           street: organization.address.street,
           building: organization.address.building || '',
           phoneNumber: organization.phoneNumber || '',
+          ownerName: organization.ownerName || '', // 事業主氏名（修正17）
           email: organization.email || currentUser?.email || '', // 組織のメールアドレスがない場合はユーザーのメールアドレスを使用
           industry: organization.industry || ''
         });
@@ -423,6 +431,7 @@ export class SetupWizardComponent implements OnInit {
           building: formValue.building?.trim() || undefined
         },
         phoneNumber: formValue.phoneNumber?.trim() || undefined,
+        ownerName: formValue.ownerName?.trim() || undefined, // 事業主氏名（修正17）
         email: formValue.email?.trim() || undefined,
         industry: formValue.industry?.trim() || undefined,
         leaveInsuranceCollectionMethod: formValue.leaveInsuranceCollectionMethod || 'postpaid', // 休職中の保険料徴収方法
@@ -1597,15 +1606,61 @@ export class SetupWizardComponent implements OnInit {
   /**
    * 内部申請種別を取得
    */
+  /**
+   * 内部申請種別を取得（3種類のみ表示）
+   */
   getInternalApplicationTypes(): ApplicationType[] {
-    return this.applicationTypes.filter(type => type.category === 'internal');
+    // 内部申請種別：3種類のみ表示（DEPENDENT_CHANGE, NAME_CHANGE, ADDRESS_CHANGE）
+    const allowedInternalCodes = ['DEPENDENT_CHANGE', 'NAME_CHANGE', 'ADDRESS_CHANGE'];
+    return this.applicationTypes.filter(type => 
+      type.category === 'internal' && allowedInternalCodes.includes(type.code)
+    );
   }
 
   /**
-   * 外部申請種別を取得
+   * 外部申請種別を取得（8種類のみ表示）
    */
   getExternalApplicationTypes(): ApplicationType[] {
-    return this.applicationTypes.filter(type => type.category === 'external');
+    // 外部申請種別：8種類のみ表示
+    const allowedExternalCodes = [
+      'INSURANCE_ACQUISITION', 
+      'INSURANCE_LOSS', 
+      'DEPENDENT_CHANGE_EXTERNAL', 
+      'REWARD_BASE', 
+      'REWARD_CHANGE', 
+      'ADDRESS_CHANGE_EXTERNAL', 
+      'NAME_CHANGE_EXTERNAL', 
+      'BONUS_PAYMENT'
+    ];
+    return this.applicationTypes.filter(type => 
+      type.category === 'external' && allowedExternalCodes.includes(type.code)
+    );
+  }
+
+  /**
+   * 添付書類設定用の申請種別を取得（8種外部・3種内部のみ）
+   */
+  getFilteredApplicationTypesForAttachment(): ApplicationType[] {
+    const allowedInternalCodes = ['DEPENDENT_CHANGE', 'NAME_CHANGE', 'ADDRESS_CHANGE'];
+    const allowedExternalCodes = [
+      'INSURANCE_ACQUISITION', 
+      'INSURANCE_LOSS', 
+      'DEPENDENT_CHANGE_EXTERNAL', 
+      'REWARD_BASE', 
+      'REWARD_CHANGE', 
+      'ADDRESS_CHANGE_EXTERNAL', 
+      'NAME_CHANGE_EXTERNAL', 
+      'BONUS_PAYMENT'
+    ];
+    
+    return this.applicationTypes.filter(type => {
+      if (type.category === 'internal') {
+        return allowedInternalCodes.includes(type.code);
+      } else if (type.category === 'external') {
+        return allowedExternalCodes.includes(type.code);
+      }
+      return false;
+    });
   }
 
   /**
@@ -1776,8 +1831,14 @@ export class SetupWizardComponent implements OnInit {
       step1: {
         name: orgFormValue.name,
         corporateNumber: orgFormValue.corporateNumber || '未入力',
-        officeNumber: orgFormValue.officeNumber || '未入力',
-        address: `${orgFormValue.prefecture}${orgFormValue.city}${orgFormValue.street}${orgFormValue.building || ''}`,
+        // officeNumber: orgFormValue.officeNumber || '未入力', // 事業所番号は表示不要
+        postalCode: orgFormValue.postalCode || '',
+        address: (() => {
+          const postalCode = orgFormValue.postalCode || '';
+          const address = `${orgFormValue.prefecture}${orgFormValue.city}${orgFormValue.street}${orgFormValue.building || ''}`;
+          return postalCode ? `〒${postalCode} ${address}` : address;
+        })(),
+        ownerName: orgFormValue.ownerName || '未入力', // 事業主氏名を追加
         phoneNumber: orgFormValue.phoneNumber || '未入力',
         email: orgFormValue.email || '未入力',
         industry: orgFormValue.industry || '未入力'
@@ -1789,14 +1850,10 @@ export class SetupWizardComponent implements OnInit {
       step3: {
         healthInsuranceType: insuranceFormValue.healthInsuranceType === 'kyokai' ? '協会けんぽ' : '組合健保',
         healthInsuranceOfficeSymbol: insuranceFormValue.healthInsuranceOfficeSymbol || '未入力',
-        healthInsuranceRoundingMethod: this.getRoundingMethodLabel(insuranceFormValue.healthInsuranceRoundingMethod),
         healthInsuranceCardFormat: this.getCardFormatLabel(insuranceFormValue.healthInsuranceCardFormat),
         pensionInsuranceOfficeNumber: insuranceFormValue.pensionInsuranceOfficeNumber || '未入力',
-        pensionInsuranceRoundingMethod: this.getRoundingMethodLabel(insuranceFormValue.pensionInsuranceRoundingMethod),
         pensionInsuranceBusinessCategory: this.getBusinessCategoryLabel(insuranceFormValue.pensionInsuranceBusinessCategory),
-        careInsuranceTargetOffice: insuranceFormValue.careInsuranceTargetOffice === null ? '未選択' : (insuranceFormValue.careInsuranceTargetOffice ? '該当' : '非該当'),
-        employmentInsuranceOfficeNumber: insuranceFormValue.employmentInsuranceOfficeNumber || '未入力',
-        employmentInsuranceLaborNumber: insuranceFormValue.employmentInsuranceLaborNumber || '未入力'
+        careInsuranceTargetOffice: insuranceFormValue.careInsuranceTargetOffice === null ? '未選択' : (insuranceFormValue.careInsuranceTargetOffice ? '該当' : '非該当')
       },
       step4: {
         rateTableCount: this.rateTables.length,

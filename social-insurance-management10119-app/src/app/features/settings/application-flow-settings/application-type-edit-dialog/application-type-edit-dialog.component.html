@@ -13,7 +13,8 @@
       </mat-error>
     </mat-form-field>
 
-    <mat-form-field appearance="outline">
+    <!-- コードフィールドは表示しない（編集時は変更不可のため） -->
+    <!-- <mat-form-field appearance="outline">
       <mat-label>コード</mat-label>
       <input matInput formControlName="code" required [disabled]="!isEditMode || !data.applicationType?.isCustom">
       <mat-hint *ngIf="!isEditMode || data.applicationType?.isCustom">
@@ -22,7 +23,7 @@
       <mat-error *ngIf="applicationTypeForm.get('code')?.hasError('required')">
         コードは必須です
       </mat-error>
-    </mat-form-field>
+    </mat-form-field> -->
 
     <div class="checkbox-group">
       <mat-checkbox formControlName="enabled">
@@ -30,10 +31,11 @@
       </mat-checkbox>
     </div>
 
-    <mat-form-field appearance="outline">
+    <!-- 説明フィールドは表示しない -->
+    <!-- <mat-form-field appearance="outline">
       <mat-label>説明</mat-label>
       <textarea matInput formControlName="description" rows="3"></textarea>
-    </mat-form-field>
+    </mat-form-field> -->
   </form>
 </mat-dialog-content>
 

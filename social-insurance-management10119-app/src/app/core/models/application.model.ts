@@ -63,7 +63,7 @@ export interface Application {
   id?: string;
   type: string; // 申請種別ID（ApplicationType.id）
   category: ApplicationCategory; // 'internal' | 'external'
-  employeeId: string; // 申請者（社員ID）
+  employeeId?: string; // 申請者（社員ID）。外部申請の場合、オーナーが作成する場合はnullの可能性がある
   organizationId: string; // 組織ID
   status: ApplicationStatus; // 申請ステータス
   data: Record<string, any>; // 申請種別ごとのデータ（動的）

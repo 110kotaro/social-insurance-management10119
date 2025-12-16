@@ -73,6 +73,39 @@ mat-card-title {
   }
 }
 
+.change-history-content {
+  padding: 16px 0;
+}
+
+.change-item {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.change-item:last-child {
+  border-bottom: none;
+}
+
+.change-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.change-icon {
+  color: #1976d2;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.change-text {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.87);
+}
+
 @media (max-width: 768px) {
   .header-content {
     flex-direction: column;

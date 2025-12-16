@@ -87,72 +87,89 @@ export class DeadlineCalculationService {
   }
 
   /**
-   * 資格取得届の法定期限を計算
-   * 資格取得年月日から5日以内（入社日から5日目）
+   * 資格取得届の法定期限を計算（各被保険者ごとに期限を計算してdata内に保存）
+   * 資格取得年月日から5日以内
+   * @returns null（各被保険者ごとに期限を保存するため、申請全体の期限は不要）
    */
   private async calculateInsuranceAcquisitionDeadline(application: Application): Promise<Date | null> {
-    console.log('[DeadlineCalculationService] calculateInsuranceAcquisitionDeadline 開始', {
-      applicationId: application.id,
-      employeeId: application.employeeId
-    });
-
-    const employee = await this.employeeService.getEmployee(application.employeeId);
-    console.log('[DeadlineCalculationService] 社員情報取得', {
-      employeeId: application.employeeId,
-      employee: employee ? '存在' : 'null',
-      joinDate: employee?.joinDate
-    });
-
-    if (!employee?.joinDate) {
-      console.log('[DeadlineCalculationService] joinDate がないため null を返す');
+    const insuredPersons = application.data?.['insuredPersons'];
+    if (!insuredPersons || !Array.isArray(insuredPersons)) {
       return null;
     }
 
-    const joinDate = employee.joinDate instanceof Date 
-      ? employee.joinDate 
-      : new Date((employee.joinDate as any).seconds * 1000);
-    
-    console.log('[DeadlineCalculationService] joinDate 変換後', {
-      joinDate: joinDate.toISOString(),
-      joinDateType: employee.joinDate instanceof Date ? 'Date' : 'Timestamp'
-    });
+    // 各被保険者の期限を計算してdata内に保存
+    for (const person of insuredPersons) {
+      const acquisitionDate = person.acquisitionDate;
+      if (!acquisitionDate) {
+        continue;
+      }
 
-    const deadline = new Date(joinDate);
-    deadline.setDate(deadline.getDate() + 5);
-    
-    console.log('[DeadlineCalculationService] 期限計算（+5日後）', {
-      deadline: deadline.toISOString(),
-      isPast: deadline < new Date()
-    });
+      // 年号形式の日付をDateに変換
+      let acquisitionDateObj: Date | null = null;
+      if (acquisitionDate instanceof Date) {
+        acquisitionDateObj = acquisitionDate;
+      } else if (acquisitionDate && typeof acquisitionDate === 'object' && acquisitionDate.era) {
+        // 年号形式 {era, year, month, day}
+        acquisitionDateObj = this.convertEraDateToDate(acquisitionDate);
+      }
 
-    const adjustedDeadline = this.adjustForBusinessDay(deadline);
-    console.log('[DeadlineCalculationService] 営業日調整後', {
-      adjustedDeadline: adjustedDeadline.toISOString(),
-      isPast: adjustedDeadline < new Date()
-    });
+      if (!acquisitionDateObj) {
+        continue;
+      }
 
-    return adjustedDeadline;
+      // 期限を計算（資格取得日 + 5日）
+      const deadline = new Date(acquisitionDateObj);
+      deadline.setDate(deadline.getDate() + 5);
+      const adjustedDeadline = this.adjustForBusinessDay(deadline);
+
+      // data内に期限を保存
+      person.deadline = adjustedDeadline;
+    }
+
+    return null; // 各被保険者ごとに期限を保存するため、申請全体の期限は不要
   }
 
   /**
-   * 資格喪失届の法定期限を計算
-   * 資格喪失年月日から5日以内（退社日の翌日から5日目）
+   * 資格喪失届の法定期限を計算（各被保険者ごとに期限を計算してdata内に保存）
+   * 資格喪失年月日から5日以内（lossDate + 5日）
+   * @returns null（各被保険者ごとに期限を保存するため、申請全体の期限は不要）
    */
   private async calculateInsuranceLossDeadline(application: Application): Promise<Date | null> {
-    const employee = await this.employeeService.getEmployee(application.employeeId);
-    if (!employee?.retirementDate) {
+    const insuredPersons = application.data?.['insuredPersons'];
+    if (!insuredPersons || !Array.isArray(insuredPersons)) {
       return null;
     }
 
-    const retirementDate = employee.retirementDate instanceof Date 
-      ? employee.retirementDate 
-      : new Date((employee.retirementDate as any).seconds * 1000);
-    
-    // 退社日の翌日から5日目
-    const deadline = new Date(retirementDate);
-    deadline.setDate(deadline.getDate() + 6); // 翌日 + 5日 = 6日後
-    
-    return this.adjustForBusinessDay(deadline);
+    // 各被保険者の期限を計算してdata内に保存
+    for (const person of insuredPersons) {
+      const lossDate = person.lossDate;
+      if (!lossDate) {
+        continue;
+      }
+
+      // 年号形式の日付をDateに変換
+      let lossDateObj: Date | null = null;
+      if (lossDate instanceof Date) {
+        lossDateObj = lossDate;
+      } else if (lossDate && typeof lossDate === 'object' && lossDate.era) {
+        // 年号形式 {era, year, month, day}
+        lossDateObj = this.convertEraDateToDate(lossDate);
+      }
+
+      if (!lossDateObj) {
+        continue;
+      }
+
+      // 期限を計算（資格喪失日 + 5日）
+      const deadline = new Date(lossDateObj);
+      deadline.setDate(deadline.getDate() + 5);
+      const adjustedDeadline = this.adjustForBusinessDay(deadline);
+
+      // data内に期限を保存
+      person.deadline = adjustedDeadline;
+    }
+
+    return null; // 各被保険者ごとに期限を保存するため、申請全体の期限は不要
   }
 
   /**
@@ -216,90 +233,74 @@ export class DeadlineCalculationService {
   }
 
   /**
-   * 賞与支払届の法定期限を計算
+   * 賞与支払届の法定期限を計算（各被保険者ごとに期限を計算してdata内に保存）
    * 賞与支払い日より5日以内
+   * @returns null（各被保険者ごとに期限を保存するため、申請全体の期限は不要）
    */
   private async calculateBonusPaymentDeadline(application: Application): Promise<Date | null> {
-    let paymentDate: Date | null = null;
+    const insuredPersons = application.data?.['insuredPersons'];
+    if (!insuredPersons || !Array.isArray(insuredPersons)) {
+      return null;
+    }
 
-    // 1. 申請データから賞与支払日を取得（commonBonusPaymentDate: Date形式）
+    // 申請全体の共通支払日を取得（フォールバック用）
+    let commonPaymentDate: Date | null = null;
     const commonBonusPaymentDate = application.data?.['commonBonusPaymentDate'];
     if (commonBonusPaymentDate) {
       if (commonBonusPaymentDate instanceof Date) {
-        paymentDate = commonBonusPaymentDate;
+        commonPaymentDate = commonBonusPaymentDate;
       } else if (commonBonusPaymentDate && typeof (commonBonusPaymentDate as any).toDate === 'function') {
-        paymentDate = (commonBonusPaymentDate as any).toDate();
+        commonPaymentDate = (commonBonusPaymentDate as any).toDate();
       } else if (commonBonusPaymentDate && typeof (commonBonusPaymentDate as any).seconds === 'number') {
-        paymentDate = new Date((commonBonusPaymentDate as any).seconds * 1000);
+        commonPaymentDate = new Date((commonBonusPaymentDate as any).seconds * 1000);
+      } else if (commonBonusPaymentDate && typeof commonBonusPaymentDate === 'object' && commonBonusPaymentDate.era) {
+        // 年号形式 {era, year, month, day}
+        commonPaymentDate = this.convertEraDateToDate(commonBonusPaymentDate);
       } else {
-        paymentDate = new Date(commonBonusPaymentDate);
+        commonPaymentDate = new Date(commonBonusPaymentDate);
       }
     }
 
-    // 2. 申請データから賞与支払日を取得（commonPaymentDate: フォームデータ形式 {era, year, month, day}）
-    if (!paymentDate && application.data?.['commonPaymentDate']) {
-      const commonPaymentDate = application.data['commonPaymentDate'];
-      if (commonPaymentDate.year && commonPaymentDate.month && commonPaymentDate.day) {
-        // 年号を西暦に変換
-        let year = parseInt(commonPaymentDate.year);
-        if (commonPaymentDate.era === 'reiwa') {
-          year = year + 2018; // 令和年 + 2018 = 西暦
-        } else if (commonPaymentDate.era === 'heisei') {
-          year = year + 1988; // 平成年 + 1988 = 西暦
-        } else if (commonPaymentDate.era === 'showa') {
-          year = year + 1925; // 昭和平年 + 1925 = 西暦
-        }
-        paymentDate = new Date(year, parseInt(commonPaymentDate.month) - 1, parseInt(commonPaymentDate.day));
-      }
-    }
+    // 各被保険者の期限を計算してdata内に保存
+    for (const person of insuredPersons) {
+      let paymentDate: Date | null = null;
 
-    // 3. 申請データから賞与支払日を取得（bonusPaymentDate: Date形式、旧形式との互換性）
-    if (!paymentDate && application.data?.['bonusPaymentDate']) {
-      const bonusPaymentDate = application.data['bonusPaymentDate'];
-      if (bonusPaymentDate instanceof Date) {
-        paymentDate = bonusPaymentDate;
-      } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).toDate === 'function') {
-        paymentDate = (bonusPaymentDate as any).toDate();
-      } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).seconds === 'number') {
-        paymentDate = new Date((bonusPaymentDate as any).seconds * 1000);
-      } else {
-        paymentDate = new Date(bonusPaymentDate);
-      }
-    }
-
-    // 4. 申請データから支払日が取得できない場合、該当社員のBonusDataから支払日を取得
-    if (!paymentDate && application.employeeId) {
-      // 申請データから年月を取得（bonusPaymentPersonsから取得、または申請作成時の年月を推測）
-      // 賞与支払届は通常、支払月の申請なので、申請作成日の年月を使用
-      const applicationDate = application.createdAt instanceof Date 
-        ? application.createdAt 
-        : (application.createdAt as any).toDate 
-          ? (application.createdAt as any).toDate() 
-          : new Date();
-      
-      const year = applicationDate.getFullYear();
-      const month = applicationDate.getMonth() + 1;
-
-      const bonusData = await this.bonusDataService.getBonusData(application.employeeId, year, month);
-      if (bonusData?.bonusPaymentDate) {
-        if (bonusData.bonusPaymentDate instanceof Date) {
-          paymentDate = bonusData.bonusPaymentDate;
-        } else if (bonusData.bonusPaymentDate && typeof (bonusData.bonusPaymentDate as any).toDate === 'function') {
-          paymentDate = (bonusData.bonusPaymentDate as any).toDate();
-        } else if (bonusData.bonusPaymentDate && typeof (bonusData.bonusPaymentDate as any).seconds === 'number') {
-          paymentDate = new Date((bonusData.bonusPaymentDate as any).seconds * 1000);
+      // 1. 各被保険者のbonusPaymentDateを取得（優先）
+      const bonusPaymentDate = person.bonusPaymentDate;
+      if (bonusPaymentDate) {
+        if (bonusPaymentDate instanceof Date) {
+          paymentDate = bonusPaymentDate;
+        } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).toDate === 'function') {
+          paymentDate = (bonusPaymentDate as any).toDate();
+        } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).seconds === 'number') {
+          paymentDate = new Date((bonusPaymentDate as any).seconds * 1000);
+        } else if (bonusPaymentDate && typeof bonusPaymentDate === 'object' && bonusPaymentDate.era) {
+          // 年号形式 {era, year, month, day}
+          paymentDate = this.convertEraDateToDate(bonusPaymentDate);
+        } else {
+          paymentDate = new Date(bonusPaymentDate);
         }
       }
+
+      // 2. 各被保険者の支払日がない場合、申請全体のcommonBonusPaymentDateを使用
+      if (!paymentDate && commonPaymentDate) {
+        paymentDate = commonPaymentDate;
+      }
+
+      if (!paymentDate) {
+        continue;
+      }
+
+      // 期限を計算（支払日 + 5日）
+      const deadline = new Date(paymentDate);
+      deadline.setDate(deadline.getDate() + 5);
+      const adjustedDeadline = this.adjustForBusinessDay(deadline);
+
+      // data内に期限を保存
+      person.deadline = adjustedDeadline;
     }
 
-    if (!paymentDate) {
-      return null;
-    }
-    
-    const deadline = new Date(paymentDate);
-    deadline.setDate(deadline.getDate() + 5);
-    
-    return this.adjustForBusinessDay(deadline);
+    return null; // 各被保険者ごとに期限を保存するため、申請全体の期限は不要
   }
 
   /**
@@ -315,6 +316,30 @@ export class DeadlineCalculationService {
     deadline.setDate(deadline.getDate() + days);
     
     return this.adjustForBusinessDay(deadline);
+  }
+
+  /**
+   * 年号形式の日付をDateオブジェクトに変換
+   * @param eraDate 年号形式の日付 {era: string, year: number, month: number, day: number}
+   * @returns Dateオブジェクト、変換できない場合はnull
+   */
+  private convertEraDateToDate(eraDate: any): Date | null {
+    if (!eraDate || !eraDate.era || !eraDate.year || !eraDate.month || !eraDate.day) {
+      return null;
+    }
+    
+    let year = parseInt(eraDate.year);
+    if (eraDate.era === 'reiwa') {
+      year = year + 2018; // 令和年 + 2018 = 西暦
+    } else if (eraDate.era === 'heisei') {
+      year = year + 1988; // 平成年 + 1988 = 西暦
+    } else if (eraDate.era === 'showa') {
+      year = year + 1925; // 昭和平年 + 1925 = 西暦
+    } else if (eraDate.era === 'taisho') {
+      year = year + 1911; // 大正年 + 1911 = 西暦
+    }
+    
+    return new Date(year, parseInt(eraDate.month) - 1, parseInt(eraDate.day));
   }
 
   /**

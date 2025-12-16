@@ -758,14 +758,24 @@ export class ApplicationReturnHistoryViewComponent {
       });
     }
 
-    if (data['bonusPaymentPersons'] && Array.isArray(data['bonusPaymentPersons'])) {
-      data['bonusPaymentPersons'].forEach((person: any, index: number) => {
+    if (data['insuredPersons'] && Array.isArray(data['insuredPersons'])) {
+      data['insuredPersons'].forEach((person: any, index: number) => {
         const personItems: FormattedItem[] = [];
         
         personItems.push({ label: '被保険者整理番号', value: person.insuranceNumber || '', isEmpty: !person.insuranceNumber });
         personItems.push({ label: '氏名', value: `${person.lastName || ''} ${person.firstName || ''}`.trim() || '', isEmpty: !person.lastName && !person.firstName });
         personItems.push({ label: '生年月日', value: this.formatEraDateForReward(person.birthDate), isEmpty: !person.birthDate });
         personItems.push({ label: '賞与支払年月日', value: this.formatDateValue(person.bonusPaymentDate), isEmpty: !person.bonusPaymentDate });
+        
+        // 期限を表示
+        if (person.deadline) {
+          const deadline = person.deadline instanceof Date 
+            ? person.deadline 
+            : (person.deadline as any).toDate 
+              ? (person.deadline as any).toDate() 
+              : new Date(person.deadline);
+          personItems.push({ label: '期限', value: this.formatDateValue(deadline), isEmpty: false });
+        }
         
         if (person.bonusAmount) {
           personItems.push({ label: '賞与額（通貨）', value: person.bonusAmount.currency ? `${person.bonusAmount.currency.toLocaleString()}円` : '', isEmpty: !person.bonusAmount.currency });

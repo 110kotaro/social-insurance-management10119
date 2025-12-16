@@ -178,6 +178,12 @@
           <span matListItemLine>{{ calculation.pensionInsuranceRate.toFixed(2) }}%</span>
         </mat-list-item>
         <mat-divider *ngIf="calculation.pensionInsuranceRate !== undefined && calculation.pensionInsuranceRate !== null"></mat-divider>
+
+        <mat-list-item *ngIf="calculation.notes">
+          <span matListItemTitle>備考・注意事項</span>
+          <span matListItemLine style="white-space: pre-line;">{{ calculation.notes }}</span>
+        </mat-list-item>
+        <mat-divider *ngIf="calculation.notes"></mat-divider>
       </mat-list>
 
       <!-- 被扶養者情報 -->

@@ -32,18 +32,22 @@ export class EmailVerificationComponent implements OnInit, OnDestroy {
       this.isEmailVerified = currentUser.emailVerified;
     }
 
-    // 認証状態を監視
+    // 認証状態を監視（初回登録直後の誤判定を防ぐため、Firebase Authenticationの状態も確認）
     const authSub = this.authService.currentUser$.pipe(
       filter(user => user !== null),
       take(1)
-    ).subscribe(user => {
+    ).subscribe(async user => {
       if (user) {
         this.email = user.email;
-        this.isEmailVerified = user.emailVerified;
+        // Firestoreの状態とFirebase Authenticationの状態の両方を確認
+        const firebaseUser = await this.authService.reloadCurrentUser();
+        const actualEmailVerified = firebaseUser?.emailVerified ?? user.emailVerified;
+        this.isEmailVerified = actualEmailVerified;
         this.isChecking = false;
 
         // メール認証が完了していたら、組織作成画面またはダッシュボードに遷移
-        if (user.emailVerified) {
+        // Firebase Authenticationの状態を再確認してから遷移（初回登録直後の誤判定を防ぐ）
+        if (actualEmailVerified) {
           setTimeout(() => {
             // 組織が既に作成済みの場合はダッシュボードに遷移
             // 未作成の場合は組織作成画面に遷移
@@ -111,7 +115,8 @@ export class EmailVerificationComponent implements OnInit, OnDestroy {
         });
         
         // 認証済みの場合は組織作成画面またはダッシュボードに遷移
-        if (this.isEmailVerified) {
+        // Firebase Authenticationの状態を再確認（初回登録直後の誤判定を防ぐ）
+        if (this.isEmailVerified && firebaseUser.emailVerified) {
           console.log('[EmailVerification] 認証済み - 遷移処理開始');
           const currentUser = this.authService.getCurrentUser();
           // 組織が既に作成済みの場合はダッシュボードに遷移
@@ -124,7 +129,10 @@ export class EmailVerificationComponent implements OnInit, OnDestroy {
             this.router.navigate(['/organization/create']);
           }
         } else {
-          console.log('[EmailVerification] まだ認証されていません');
+          console.log('[EmailVerification] まだ認証されていません', {
+            isEmailVerified: this.isEmailVerified,
+            firebaseEmailVerified: firebaseUser?.emailVerified
+          });
         }
       } else {
         console.log('[EmailVerification] firebaseUser が null');

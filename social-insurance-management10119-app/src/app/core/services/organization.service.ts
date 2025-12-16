@@ -86,9 +86,6 @@ export class OrganizationService {
     if (organization.industry !== undefined) {
       orgData.industry = organization.industry;
     }
-    if (organization.logoUrl !== undefined) {
-      orgData.logoUrl = organization.logoUrl;
-    }
     if (organization.insuranceSettings !== undefined) {
       // insuranceSettings内のundefined値を削除
       orgData.insuranceSettings = this.removeUndefinedValues(organization.insuranceSettings);
@@ -133,7 +130,6 @@ export class OrganizationService {
     if (updates.ownerName !== undefined) updateData.ownerName = updates.ownerName;
     if (updates.email !== undefined) updateData.email = updates.email;
     if (updates.industry !== undefined) updateData.industry = updates.industry;
-    if (updates.logoUrl !== undefined) updateData.logoUrl = updates.logoUrl;
     if (updates.payrollDate !== undefined) updateData.payrollDate = updates.payrollDate;
     if (updates.monthlyCalculationTargetMonth !== undefined) updateData.monthlyCalculationTargetMonth = updates.monthlyCalculationTargetMonth;
     if (updates.insuranceSettings !== undefined) {

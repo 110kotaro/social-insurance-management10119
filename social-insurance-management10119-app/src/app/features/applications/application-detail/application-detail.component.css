@@ -74,3 +74,74 @@
   text-align: center;
 }
 
+/* 期限表示のスタイル */
+.deadline-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.deadline-chip-container {
+  display: inline-block;
+}
+
+.deadline-chip {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+}
+
+.deadline-chip mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.deadline-item {
+  background-color: #f5f5f5;
+  border-left: 4px solid #2196F3;
+  padding-left: 12px !important;
+}
+
+.deadline-item.deadline-overdue {
+  border-left-color: #f44336;
+  background-color: #ffebee;
+}
+
+.deadline-item.deadline-warning {
+  border-left-color: #ff9800;
+  background-color: #fff3e0;
+}
+
+.deadline-value {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.deadline-value.deadline-overdue {
+  color: #d32f2f;
+}
+
+.deadline-value.deadline-warning {
+  color: #f57c00;
+}
+
+.deadline-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.deadline-badge.overdue {
+  background-color: #f44336;
+  color: white;
+}
+
+.deadline-badge.warning {
+  background-color: #ff9800;
+  color: white;
+}
+

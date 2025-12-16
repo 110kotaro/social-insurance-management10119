@@ -63,8 +63,8 @@ export class ApplicationFlowSettingsComponent implements OnInit, OnChanges {
   externalDataSource = new MatTableDataSource<ApplicationType>([]);
   attachmentDataSource = new MatTableDataSource<AttachmentSetting>([]);
   
-  internalDisplayedColumns: string[] = ['name', 'code', 'enabled', 'description', 'actions'];
-  externalDisplayedColumns: string[] = ['name', 'code', 'enabled', 'description', 'actions'];
+  internalDisplayedColumns: string[] = ['name', 'enabled', 'actions'];
+  externalDisplayedColumns: string[] = ['name', 'enabled', 'actions'];
   attachmentDisplayedColumns: string[] = ['applicationType', 'allowedFormats', 'maxFileSize', 'description', 'actions'];
 
   isLoading = false;
@@ -88,8 +88,26 @@ export class ApplicationFlowSettingsComponent implements OnInit, OnChanges {
     this.attachmentSettings = settings.attachmentSettings || [];
     this.approvalRuleDescription = settings.approvalRule?.description || '管理者のいずれか一名の承認';
 
-    this.internalApplicationTypes = this.applicationTypes.filter(type => type.category === 'internal');
-    this.externalApplicationTypes = this.applicationTypes.filter(type => type.category === 'external');
+    // 内部申請種別：3種類のみ表示（DEPENDENT_CHANGE, NAME_CHANGE, ADDRESS_CHANGE）
+    const allowedInternalCodes = ['DEPENDENT_CHANGE', 'NAME_CHANGE', 'ADDRESS_CHANGE'];
+    this.internalApplicationTypes = this.applicationTypes.filter(type => 
+      type.category === 'internal' && allowedInternalCodes.includes(type.code)
+    );
+    
+    // 外部申請種別：8種類のみ表示
+    const allowedExternalCodes = [
+      'INSURANCE_ACQUISITION', 
+      'INSURANCE_LOSS', 
+      'DEPENDENT_CHANGE_EXTERNAL', 
+      'REWARD_BASE', 
+      'REWARD_CHANGE', 
+      'ADDRESS_CHANGE_EXTERNAL', 
+      'NAME_CHANGE_EXTERNAL', 
+      'BONUS_PAYMENT'
+    ];
+    this.externalApplicationTypes = this.applicationTypes.filter(type => 
+      type.category === 'external' && allowedExternalCodes.includes(type.code)
+    );
 
     this.internalDataSource.data = this.internalApplicationTypes;
     this.externalDataSource.data = this.externalApplicationTypes;

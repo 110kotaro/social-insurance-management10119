@@ -1,0 +1,424 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ============================================
+    // 既存アプリのコレクション（変更なし）
+    // ============================================
+    // 既存アプリのコレクションは既存のルールを維持
+    // 以下のコレクションは既存アプリが使用:
+    // - commentReadStatus
+    // - notifications
+    // - projects
+    // - tasks
+    // - teamInvitations
+    // - teams
+    // - users
+    match /{existingCollection}/{document=**} {
+      // 既存アプリのルール（変更なし）
+      allow read, write: if true;  // 既存アプリのルールを維持
+    }
+    
+    // ============================================
+    // 新アプリのコレクション（socialInsurance_プレフィックス）
+    // ============================================
+    
+    // ヘルパー関数: ユーザーの組織IDを取得
+    function getUserOrganization() {
+      return get(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid)).data.organizationId;
+    }
+    
+    // ヘルパー関数: ユーザーの権限を取得
+    function getUserRole() {
+      return get(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid)).data.role;
+    }
+    
+    // ヘルパー関数: ユーザーが組織のメンバーかチェック
+    function isOrganizationMember(organizationId) {
+      return request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && getUserOrganization() == organizationId;
+    }
+    
+    // ヘルパー関数: ユーザーが管理者（ownerまたはadmin）かチェック
+    function isAdmin() {
+      return request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (getUserRole() == 'owner' || getUserRole() == 'admin');
+    }
+    
+    // ヘルパー関数: ユーザーがownerかチェック
+    function isOwner() {
+      return request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && getUserRole() == 'owner';
+    }
+    
+    // ヘルパー関数: ユーザーが自分のデータかチェック（employeeIdで判定）
+    function isOwnData(employeeId) {
+      return request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid)).data.employeeId == employeeId;
+    }
+    
+    // ============================================
+    // socialInsurance_organizations - 組織（企業）
+    // ============================================
+    match /socialInsurance_organizations/{orgId} {
+      // 読み取り: 組織のメンバーのみ
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOrganizationMember(orgId);
+      
+      // 作成: 認証済みユーザー（新規組織作成時）
+      allow create: if request.auth != null
+        && request.resource.data.organizationId == orgId;
+      
+      // 更新: ownerのみ
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOwner()
+        && isOrganizationMember(orgId)
+        && resource.data.organizationId == orgId
+        && request.resource.data.organizationId == orgId;
+      
+      // 削除: ownerのみ
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOwner()
+        && isOrganizationMember(orgId);
+    }
+    
+    // ============================================
+    // socialInsurance_users - ユーザー（認証情報）
+    // ============================================
+    match /socialInsurance_users/{userId} {
+      // 読み取り: 自分のデータ、または同じ組織のメンバー（管理者用）
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          userId == request.auth.uid 
+          || (isAdmin() && isOrganizationMember(resource.data.organizationId))
+        );
+      
+      // 作成: 認証済みユーザー（新規ユーザー登録時、自分のデータのみ）
+      allow create: if request.auth != null
+        && userId == request.auth.uid
+        && request.resource.data.organizationId != null;
+      
+      // 更新: 自分のデータ、または管理者（同じ組織内）
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          (userId == request.auth.uid && request.resource.data.organizationId == resource.data.organizationId)
+          || (isAdmin() && isOrganizationMember(resource.data.organizationId) && request.resource.data.organizationId == resource.data.organizationId)
+        );
+      
+      // 削除: 管理者のみ（同じ組織内）
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(resource.data.organizationId);
+    }
+    
+    // ============================================
+    // socialInsurance_employees - 社員情報
+    // ============================================
+    match /socialInsurance_employees/{employeeId} {
+      // 読み取り: 管理者は全社員、社員は自分のデータのみ
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          isAdmin() && isOrganizationMember(resource.data.organizationId)
+          || isOwnData(employeeId)
+        );
+      
+      // 作成: 管理者のみ
+      allow create: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(request.resource.data.organizationId);
+      
+      // 更新: 管理者のみ、または自分のデータのみ（一部フィールド）
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          (isAdmin() && isOrganizationMember(resource.data.organizationId) && request.resource.data.organizationId == resource.data.organizationId)
+          || (isOwnData(employeeId) && request.resource.data.organizationId == resource.data.organizationId)
+        );
+      
+      // 削除: 管理者のみ
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(resource.data.organizationId);
+    }
+    
+    // ============================================
+    // socialInsurance_departments - 部署
+    // ============================================
+    match /socialInsurance_departments/{departmentId} {
+      // 読み取り: 組織のメンバーのみ
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOrganizationMember(resource.data.organizationId);
+      
+      // 作成: 管理者のみ
+      allow create: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(request.resource.data.organizationId);
+      
+      // 更新: 管理者のみ
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(resource.data.organizationId)
+        && request.resource.data.organizationId == resource.data.organizationId;
+      
+      // 削除: 管理者のみ
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(resource.data.organizationId);
+    }
+    
+    // ============================================
+    // socialInsurance_applications - 申請
+    // ============================================
+    match /socialInsurance_applications/{applicationId} {
+      // 読み取り: 管理者は全申請、社員は自分の申請のみ
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          (isAdmin() && isOrganizationMember(resource.data.organizationId))
+          || (resource.data.employeeId != null && isOwnData(resource.data.employeeId))
+        );
+      
+      // 作成: 認証済みユーザー（自分の組織内）
+      allow create: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOrganizationMember(request.resource.data.organizationId)
+        && (
+          request.resource.data.employeeId == null
+          || isOwnData(request.resource.data.employeeId)
+          || isAdmin()
+        );
+      
+      // 更新: 申請作成者、または管理者（同じ組織内）
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && request.resource.data.organizationId == resource.data.organizationId
+        && (
+          (resource.data.employeeId != null && isOwnData(resource.data.employeeId))
+          || isAdmin()
+        );
+      
+      // 削除: 申請作成者、または管理者（同じ組織内）
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          (resource.data.employeeId != null && isOwnData(resource.data.employeeId))
+          || (isAdmin() && isOrganizationMember(resource.data.organizationId))
+        );
+    }
+    
+    // ============================================
+    // socialInsurance_calculations - 月次計算結果
+    // ============================================
+    match /socialInsurance_calculations/{calculationId} {
+      // 読み取り: 管理者は全データ、社員は自分のデータのみ
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          (isAdmin() && isOrganizationMember(resource.data.organizationId))
+          || (resource.data.employeeId != null && isOwnData(resource.data.employeeId))
+        );
+      
+      // 作成: 管理者のみ
+      allow create: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(request.resource.data.organizationId);
+      
+      // 更新: 管理者のみ
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(resource.data.organizationId)
+        && request.resource.data.organizationId == resource.data.organizationId;
+      
+      // 削除: 管理者のみ
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(resource.data.organizationId);
+    }
+    
+    // ============================================
+    // socialInsurance_insuranceRates - 保険料率マスタ
+    // ============================================
+    match /socialInsurance_insuranceRates/{rateId} {
+      // 読み取り: 組織のメンバーのみ（organizationIdがnullの場合は全組織共通）
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          resource.data.organizationId == null
+          || isOrganizationMember(resource.data.organizationId)
+        );
+      
+      // 作成: 管理者のみ
+      allow create: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && (
+          request.resource.data.organizationId == null
+          || isOrganizationMember(request.resource.data.organizationId)
+        );
+      
+      // 更新: 管理者のみ
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && (
+          (resource.data.organizationId == null && request.resource.data.organizationId == null)
+          || (isOrganizationMember(resource.data.organizationId) && request.resource.data.organizationId == resource.data.organizationId)
+        );
+      
+      // 削除: 管理者のみ
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && (
+          resource.data.organizationId == null
+          || isOrganizationMember(resource.data.organizationId)
+        );
+    }
+    
+    // ============================================
+    // socialInsurance_notifications - 通知
+    // ============================================
+    match /socialInsurance_notifications/{notificationId} {
+      // 読み取り: 自分の通知のみ
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && resource.data.userId == request.auth.uid;
+      
+      // 作成: 管理者のみ（通知送信用）
+      allow create: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(request.resource.data.organizationId);
+      
+      // 更新: 自分の通知のみ（既読状態の更新など）
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      
+      // 削除: 自分の通知のみ
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // socialInsurance_documents - 作成済み書類
+    // ============================================
+    match /socialInsurance_documents/{documentId} {
+      // 読み取り: 管理者は全データ、社員は自分のデータのみ
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          (isAdmin() && isOrganizationMember(resource.data.organizationId))
+          || (resource.data.employeeId != null && isOwnData(resource.data.employeeId))
+        );
+      
+      // 作成: 管理者のみ
+      allow create: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(request.resource.data.organizationId);
+      
+      // 更新: 管理者のみ
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(resource.data.organizationId)
+        && request.resource.data.organizationId == resource.data.organizationId;
+      
+      // 削除: 管理者のみ
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(resource.data.organizationId);
+    }
+    
+    // ============================================
+    // socialInsurance_standardRewards - 標準報酬等級表
+    // ============================================
+    match /socialInsurance_standardRewards/{rewardId} {
+      // 読み取り: 組織のメンバーのみ（organizationIdがnullの場合は全組織共通）
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && (
+          resource.data.organizationId == null
+          || isOrganizationMember(resource.data.organizationId)
+        );
+      
+      // 作成: 管理者のみ
+      allow create: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && (
+          request.resource.data.organizationId == null
+          || isOrganizationMember(request.resource.data.organizationId)
+        );
+      
+      // 更新: 管理者のみ
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && (
+          (resource.data.organizationId == null && request.resource.data.organizationId == null)
+          || (isOrganizationMember(resource.data.organizationId) && request.resource.data.organizationId == resource.data.organizationId)
+        );
+      
+      // 削除: 管理者のみ
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && (
+          resource.data.organizationId == null
+          || isOrganizationMember(resource.data.organizationId)
+        );
+    }
+    
+    // ============================================
+    // socialInsurance_settings - 組織設定
+    // ============================================
+    match /socialInsurance_settings/{orgId} {
+      // 読み取り: 組織のメンバーのみ
+      allow read: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOrganizationMember(orgId);
+      
+      // 作成: 管理者のみ
+      allow create: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(orgId);
+      
+      // 更新: 管理者のみ
+      allow update: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isAdmin()
+        && isOrganizationMember(orgId);
+      
+      // 削除: ownerのみ
+      allow delete: if request.auth != null 
+        && exists(/databases/$(database)/documents/socialInsurance_users/$(request.auth.uid))
+        && isOwner()
+        && isOrganizationMember(orgId);
+    }
+  }
+}

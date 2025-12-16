@@ -98,6 +98,32 @@ export class AttachmentSettingEditDialogComponent implements OnInit {
     return currentFormats.includes(format);
   }
 
+  /**
+   * 表示可能な申請種別を取得（8種外部・3種内部のみ）
+   */
+  getFilteredApplicationTypes(): ApplicationType[] {
+    const allowedInternalCodes = ['DEPENDENT_CHANGE', 'NAME_CHANGE', 'ADDRESS_CHANGE'];
+    const allowedExternalCodes = [
+      'INSURANCE_ACQUISITION', 
+      'INSURANCE_LOSS', 
+      'DEPENDENT_CHANGE_EXTERNAL', 
+      'REWARD_BASE', 
+      'REWARD_CHANGE', 
+      'ADDRESS_CHANGE_EXTERNAL', 
+      'NAME_CHANGE_EXTERNAL', 
+      'BONUS_PAYMENT'
+    ];
+    
+    return this.data.applicationTypes.filter(type => {
+      if (type.category === 'internal') {
+        return allowedInternalCodes.includes(type.code);
+      } else if (type.category === 'external') {
+        return allowedExternalCodes.includes(type.code);
+      }
+      return false;
+    });
+  }
+
   save(): void {
     if (this.attachmentSettingForm.invalid) {
       return;

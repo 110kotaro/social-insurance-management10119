@@ -115,6 +115,13 @@
             </mat-form-field>
           </div>
 
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>事業主氏名</mat-label>
+              <input matInput formControlName="ownerName" placeholder="山田 太郎">
+            </mat-form-field>
+          </div>
+
           <div class="error-message" *ngIf="errorMessage">
             {{ errorMessage }}
           </div>
@@ -151,7 +158,8 @@
               </mat-form-field>
             </div>
 
-            <div class="form-row">
+            <!-- 上位部署フィールド（コメントアウト） -->
+            <!-- <div class="form-row">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>上位部署（親部署、任意）</mat-label>
                 <mat-select formControlName="parentDepartmentId">
@@ -161,7 +169,7 @@
                   </mat-option>
                 </mat-select>
               </mat-form-field>
-            </div>
+            </div> -->
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="full-width">
@@ -219,7 +227,7 @@
         <ng-template matStepLabel>保険設定</ng-template>
         
         <div class="step-content">
-          <p class="step-description">健康保険、厚生年金、介護保険、雇用保険の設定を行ってください。</p>
+          <p class="step-description">健康保険、厚生年金、介護保険の設定を行ってください。</p>
           
           <form [formGroup]="insuranceForm">
             <!-- 健康保険 -->
@@ -273,20 +281,6 @@
                 </mat-select>
                 <mat-error *ngIf="insuranceForm.get('pensionInsuranceBusinessCategory')?.hasError('required')">
                   厚生年金適用事業所区分を選択してください
-                </mat-error>
-              </mat-form-field>
-            </div>
-
-            <div class="form-row">
-              <mat-form-field appearance="outline" class="half-width">
-                <mat-label>端数処理方式</mat-label>
-                <mat-select formControlName="pensionInsuranceRoundingMethod" required>
-                  <mat-option value="round">四捨五入</mat-option>
-                  <mat-option value="ceil">切り上げ</mat-option>
-                  <mat-option value="floor">切り捨て</mat-option>
-                </mat-select>
-                <mat-error *ngIf="insuranceForm.get('pensionInsuranceRoundingMethod')?.hasError('required')">
-                  端数処理方式を選択してください
                 </mat-error>
               </mat-form-field>
             </div>
@@ -354,6 +348,7 @@
           <form [formGroup]="rateTableForm">
             <!-- 適用期間設定（テーブル全体） -->
             <div class="effective-date-section">
+              <h4>適用期間設定</h4>
               <div class="effective-date-row">
                 <mat-form-field appearance="outline" class="effective-date-field">
                   <mat-label>適用開始年</mat-label>
@@ -377,8 +372,10 @@
                     max="12"
                   >
                 </mat-form-field>
+              </div>
+              <div class="effective-date-row">
                 <mat-form-field appearance="outline" class="effective-date-field">
-                  <mat-label>適用終了年（未設定の場合は現在有効）</mat-label>
+                  <mat-label>適用終了年</mat-label>
                   <input
                     type="number"
                     matInput
@@ -387,9 +384,10 @@
                     min="2000"
                     max="2100"
                   >
+                  <mat-hint>未設定の場合は現在有効</mat-hint>
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="effective-date-field">
-                  <mat-label>適用終了月（未設定の場合は現在有効）</mat-label>
+                  <mat-label>適用終了月</mat-label>
                   <input
                     type="number"
                     matInput
@@ -399,6 +397,7 @@
                     max="12"
                     [disabled]="!effectiveToYear"
                   >
+                  <mat-hint>未設定の場合は現在有効</mat-hint>
                 </mat-form-field>
               </div>
             </div>
@@ -664,7 +663,8 @@
                         <div *ngIf="editingApplicationTypeIndex !== i" class="application-type-display">
                           <div class="application-type-info">
                             <span class="application-type-name">{{ type.name }}</span>
-                            <span class="application-type-code">（{{ type.code }}）</span>
+                            <!-- 申請種別コードは表示しない -->
+                            <!-- <span class="application-type-code">（{{ type.code }}）</span> -->
                             <mat-checkbox [(ngModel)]="type.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
                           </div>
                           <div class="application-type-actions">
@@ -681,14 +681,16 @@
                             <mat-label>申請種別名</mat-label>
                             <input matInput [(ngModel)]="editingApplicationType.name" [ngModelOptions]="{standalone: true}" required>
                           </mat-form-field>
-                          <mat-form-field appearance="outline" class="full-width">
+                          <!-- 申請種別コードは表示しない（編集時は変更不可のため） -->
+                          <!-- <mat-form-field appearance="outline" class="full-width">
                             <mat-label>申請種別コード</mat-label>
                             <input matInput [(ngModel)]="editingApplicationType.code" [ngModelOptions]="{standalone: true}" required>
-                          </mat-form-field>
-                          <mat-form-field appearance="outline" class="full-width">
+                          </mat-form-field> -->
+                          <!-- 説明文は表示しない -->
+                          <!-- <mat-form-field appearance="outline" class="full-width">
                             <mat-label>説明文</mat-label>
                             <textarea matInput [(ngModel)]="editingApplicationType.description" [ngModelOptions]="{standalone: true}" rows="3"></textarea>
-                          </mat-form-field>
+                          </mat-form-field> -->
                           <mat-checkbox [(ngModel)]="editingApplicationType.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
                           <div class="edit-actions">
                             <button mat-raised-button color="primary" (click)="saveApplicationType()">保存</button>
@@ -707,7 +709,8 @@
                         <div *ngIf="editingApplicationTypeIndex !== i" class="application-type-display">
                           <div class="application-type-info">
                             <span class="application-type-name">{{ type.name }}</span>
-                            <span class="application-type-code">（{{ type.code }}）</span>
+                            <!-- 申請種別コードは表示しない -->
+                            <!-- <span class="application-type-code">（{{ type.code }}）</span> -->
                             <mat-checkbox [(ngModel)]="type.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
                           </div>
                           <div class="application-type-actions">
@@ -721,14 +724,16 @@
                             <mat-label>申請種別名</mat-label>
                             <input matInput [(ngModel)]="editingApplicationType.name" [ngModelOptions]="{standalone: true}" required>
                           </mat-form-field>
-                          <mat-form-field appearance="outline" class="full-width">
+                          <!-- 申請種別コードは表示しない（編集時は変更不可のため） -->
+                          <!-- <mat-form-field appearance="outline" class="full-width">
                             <mat-label>申請種別コード</mat-label>
                             <input matInput [(ngModel)]="editingApplicationType.code" [ngModelOptions]="{standalone: true}" required>
-                          </mat-form-field>
-                          <mat-form-field appearance="outline" class="full-width">
+                          </mat-form-field> -->
+                          <!-- 説明文は表示しない -->
+                          <!-- <mat-form-field appearance="outline" class="full-width">
                             <mat-label>説明文</mat-label>
                             <textarea matInput [(ngModel)]="editingApplicationType.description" [ngModelOptions]="{standalone: true}" rows="3"></textarea>
-                          </mat-form-field>
+                          </mat-form-field> -->
                           <mat-checkbox [(ngModel)]="editingApplicationType.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
                           <div class="edit-actions">
                             <button mat-raised-button color="primary" (click)="saveApplicationType()">保存</button>
@@ -741,13 +746,13 @@
                 </div>
               </mat-tab>
 
-              <!-- タブ2: 承認ルール設定 -->
-              <mat-tab label="承認ルール設定">
+              <!-- タブ2: 承認ルール設定（コメントアウト） -->
+              <!-- <mat-tab label="承認ルール設定">
                 <div class="tab-content">
                   <p>承認方法：管理者のいずれか一名の承認が必要です。</p>
                   <p class="info-text">承認フローの詳細設定は不要です。管理者権限を持つユーザーが承認を行います。</p>
                 </div>
-              </mat-tab>
+              </mat-tab> -->
 
               <!-- タブ3: 添付書類設定 -->
               <mat-tab label="添付書類設定">
@@ -756,7 +761,7 @@
                   <mat-form-field appearance="outline" class="full-width">
                     <mat-label>申請種別</mat-label>
                     <mat-select [(ngModel)]="selectedAttachmentApplicationTypeId" [ngModelOptions]="{standalone: true}" (selectionChange)="selectAttachmentApplicationType($event.value)">
-                      <mat-option *ngFor="let type of applicationTypes" [value]="type.id">
+                      <mat-option *ngFor="let type of getFilteredApplicationTypesForAttachment()" [value]="type.id">
                         {{ type.name }}（{{ type.category === 'internal' ? '内部' : '外部' }}）
                       </mat-option>
                     </mat-select>
@@ -916,13 +921,18 @@
                   <span class="label">法人番号:</span>
                   <span class="value">{{ getStepSummary().step1.corporateNumber }}</span>
                 </div>
-                <div class="summary-item">
+                <!-- 事業所番号は表示不要 -->
+                <!-- <div class="summary-item">
                   <span class="label">事業所番号:</span>
                   <span class="value">{{ getStepSummary().step1.officeNumber }}</span>
-                </div>
+                </div> -->
                 <div class="summary-item">
                   <span class="label">住所:</span>
                   <span class="value">{{ getStepSummary().step1.address }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="label">事業主氏名:</span>
+                  <span class="value">{{ getStepSummary().step1.ownerName }}</span>
                 </div>
                 <div class="summary-item">
                   <span class="label">電話番号:</span>
@@ -984,10 +994,6 @@
                   <span class="value">{{ getStepSummary().step3.healthInsuranceOfficeSymbol }}</span>
                 </div>
                 <div class="summary-item">
-                  <span class="label">端数処理方式:</span>
-                  <span class="value">{{ getStepSummary().step3.healthInsuranceRoundingMethod }}</span>
-                </div>
-                <div class="summary-item">
                   <span class="label">保険証の形式:</span>
                   <span class="value">{{ getStepSummary().step3.healthInsuranceCardFormat }}</span>
                 </div>
@@ -998,10 +1004,6 @@
                   <span class="value">{{ getStepSummary().step3.pensionInsuranceOfficeNumber }}</span>
                 </div>
                 <div class="summary-item">
-                  <span class="label">端数処理方式:</span>
-                  <span class="value">{{ getStepSummary().step3.pensionInsuranceRoundingMethod }}</span>
-                </div>
-                <div class="summary-item">
                   <span class="label">適用事業所区分:</span>
                   <span class="value">{{ getStepSummary().step3.pensionInsuranceBusinessCategory }}</span>
                 </div>
@@ -1010,16 +1012,6 @@
                 <div class="summary-item">
                   <span class="label">介護保険該当事業所:</span>
                   <span class="value">{{ getStepSummary().step3.careInsuranceTargetOffice }}</span>
-                </div>
-                
-                <h4>雇用保険</h4>
-                <div class="summary-item">
-                  <span class="label">事業所番号:</span>
-                  <span class="value">{{ getStepSummary().step3.employmentInsuranceOfficeNumber }}</span>
-                </div>
-                <div class="summary-item">
-                  <span class="label">労働保険番号:</span>
-                  <span class="value">{{ getStepSummary().step3.employmentInsuranceLaborNumber }}</span>
                 </div>
               </mat-card-content>
             </mat-card>

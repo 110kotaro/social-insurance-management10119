@@ -124,8 +124,10 @@ export class ApplicationDetailComponent implements OnInit {
         return;
       }
 
-      // 社員情報を読み込む
+      // 社員情報を読み込む（employeeIdがある場合のみ）
+      if (this.application.employeeId) {
       this.employee = await this.employeeService.getEmployee(this.application.employeeId);
+      }
       
       // 組織情報を読み込む
       this.organization = await this.organizationService.getOrganization(this.application.organizationId);
@@ -199,12 +201,179 @@ export class ApplicationDetailComponent implements OnInit {
   }
 
   /**
+   * 申請者名を取得（申請一覧と同じロジック）
+   */
+  getApplicantName(): string {
+    if (this.application?.employeeId) {
+      return this.employee ? `${this.employee.lastName} ${this.employee.firstName}` : '不明';
+    } else {
+      // employeeIdがundefinedの場合は会社名（オーナーアカウント）を表示
+      return this.organization?.name || '不明';
+    }
+  }
+
+  /**
    * 日付をフォーマット
    */
   formatDate(date: Date | Timestamp | undefined | null): string {
     if (!date) return '-';
     const d = date instanceof Date ? date : (date instanceof Timestamp ? date.toDate() : new Date(date));
     return d.toLocaleDateString('ja-JP');
+  }
+
+  /**
+   * 申請の期限を取得（各被保険者ごとまたは申請全体）
+   */
+  getApplicationDeadlines(): Array<{ label: string; deadline: Date; isOverdue: boolean; isWithinFiveDays: boolean }> {
+    const deadlines: Array<{ label: string; deadline: Date; isOverdue: boolean; isWithinFiveDays: boolean }> = [];
+    const now = new Date();
+    const fiveDaysLater = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+
+    if (!this.application?.data) {
+      // 申請全体の期限
+      if (this.application?.deadline) {
+        const deadline = this.application.deadline instanceof Date 
+          ? this.application.deadline 
+          : (this.application.deadline instanceof Timestamp 
+            ? this.application.deadline.toDate() 
+            : new Date(this.application.deadline));
+        deadlines.push({
+          label: '申請期限',
+          deadline,
+          isOverdue: deadline < now,
+          isWithinFiveDays: deadline <= fiveDaysLater && deadline >= now
+        });
+      }
+      return deadlines;
+    }
+
+    const data = this.application.data;
+    
+    // 資格取得届・資格喪失届・賞与支払届：各被保険者ごとの期限
+    if (data['insuredPersons'] && Array.isArray(data['insuredPersons'])) {
+      data['insuredPersons'].forEach((person: any, index: number) => {
+        if (!person.deadline) return;
+        
+        const deadline = person.deadline instanceof Date 
+          ? person.deadline 
+          : (person.deadline instanceof Timestamp 
+            ? person.deadline.toDate() 
+            : (person.deadline as any).toDate 
+              ? (person.deadline as any).toDate() 
+              : new Date(person.deadline));
+        
+        const personName = person.lastName && person.firstName 
+          ? `${person.lastName} ${person.firstName}` 
+          : `被保険者 ${index + 1}`;
+        
+        deadlines.push({
+          label: `${personName}の期限`,
+          deadline,
+          isOverdue: deadline < now,
+          isWithinFiveDays: deadline <= fiveDaysLater && deadline >= now
+        });
+      });
+    }
+    // 被扶養者異動届など：申請全体の期限
+    else if (this.application.deadline) {
+      const deadline = this.application.deadline instanceof Date 
+        ? this.application.deadline 
+        : (this.application.deadline instanceof Timestamp 
+          ? this.application.deadline.toDate() 
+          : new Date(this.application.deadline));
+      deadlines.push({
+        label: '申請期限',
+        deadline,
+        isOverdue: deadline < now,
+        isWithinFiveDays: deadline <= fiveDaysLater && deadline >= now
+      });
+    }
+
+    return deadlines;
+  }
+
+  /**
+   * 期限ステータスの色を取得
+   */
+  getDeadlineStatusColor(deadline: Date): string {
+    const now = new Date();
+    const fiveDaysLater = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+    
+    if (deadline < now) {
+      return 'warn'; // 期限超過：赤
+    } else if (deadline <= fiveDaysLater) {
+      return 'accent'; // 5日以内：オレンジ
+    }
+    return 'primary'; // 通常：青
+  }
+
+  /**
+   * 期限ステータスのアイコンを取得
+   */
+  getDeadlineStatusIcon(deadline: Date): string {
+    const now = new Date();
+    const fiveDaysLater = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+    
+    if (deadline < now) {
+      return 'error'; // 期限超過
+    } else if (deadline <= fiveDaysLater) {
+      return 'warning'; // 5日以内
+    }
+    return 'schedule'; // 通常
+  }
+
+  /**
+   * 期限アイテムの期限ステータス色を取得
+   */
+  getDeadlineStatusColorForItem(value: string | FormattedSection[]): string {
+    if (!value || typeof value !== 'string' || value === '-') return '';
+    try {
+      const deadline = new Date(value);
+      return this.getDeadlineStatusColor(deadline);
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * 期限アイテムの期限ステータスアイコンを取得
+   */
+  getDeadlineStatusIconForItem(value: string | FormattedSection[]): string {
+    if (!value || typeof value !== 'string' || value === '-') return 'schedule';
+    try {
+      const deadline = new Date(value);
+      return this.getDeadlineStatusIcon(deadline);
+    } catch {
+      return 'schedule';
+    }
+  }
+
+  /**
+   * 期限が超過しているか判定
+   */
+  isDeadlineOverdue(value: string | FormattedSection[]): boolean {
+    if (!value || typeof value !== 'string' || value === '-') return false;
+    try {
+      const deadline = new Date(value);
+      return deadline < new Date();
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 期限が5日以内か判定
+   */
+  isDeadlineWithinFiveDays(value: string | FormattedSection[]): boolean {
+    if (!value || typeof value !== 'string' || value === '-') return false;
+    try {
+      const deadline = new Date(value);
+      const now = new Date();
+      const fiveDaysLater = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+      return deadline <= fiveDaysLater && deadline >= now;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -321,6 +490,17 @@ export class ApplicationDetailComponent implements OnInit {
         } else {
           personItems.push({ label: '取得年月日', value: this.formatDateValue(person.acquisitionDate), isEmpty: !person.acquisitionDate });
         }
+        
+        // 期限を表示
+        if (person.deadline) {
+          const deadline = person.deadline instanceof Date 
+            ? person.deadline 
+            : (person.deadline as any).toDate 
+              ? (person.deadline as any).toDate() 
+              : new Date(person.deadline);
+          personItems.push({ label: '期限', value: this.formatDateValue(deadline), isEmpty: false });
+        }
+        
         personItems.push({ label: '被扶養者数', value: person.dependents?.toString() || '', isEmpty: person.dependents === null || person.dependents === undefined });
         
         if (person.remuneration) {
@@ -587,6 +767,19 @@ export class ApplicationDetailComponent implements OnInit {
       sections.push({
         title: '申告',
         items: [{ label: '申告内容', value: data['declaration'].declarationText || '', isEmpty: !data['declaration'].declarationText }]
+      });
+    }
+
+    // 期限を追加（申請全体の期限がある場合）
+    if (this.application?.deadline) {
+      const deadline = this.application.deadline instanceof Date 
+        ? this.application.deadline 
+        : (this.application.deadline instanceof Timestamp 
+          ? this.application.deadline.toDate() 
+          : new Date(this.application.deadline));
+      sections.push({
+        title: '期限情報',
+        items: [{ label: '申請期限', value: this.formatDateValue(deadline), isEmpty: false }]
       });
     }
 
@@ -916,14 +1109,24 @@ export class ApplicationDetailComponent implements OnInit {
       });
     }
 
-    if (data['bonusPaymentPersons'] && Array.isArray(data['bonusPaymentPersons'])) {
-      data['bonusPaymentPersons'].forEach((person: any, index: number) => {
+    if (data['insuredPersons'] && Array.isArray(data['insuredPersons'])) {
+      data['insuredPersons'].forEach((person: any, index: number) => {
         const personItems: FormattedItem[] = [];
         
         personItems.push({ label: '被保険者整理番号', value: person.insuranceNumber || '', isEmpty: !person.insuranceNumber });
         personItems.push({ label: '氏名', value: `${person.lastName || ''} ${person.firstName || ''}`.trim() || '', isEmpty: !person.lastName && !person.firstName });
         personItems.push({ label: '生年月日', value: this.formatEraDateForReward(person.birthDate), isEmpty: !person.birthDate });
         personItems.push({ label: '賞与支払年月日', value: this.formatDateValue(person.bonusPaymentDate), isEmpty: !person.bonusPaymentDate });
+        
+        // 期限を表示
+        if (person.deadline) {
+          const deadline = person.deadline instanceof Date 
+            ? person.deadline 
+            : (person.deadline as any).toDate 
+              ? (person.deadline as any).toDate() 
+              : new Date(person.deadline);
+          personItems.push({ label: '期限', value: this.formatDateValue(deadline), isEmpty: false });
+        }
         
         if (person.bonusAmount) {
           personItems.push({ label: '賞与額（通貨）', value: person.bonusAmount.currency ? `${person.bonusAmount.currency.toLocaleString()}円` : '', isEmpty: !person.bonusAmount.currency });
@@ -2173,7 +2376,8 @@ export class ApplicationDetailComponent implements OnInit {
         const app = await this.applicationService.getApplication(appId);
         if (app) {
           this.relatedApplications.set(appId, app);
-          // 社員情報も読み込む
+          // 社員情報も読み込む（employeeIdがある場合のみ）
+          if (app.employeeId) {
           try {
             const emp = await this.employeeService.getEmployee(app.employeeId);
             if (emp) {
@@ -2181,6 +2385,7 @@ export class ApplicationDetailComponent implements OnInit {
             }
           } catch (error) {
             console.error(`関連申請 ${appId} の社員情報の読み込みに失敗しました:`, error);
+            }
           }
         }
       } catch (error) {

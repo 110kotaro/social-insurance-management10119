@@ -125,11 +125,13 @@ export class NotificationDetailComponent implements OnInit {
         try {
           this.application = await this.applicationService.getApplication(applicationId);
           if (this.application) {
-            // 社員情報を読み込む
+            // 社員情報を読み込む（employeeIdがある場合のみ）
+            if (this.application.employeeId) {
             try {
               this.employee = await this.employeeService.getEmployee(this.application.employeeId);
             } catch (error) {
               console.error('社員情報の読み込みに失敗しました:', error);
+              }
             }
           }
         } catch (error) {

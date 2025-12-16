@@ -17,6 +17,29 @@ export const authGuard: CanActivateFn = (
   // まず現在のユーザーを同期的に取得
   const currentUser = authService.getCurrentUser();
   if (currentUser && currentUser.isActive) {
+    // メール認証が必要なルート（組織作成画面など）では、メール認証済みかチェック
+    if (state.url.includes('/organization/create') || state.url.includes('/setup')) {
+      if (!currentUser.emailVerified) {
+        router.navigate(['/email-verification']);
+        return of(false);
+      }
+    }
+    // メール認証未完了かつ組織未作成の場合は、メール認証画面にリダイレクト
+    // 社員はorganizationIdが既に設定されているため、このチェックをスキップされる
+    if (!currentUser.emailVerified && !currentUser.organizationId) {
+      // email-verification画面へのアクセスは許可（無限ループを防ぐ）
+      if (!state.url.includes('/email-verification')) {
+        router.navigate(['/email-verification']);
+        return of(false);
+      }
+    }
+    // ダッシュボードへのアクセス時もメール認証チェック（初回アカウント作成時の問題を防ぐ）
+    if (state.url.includes('/dashboard')) {
+      if (!currentUser.emailVerified && !currentUser.organizationId) {
+        router.navigate(['/email-verification']);
+        return of(false);
+      }
+    }
     // 既にユーザーが存在する場合は即座に許可（キャンセル操作後の問題を解決）
     return of(true);
   }
@@ -28,6 +51,29 @@ export const authGuard: CanActivateFn = (
     timeout(1000), // 1秒でタイムアウト（リロード時の問題は置いておく）
     map(user => {
       if (user && user.isActive) {
+        // メール認証が必要なルート（組織作成画面など）では、メール認証済みかチェック
+        if (state.url.includes('/organization/create') || state.url.includes('/setup')) {
+          if (!user.emailVerified) {
+            router.navigate(['/email-verification']);
+            return false;
+          }
+        }
+        // メール認証未完了かつ組織未作成の場合は、メール認証画面にリダイレクト
+        // 社員はorganizationIdが既に設定されているため、このチェックをスキップされる
+        if (!user.emailVerified && !user.organizationId) {
+          // email-verification画面へのアクセスは許可（無限ループを防ぐ）
+          if (!state.url.includes('/email-verification')) {
+            router.navigate(['/email-verification']);
+            return false;
+          }
+        }
+        // ダッシュボードへのアクセス時もメール認証チェック（初回アカウント作成時の問題を防ぐ）
+        if (state.url.includes('/dashboard')) {
+          if (!user.emailVerified && !user.organizationId) {
+            router.navigate(['/email-verification']);
+            return false;
+          }
+        }
         return true;
       } else {
         router.navigate(['/login'], { queryParams: { returnUrl: state.url } });

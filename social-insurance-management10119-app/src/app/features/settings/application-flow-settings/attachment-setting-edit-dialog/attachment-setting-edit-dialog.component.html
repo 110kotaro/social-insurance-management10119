@@ -8,7 +8,7 @@
     <mat-form-field appearance="outline">
       <mat-label>申請種別</mat-label>
       <mat-select formControlName="applicationTypeId" required [disabled]="isEditMode">
-        <mat-option *ngFor="let type of data.applicationTypes" [value]="type.id">
+        <mat-option *ngFor="let type of getFilteredApplicationTypes()" [value]="type.id">
           {{ type.name }}（{{ type.category === 'internal' ? '内部' : '外部' }}）
         </mat-option>
       </mat-select>

@@ -8,14 +8,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { Storage, ref, uploadBytes, getDownloadURL, deleteObject } from '@angular/fire/storage';
 import { Organization } from '../../../core/models/organization.model';
 import { OrganizationService } from '../../../core/services/organization.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-organization-settings',
@@ -30,7 +27,6 @@ import { environment } from '../../../../environments/environment';
     MatIconModule,
     MatSelectModule,
     MatSnackBarModule,
-    MatProgressBarModule,
     MatTooltipModule,
     MatCheckboxModule
   ],
@@ -44,13 +40,9 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
   private fb = inject(FormBuilder);
   private organizationService = inject(OrganizationService);
   private authService = inject(AuthService);
-  private storage = inject(Storage);
   private snackBar = inject(MatSnackBar);
   
   organizationForm: FormGroup;
-  logoFile: File | null = null;
-  logoPreviewUrl: string | null = null;
-  isUploadingLogo = false;
   isLoading = false;
 
   // 都道府県リスト
@@ -116,87 +108,13 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       street: this.organization.address?.street || '',
       building: this.organization.address?.building || '',
       phoneNumber: this.organization.phoneNumber || '',
+      ownerName: this.organization.ownerName || '', // 事業主氏名（修正17）
       email: this.organization.email || '',
       industry: this.organization.industry || '',
       payrollDate: this.organization.payrollDate || null,
       monthlyCalculationTargetMonthNext: this.organization.monthlyCalculationTargetMonth === 'next',
       leaveInsuranceCollectionMethod: this.organization.leaveInsuranceCollectionMethod || 'postpaid'
     });
-
-    // ロゴのプレビューURLを設定
-    if (this.organization.logoUrl) {
-      this.logoPreviewUrl = this.organization.logoUrl;
-    }
-  }
-
-  onLogoSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      
-      // ファイルタイプのチェック（画像のみ）
-      if (!file.type.startsWith('image/')) {
-        this.snackBar.open('画像ファイルを選択してください', '閉じる', { duration: 3000 });
-        return;
-      }
-
-      // ファイルサイズのチェック（5MB以下）
-      if (file.size > 5 * 1024 * 1024) {
-        this.snackBar.open('ファイルサイズは5MB以下にしてください', '閉じる', { duration: 3000 });
-        return;
-      }
-
-      this.logoFile = file;
-
-      // プレビュー画像を生成
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.logoPreviewUrl = e.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    }
-  }
-
-  async uploadLogo(): Promise<string | null> {
-    if (!this.logoFile || !this.organization?.id) {
-      return null;
-    }
-
-    this.isUploadingLogo = true;
-    try {
-      const currentUser = this.authService.getCurrentUser();
-      if (!currentUser?.organizationId) {
-        throw new Error('組織情報が取得できません');
-      }
-
-      // 古いロゴを削除（存在する場合）
-      if (this.organization.logoUrl) {
-        try {
-          const oldLogoRef = ref(this.storage, this.organization.logoUrl);
-          await deleteObject(oldLogoRef);
-        } catch (error) {
-          // 削除に失敗しても続行（ロゴが存在しない可能性がある）
-          console.warn('古いロゴの削除に失敗しました:', error);
-        }
-      }
-
-      // 新しいロゴをアップロード
-      const fileExtension = this.logoFile.name.split('.').pop();
-      const fileName = `logo_${Date.now()}.${fileExtension}`;
-      const filePath = `${environment.storagePrefix}organizations/${currentUser.organizationId}/logo/${fileName}`;
-      const fileRef = ref(this.storage, filePath);
-      
-      await uploadBytes(fileRef, this.logoFile);
-      const downloadURL = await getDownloadURL(fileRef);
-
-      return downloadURL;
-    } catch (error) {
-      console.error('ロゴのアップロードに失敗しました:', error);
-      this.snackBar.open('ロゴのアップロードに失敗しました', '閉じる', { duration: 3000 });
-      return null;
-    } finally {
-      this.isUploadingLogo = false;
-    }
   }
 
   async saveOrganizationSettings(): Promise<void> {
@@ -210,15 +128,6 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       if (!currentUser?.organizationId) {
         this.snackBar.open('組織情報が取得できません', '閉じる', { duration: 3000 });
         return;
-      }
-
-      // ロゴをアップロード（選択されている場合）
-      let logoUrl = this.organization.logoUrl;
-      if (this.logoFile) {
-        const uploadedLogoUrl = await this.uploadLogo();
-        if (uploadedLogoUrl) {
-          logoUrl = uploadedLogoUrl;
-        }
       }
 
       // 組織情報を更新
@@ -239,7 +148,6 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
         ownerName: formValue.ownerName?.trim() || undefined, // 事業主氏名（修正17）
         email: formValue.email?.trim() || undefined,
         industry: formValue.industry?.trim() || undefined,
-        logoUrl: logoUrl,
         payrollDate: formValue.payrollDate || undefined,
         monthlyCalculationTargetMonth: formValue.monthlyCalculationTargetMonthNext ? 'next' : 'current',
         leaveInsuranceCollectionMethod: formValue.leaveInsuranceCollectionMethod || 'postpaid'
@@ -259,20 +167,12 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       
       // 親コンポーネントに更新を通知
       this.organizationUpdated.emit();
-      
-      // ロゴファイルをリセット
-      this.logoFile = null;
     } catch (error) {
       console.error('組織設定の保存に失敗しました:', error);
       this.snackBar.open('組織設定の保存に失敗しました', '閉じる', { duration: 3000 });
     } finally {
       this.isLoading = false;
     }
-  }
-
-  removeLogo(): void {
-    this.logoFile = null;
-    this.logoPreviewUrl = null;
   }
 }
 

@@ -26,6 +26,7 @@ import { MonthlyCalculation } from '../../../core/models/monthly-calculation.mod
 import { BonusCalculation } from '../../../core/models/bonus-calculation.model';
 import { Employee } from '../../../core/models/employee.model';
 import { Subscription } from 'rxjs';
+import { Timestamp } from '@angular/fire/firestore';
 
 interface SetupTask {
   id: string;
@@ -191,6 +192,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       // ステップ1: 組織情報の詳細入力
       tasks[0].completed = !!(
         this.organization.name &&
+        this.organization.address?.postalCode &&
         this.organization.address?.prefecture &&
         this.organization.address?.city &&
         this.organization.address?.street
@@ -314,15 +316,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       if (this.isAdminMode) {
         // 管理者モード
         console.log('[DEBUG] loadDashboardData - 管理者モードで実行');
-        await Promise.all([
-          this.loadPendingApplications(organizationId),
-          this.loadOverdueApplications(organizationId),
-          this.loadUnconfirmedCalculations(organizationId),
-          this.loadDeadlineAlerts(organizationId),
-          this.loadRecentActivities(organizationId),
-          this.loadMonthlySummary(organizationId),
-          this.loadUnsubmittedApplications(organizationId) // 【修正20】未提出申請を読み込む
-        ]);
+      await Promise.all([
+        this.loadPendingApplications(organizationId),
+        this.loadOverdueApplications(organizationId),
+        this.loadUnconfirmedCalculations(organizationId),
+        this.loadDeadlineAlerts(organizationId),
+        this.loadRecentActivities(organizationId),
+        this.loadMonthlySummary(organizationId),
+        this.loadUnsubmittedApplications(organizationId) // 【修正20】未提出申請を読み込む
+      ]);
       } else {
         // 社員モード
         console.log('[DEBUG] loadDashboardData - 社員モードで実行');
@@ -360,8 +362,71 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * 申請から全期限を取得（各被保険者ごとまたは申請全体）
+   */
+  private getApplicationDeadlines(app: Application): Date[] {
+    const deadlines: Date[] = [];
+    const data = app.data || {};
+    
+    // 資格取得届・資格喪失届・賞与支払届：各被保険者ごとの期限
+    if (data['insuredPersons'] && Array.isArray(data['insuredPersons'])) {
+      for (const person of data['insuredPersons']) {
+        if (!person.deadline) continue;
+        
+        const deadline = person.deadline instanceof Date 
+          ? person.deadline 
+          : (person.deadline instanceof Timestamp 
+            ? person.deadline.toDate() 
+            : (person.deadline as any).toDate 
+              ? (person.deadline as any).toDate() 
+              : new Date(person.deadline));
+        
+        if (deadline && !isNaN(deadline.getTime())) {
+          deadlines.push(deadline);
+        }
+      }
+    }
+    // 報酬月額算定基礎届・報酬月額変更届：rewardBasePersons/rewardChangePersons配列から取得
+    else if ((data['rewardBasePersons'] || data['rewardChangePersons']) && Array.isArray(data['rewardBasePersons'] || data['rewardChangePersons'])) {
+      const persons = data['rewardBasePersons'] || data['rewardChangePersons'];
+      for (const person of persons) {
+        if (!person.deadline) continue;
+        
+        const deadline = person.deadline instanceof Date 
+          ? person.deadline 
+          : (person.deadline instanceof Timestamp 
+            ? person.deadline.toDate() 
+            : (person.deadline as any).toDate 
+              ? (person.deadline as any).toDate() 
+              : new Date(person.deadline));
+        
+        if (deadline && !isNaN(deadline.getTime())) {
+          deadlines.push(deadline);
+        }
+      }
+    }
+    // その他：申請全体の期限を使用
+    else if (app.deadline) {
+      const deadline = app.deadline instanceof Date 
+        ? app.deadline 
+        : (app.deadline instanceof Timestamp 
+          ? app.deadline.toDate() 
+          : (app.deadline as any).toDate 
+            ? (app.deadline as any).toDate() 
+            : new Date(app.deadline));
+      
+      if (deadline && !isNaN(deadline.getTime())) {
+        deadlines.push(deadline);
+      }
+    }
+    
+    return deadlines;
+  }
+
+  /**
    * 期限超過・期限間近の申請を読み込む
    * 【修正20】申請種別ごとに期限超過件数と期限5日以内件数を集計
+   * 各被保険者ごとの期限を考慮
    */
   private async loadOverdueApplications(organizationId: string): Promise<void> {
     try {
@@ -374,13 +439,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       const deadlineAlerts: Application[] = [];
       
       for (const app of applications) {
-        if (!app.deadline) continue;
+        // 申請から全期限を取得（各被保険者ごとまたは申請全体）
+        const deadlines = this.getApplicationDeadlines(app);
         
-        const deadline = app.deadline instanceof Date 
-          ? app.deadline 
-          : (app.deadline as any).toDate ? (app.deadline as any).toDate() : null;
-        
-        if (!deadline) continue;
+        if (deadlines.length === 0) continue;
         
         // 申請ありのものだけをチェック（draft, created, pending）
         if (app.status === 'draft' || app.status === 'created' || app.status === 'pending') {
@@ -391,19 +453,28 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           }
           
           const counts = overdueByType.get(typeId)!;
+          let hasOverdue = false;
+          let hasNearDeadline = false;
           
-          if (deadline < now) {
-            // 期限超過
-            counts.overdueCount++;
-            if (deadlineAlerts.length < 5) {
-              deadlineAlerts.push(app);
+          // 各被保険者の期限をチェック
+          for (const deadline of deadlines) {
+            if (deadline < now) {
+              // 期限超過
+              counts.overdueCount++;
+              hasOverdue = true;
+            } else if (deadline <= fiveDaysLater) {
+              // 期限5日以内
+              counts.nearDeadlineCount++;
+              hasNearDeadline = true;
             }
-          } else if (deadline <= fiveDaysLater) {
-            // 期限5日以内
-            counts.nearDeadlineCount++;
-            if (deadlineAlerts.length < 5) {
-              deadlineAlerts.push(app);
-            }
+          }
+          
+          // 期限アラートに追加（最も早い期限を使用）
+          if ((hasOverdue || hasNearDeadline) && deadlineAlerts.length < 5) {
+            const earliestDeadline = deadlines.sort((a, b) => a.getTime() - b.getTime())[0];
+            // 期限情報を一時的にapplication.deadlineに設定して表示用に使用
+            const alertApp = { ...app, deadline: earliestDeadline };
+            deadlineAlerts.push(alertApp);
           }
         }
       }
@@ -460,7 +531,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       const unsubmittedByType = new Map<string, { typeId: string; typeName: string; count: number }>();
       
       for (const app of applications) {
-        // 未提出の状態のみをチェック
+        // 管理者モードの場合、内部申請のdraft/created状態は除外（申請一覧と同じロジック）
+        // 送信前の申請は管理者には見せない
+        if (app.category === 'internal' && (app.status === 'draft' || app.status === 'created')) {
+          continue;
+        }
+        
+        // 未提出の状態のみをチェック（returnedは含める）
         if (app.status === 'draft' || app.status === 'created' || app.status === 'returned') {
           const applicationType = applicationTypes.find(type => type.id === app.type);
           if (applicationType) {
@@ -518,6 +595,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   /**
    * 期限アラートを読み込む
+   * 各被保険者ごとの期限を考慮
    */
   private async loadDeadlineAlerts(organizationId: string): Promise<void> {
     try {
@@ -529,19 +607,22 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       const insuranceAcquisitionApps: Application[] = [];
       
       for (const app of applications) {
-        if (!app.deadline) continue;
         if (app.type !== 'INSURANCE_ACQUISITION') continue;
         
-        const deadline = app.deadline instanceof Date 
-          ? app.deadline 
-          : (app.deadline as any).toDate ? (app.deadline as any).toDate() : null;
+        // 申請から全期限を取得（各被保険者ごとまたは申請全体）
+        const deadlines = this.getApplicationDeadlines(app);
         
-        if (!deadline) continue;
+        if (deadlines.length === 0) continue;
+        
+        // 最も早い期限を取得
+        const earliestDeadline = deadlines.sort((a, b) => a.getTime() - b.getTime())[0];
         
         // 7日以内の期限
-        if (deadline <= sevenDaysLater && deadline >= now &&
+        if (earliestDeadline <= sevenDaysLater && earliestDeadline >= now &&
             (app.status === 'pending' || app.status === 'pending_received' || app.status === 'pending_not_received')) {
-          insuranceAcquisitionApps.push(app);
+          // 期限情報を一時的にapplication.deadlineに設定して表示用に使用
+          const alertApp = { ...app, deadline: earliestDeadline };
+          insuranceAcquisitionApps.push(alertApp);
         }
       }
       
@@ -641,7 +722,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       const employeesMap = new Map<string, Employee>();
       
       // 申請に含まれるすべての社員IDを収集
-      const employeeIds = [...new Set(applications.map(app => app.employeeId))];
+      const employeeIds = [...new Set(applications.map(app => app.employeeId).filter((id): id is string => id !== undefined))];
       
       // 社員情報を一括取得してマップに格納
       for (const employeeId of employeeIds) {
@@ -657,7 +738,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       
       for (const app of applications) {
         if (app.history && app.history.length > 0) {
-          const employee = employeesMap.get(app.employeeId);
+          const employee = app.employeeId ? employeesMap.get(app.employeeId) : undefined;
           const employeeName = employee ? `${employee.lastName} ${employee.firstName}` : '不明';
           const applicationTypeName = this.getApplicationTypeLabel(app.type);
           

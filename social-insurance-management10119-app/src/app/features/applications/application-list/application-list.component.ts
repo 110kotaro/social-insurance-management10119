@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
+import { Timestamp } from '@angular/fire/firestore';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatCardModule } from '@angular/material/card';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
@@ -65,7 +66,8 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
   filteredApplications: Application[] = [];
   employees: Employee[] = [];
   organization: Organization | null = null;
-  displayedColumns: string[] = ['type', 'employee', 'category', 'status', 'createdAt', 'deadline', 'actions'];
+  applicationDeadlineStatuses: Map<string, string> = new Map(); // 申請ID -> 期限ステータスのマップ
+  displayedColumns: string[] = ['type', 'applicant', 'targetEmployees', 'category', 'status', 'createdAt', 'deadlineStatus', 'actions'];
   dataSource = new MatTableDataSource<Application>([]);
   applicationDeadlines: Map<string, Date | null> = new Map(); // 申請ID -> 期限のマップ
   
@@ -327,11 +329,186 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * 社員名を取得
+   * 申請者名を取得
+   */
+  getApplicantName(application: Application): string {
+    if (application.employeeId) {
+      const employee = this.employees.find(e => e.id === application.employeeId);
+      return employee ? `${employee.lastName} ${employee.firstName}` : '不明';
+    } else {
+      // employeeIdがundefinedの場合は会社名（オーナーアカウント）を表示
+      return this.organization?.name || '不明';
+    }
+  }
+
+  /**
+   * 社員名を取得（旧メソッド、後方互換性のため残す）
    */
   getEmployeeName(employeeId: string): string {
     const employee = this.employees.find(e => e.id === employeeId);
     return employee ? `${employee.lastName} ${employee.firstName}` : '不明';
+  }
+
+  /**
+   * 対象社員の表示名を取得
+   */
+  getTargetEmployeesDisplay(application: Application): string {
+    const targetEmployees: string[] = [];
+
+    // 申請種別に応じて対象社員を抽出
+    const data = application.data || {};
+    
+    // 資格取得届・資格喪失届・賞与支払届：insuredPersons配列から取得
+    if (data['insuredPersons'] && Array.isArray(data['insuredPersons'])) {
+      for (const person of data['insuredPersons']) {
+        if (person.employeeId) {
+          const employee = this.employees.find(e => e.id === person.employeeId);
+          if (employee) {
+            targetEmployees.push(`${employee.lastName} ${employee.firstName}`);
+          }
+        } else if (person.lastName || person.firstName) {
+          // 手入力の場合：氏名を使用
+          const name = `${person.lastName || ''} ${person.firstName || ''}`.trim();
+          if (name) {
+            targetEmployees.push(name);
+          }
+        }
+      }
+    }
+    // 報酬月額算定基礎届：rewardBasePersons配列から取得
+    else if (data['rewardBasePersons'] && Array.isArray(data['rewardBasePersons'])) {
+      for (const person of data['rewardBasePersons']) {
+        if (person.employeeId) {
+          const employee = this.employees.find(e => e.id === person.employeeId);
+          if (employee) {
+            targetEmployees.push(`${employee.lastName} ${employee.firstName}`);
+          }
+        } else if (person.name) {
+          targetEmployees.push(person.name);
+        }
+      }
+    }
+    // 報酬月額変更届：rewardChangePersons配列から取得
+    else if (data['rewardChangePersons'] && Array.isArray(data['rewardChangePersons'])) {
+      for (const person of data['rewardChangePersons']) {
+        if (person.employeeId) {
+          const employee = this.employees.find(e => e.id === person.employeeId);
+          if (employee) {
+            targetEmployees.push(`${employee.lastName} ${employee.firstName}`);
+          }
+        } else if (person.name) {
+          targetEmployees.push(person.name);
+        }
+      }
+    }
+    // その他：application.employeeIdを使用
+    else if (application.employeeId) {
+      const employee = this.employees.find(e => e.id === application.employeeId);
+      if (employee) {
+        targetEmployees.push(`${employee.lastName} ${employee.firstName}`);
+      }
+    }
+
+    // 表示形式を決定
+    if (targetEmployees.length === 0) {
+      return '-';
+    } else if (targetEmployees.length === 1) {
+      return targetEmployees[0];
+    } else if (targetEmployees.length === 2) {
+      return `${targetEmployees[0]}、${targetEmployees[1]}`;
+    } else {
+      return `${targetEmployees[0]}　他${targetEmployees.length - 1}名`;
+    }
+  }
+
+  /**
+   * 期限ステータスを取得
+   */
+  getDeadlineStatus(application: Application): string {
+    const now = new Date();
+    const fiveDaysLater = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+    
+    let overdueCount = 0;
+    let withinFiveDaysCount = 0;
+
+    // 申請種別に応じて各被保険者の期限を取得
+    const data = application.data || {};
+    
+    // 資格取得届・資格喪失届・賞与支払届：insuredPersons配列から取得
+    if (data['insuredPersons'] && Array.isArray(data['insuredPersons'])) {
+      for (const person of data['insuredPersons']) {
+        if (!person.deadline) {
+          continue;
+        }
+
+        const deadline = person.deadline instanceof Date 
+          ? person.deadline 
+          : (person.deadline as any).toDate 
+            ? (person.deadline as any).toDate() 
+            : new Date(person.deadline);
+
+        if (deadline < now) {
+          overdueCount++;
+        } else if (deadline <= fiveDaysLater) {
+          withinFiveDaysCount++;
+        }
+      }
+    }
+    // 報酬月額算定基礎届・報酬月額変更届：rewardBasePersons/rewardChangePersons配列から取得
+    else if ((data['rewardBasePersons'] || data['rewardChangePersons']) && Array.isArray(data['rewardBasePersons'] || data['rewardChangePersons'])) {
+      const persons = data['rewardBasePersons'] || data['rewardChangePersons'];
+      for (const person of persons) {
+        if (!person.deadline) {
+          continue;
+        }
+
+        const deadline = person.deadline instanceof Date 
+          ? person.deadline 
+          : (person.deadline as any).toDate 
+            ? (person.deadline as any).toDate() 
+            : new Date(person.deadline);
+
+        if (deadline < now) {
+          overdueCount++;
+        } else if (deadline <= fiveDaysLater) {
+          withinFiveDaysCount++;
+        }
+      }
+    }
+    // その他：申請全体の期限を使用（既存の動作を維持）
+    else if (application.deadline) {
+      let deadline: Date | null = null;
+      if (application.deadline instanceof Date) {
+        deadline = application.deadline;
+      } else if (application.deadline instanceof Timestamp) {
+        deadline = application.deadline.toDate();
+      } else if (application.deadline && typeof (application.deadline as any).toDate === 'function') {
+        deadline = (application.deadline as any).toDate();
+      } else if (application.deadline && typeof (application.deadline as any).seconds === 'number') {
+        deadline = new Date((application.deadline as any).seconds * 1000);
+      } else if (typeof application.deadline === 'string' || typeof application.deadline === 'number') {
+        deadline = new Date(application.deadline);
+      }
+
+      if (deadline) {
+        if (deadline < now) {
+          overdueCount = 1;
+        } else if (deadline <= fiveDaysLater) {
+          withinFiveDaysCount = 1;
+        }
+      }
+    }
+
+    // 期限ステータスを構築
+    const statusParts: string[] = [];
+    if (overdueCount > 0) {
+      statusParts.push(`期限超過：${overdueCount}名`);
+    }
+    if (withinFiveDaysCount > 0) {
+      statusParts.push(`5日以内：${withinFiveDaysCount}名`);
+    }
+
+    return statusParts.length > 0 ? statusParts.join('、') : '-';
   }
 
   /**
@@ -418,6 +595,7 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
     });
 
     this.applicationDeadlines.clear();
+    this.applicationDeadlineStatuses.clear();
     
     if (!this.organization?.applicationFlowSettings?.applicationTypes) {
       console.log('[ApplicationList] applicationTypes がないため終了');
@@ -451,6 +629,9 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
           deadline: deadline ? deadline.toISOString() : null
         });
         this.applicationDeadlines.set(application.id, deadline);
+        // 期限ステータスを計算
+        const deadlineStatus = this.getDeadlineStatus(application);
+        this.applicationDeadlineStatuses.set(application.id, deadlineStatus);
         continue;
       }
 
@@ -459,31 +640,15 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
           applicationId: application.id,
           applicationTypeCode: applicationType.code
         });
-        // 外部申請：法定期限を計算して表示（法定期限がない場合のみapplication.deadlineを表示）
-        const legalDeadline = await this.deadlineCalculationService.calculateLegalDeadline(application, applicationType);
-        console.log('[ApplicationList] 法定期限計算結果', {
+        // 外部申請：法定期限を計算してdata内に保存（各被保険者ごとに期限を保存）
+        await this.deadlineCalculationService.calculateLegalDeadline(application, applicationType);
+        // 期限ステータスを計算
+        const deadlineStatus = this.getDeadlineStatus(application);
+        this.applicationDeadlineStatuses.set(application.id, deadlineStatus);
+        console.log('[ApplicationList] 期限ステータスを設定', {
           applicationId: application.id,
-          legalDeadline: legalDeadline ? legalDeadline.toISOString() : null,
-          legalDeadlineType: legalDeadline ? 'Date' : 'null',
-          isPast: legalDeadline ? legalDeadline < new Date() : null
+          deadlineStatus: deadlineStatus
         });
-        if (legalDeadline) {
-          this.applicationDeadlines.set(application.id, legalDeadline);
-          console.log('[ApplicationList] 法定期限を設定', {
-            applicationId: application.id,
-            deadline: legalDeadline.toISOString()
-          });
-        } else {
-          // 法定期限がない場合のみapplication.deadlineを表示
-          const deadline = application.deadline 
-            ? (application.deadline instanceof Date ? application.deadline : (application.deadline as any).toDate())
-            : null;
-          console.log('[ApplicationList] 法定期限がないため application.deadline を使用', {
-            applicationId: application.id,
-            deadline: deadline ? deadline.toISOString() : null
-          });
-          this.applicationDeadlines.set(application.id, deadline);
-        }
       } else {
         // 内部申請：application.deadline（管理者設定期限）を表示
         const deadline = application.deadline 
@@ -494,15 +659,15 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
           deadline: deadline ? deadline.toISOString() : null
         });
         this.applicationDeadlines.set(application.id, deadline);
+        // 期限ステータスを計算
+        const deadlineStatus = this.getDeadlineStatus(application);
+        this.applicationDeadlineStatuses.set(application.id, deadlineStatus);
       }
     }
 
     console.log('[ApplicationList] calculateDeadlines 完了', {
       applicationDeadlinesSize: this.applicationDeadlines.size,
-      applicationDeadlines: Array.from(this.applicationDeadlines.entries()).map(([id, date]) => ({
-        id,
-        deadline: date ? date.toISOString() : null
-      }))
+      applicationDeadlineStatusesSize: this.applicationDeadlineStatuses.size
     });
   }
 

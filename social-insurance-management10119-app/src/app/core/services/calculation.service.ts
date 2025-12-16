@@ -1875,7 +1875,7 @@ export class CalculationService {
       periodEndYear = year;
     }
 
-    // 判定期間内の確定済み賞与計算回数をカウント
+    // 判定期間内の確定済み賞与計算回数をカウント（注意書き用）
     let bonusCount = 0;
     for (let y = periodStartYear; y <= periodEndYear; y++) {
       const monthStart = (y === periodStartYear) ? periodStartMonth : 1;
@@ -1894,11 +1894,8 @@ export class CalculationService {
       }
     }
 
-    // 現在の計算を含めて4回以上の場合、エラー
-    if (bonusCount >= 3) { // 現在の計算を含めると4回目以上
-      const currentBonusNumber = bonusCount + 1;
-      throw new Error(`年${currentBonusNumber}回目の賞与です。必要な手続きを行い、月次保険料の再計算をしてください。`);
-    }
+    // 現在の計算を含めて4回以上の場合の注意書き用フラグ
+    const isFourthOrMoreBonus = bonusCount >= 3; // 現在の計算を含めると4回目以上
 
     let standardBonusAmount = bonusData.standardBonusAmount;
     const targetDate = new Date(year, month - 1, 1);
@@ -2265,6 +2262,16 @@ export class CalculationService {
             finalNotes = `休職中未徴収分を追記`;
           }
         }
+      }
+    }
+
+    // 4回以上の賞与の場合の注意書きを追加
+    if (isFourthOrMoreBonus) {
+      const bonusWarning = '来年度に賞与が4回以上給付することが確定している場合は、必要な手続きを行ってください。';
+      if (finalNotes) {
+        finalNotes = `${finalNotes}\n${bonusWarning}`;
+      } else {
+        finalNotes = bonusWarning;
       }
     }
 

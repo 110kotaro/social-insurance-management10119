@@ -48,6 +48,7 @@ export class EmployeeDetailComponent implements OnInit {
 
   employee: Employee | null = null;
   department: Department | null = null;
+  departments: Department[] = []; // 部署一覧（変更履歴表示用）
   isLoading = true;
   isInviting = false;
 
@@ -326,7 +327,25 @@ export class EmployeeDetailComponent implements OnInit {
       'lastName': '氏',
       'firstNameKana': '名カナ',
       'lastNameKana': '氏カナ',
-      'insuranceInfo.standardReward': '標準報酬月額'
+      'email': 'メールアドレス',
+      'departmentId': '部署',
+      'status': 'ステータス',
+      'role': '権限',
+      'joinDate': '入社日',
+      'birthDate': '生年月日',
+      'insuranceInfo': '保険情報',
+      'insuranceInfo.healthInsuranceNumber': '被保険者整理番号（健康保険）',
+      'insuranceInfo.pensionNumber': '被保険者整理番号（厚生年金）',
+      'insuranceInfo.myNumber': 'マイナンバー',
+      'insuranceInfo.averageReward': '申請された平均月額',
+      'insuranceInfo.grade': '健康保険の等級',
+      'insuranceInfo.pensionGrade': '厚生年金の等級',
+      'insuranceInfo.standardReward': '標準報酬月額',
+      'insuranceInfo.insuranceStartDate': '保険適用開始日',
+      'insuranceInfo.gradeAndStandardRewardEffectiveDate': '等級の適用開始日',
+      'otherCompanyInfo': '他社勤務情報',
+      'leaveInfo': '休職情報',
+      'attachments': '添付ファイル'
     };
     return labels[field] || field;
   }
@@ -348,6 +367,120 @@ export class EmployeeDetailComponent implements OnInit {
       return JSON.stringify(value, null, 2);
     }
     return String(value);
+  }
+
+  /**
+   * 変更内容を分かりやすく表示する（変更箇所だけを表示）
+   */
+  formatChangeDisplay(change: { field: string; before: any; after: any }): string {
+    const fieldLabel = this.getFieldLabel(change.field);
+    
+    // 添付ファイルの追加・削除
+    if (change.field === 'attachments') {
+      if (change.before === null && change.after && typeof change.after === 'object' && change.after.action === 'added') {
+        return `添付ファイル「${change.after.fileName}」を追加`;
+      }
+      if (change.after === null && change.before && typeof change.before === 'object' && change.before.action === 'deleted') {
+        return `添付ファイル「${change.before.fileName}」を削除`;
+      }
+    }
+
+    // 日付フィールド
+    if (change.field === 'joinDate' || change.field === 'birthDate' || 
+        change.field === 'insuranceInfo.insuranceStartDate' || 
+        change.field === 'insuranceInfo.gradeAndStandardRewardEffectiveDate') {
+      const beforeDate = this.formatDateValue(change.before);
+      const afterDate = this.formatDateValue(change.after);
+      return `${fieldLabel}: ${beforeDate} → ${afterDate}`;
+    }
+
+    // ステータスフィールド
+    if (change.field === 'status') {
+      const statusLabels: { [key: string]: string } = {
+        'active': '在籍',
+        'leave': '休職',
+        'retired': '退職',
+        'pre_join': '未入社'
+      };
+      const beforeLabel = statusLabels[change.before] || change.before;
+      const afterLabel = statusLabels[change.after] || change.after;
+      return `${fieldLabel}: ${beforeLabel} → ${afterLabel}`;
+    }
+
+    // 権限フィールド
+    if (change.field === 'role') {
+      const roleLabels: { [key: string]: string } = {
+        'admin': '管理者',
+        'employee': '一般社員'
+      };
+      const beforeLabel = roleLabels[change.before] || change.before;
+      const afterLabel = roleLabels[change.after] || change.after;
+      return `${fieldLabel}: ${beforeLabel} → ${afterLabel}`;
+    }
+
+    // 部署ID（部署名に変換）
+    if (change.field === 'departmentId') {
+      const beforeDept = this.departments.find(d => d.id === change.before);
+      const afterDept = this.departments.find(d => d.id === change.after);
+      const beforeName = beforeDept ? beforeDept.name : (change.before || '-');
+      const afterName = afterDept ? afterDept.name : (change.after || '-');
+      return `${fieldLabel}: ${beforeName} → ${afterName}`;
+    }
+
+    // 保険情報の個別フィールド（文字列・数値）
+    if (change.field.startsWith('insuranceInfo.') && 
+        (change.field === 'insuranceInfo.healthInsuranceNumber' ||
+         change.field === 'insuranceInfo.pensionNumber' ||
+         change.field === 'insuranceInfo.myNumber' ||
+         change.field === 'insuranceInfo.averageReward' ||
+         change.field === 'insuranceInfo.grade' ||
+         change.field === 'insuranceInfo.pensionGrade' ||
+         change.field === 'insuranceInfo.standardReward')) {
+      const beforeValue = change.before === null || change.before === undefined ? '-' : String(change.before);
+      const afterValue = change.after === null || change.after === undefined ? '-' : String(change.after);
+      return `${fieldLabel}: ${beforeValue} → ${afterValue}`;
+    }
+
+    // シンプルな文字列・数値フィールド
+    if (typeof change.before === 'string' || typeof change.before === 'number' || 
+        typeof change.after === 'string' || typeof change.after === 'number') {
+      const beforeValue = change.before === null || change.before === undefined ? '-' : String(change.before);
+      const afterValue = change.after === null || change.after === undefined ? '-' : String(change.after);
+      return `${fieldLabel}: ${beforeValue} → ${afterValue}`;
+    }
+
+    // 複雑なオブジェクト（扶養情報、保険情報全体、他社勤務情報、休職情報、住所情報）
+    if (change.field === 'dependentInfo' || change.field === 'insuranceInfo' || 
+        change.field === 'otherCompanyInfo' || change.field === 'leaveInfo' || 
+        change.field === 'address.official') {
+      // 簡易的な差分表示（詳細は後で改善可能）
+      const beforeStr = change.before ? JSON.stringify(change.before) : '-';
+      const afterStr = change.after ? JSON.stringify(change.after) : '-';
+      if (beforeStr === afterStr) {
+        return `${fieldLabel}: 変更なし`;
+      }
+      return `${fieldLabel}を更新`;
+    }
+
+    // その他
+    return `${fieldLabel}: ${this.formatChangeValue(change.before)} → ${this.formatChangeValue(change.after)}`;
+  }
+
+  /**
+   * 日付値をフォーマット
+   */
+  formatDateValue(value: any): string {
+    if (!value) return '-';
+    if (value instanceof Date) {
+      return this.formatDate(value);
+    }
+    if (value?.toDate) {
+      return this.formatDate(value.toDate());
+    }
+    if (typeof value === 'string' || typeof value === 'number') {
+      return this.formatDate(new Date(value));
+    }
+    return '-';
   }
 
   /**

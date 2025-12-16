@@ -394,16 +394,9 @@
                   </mat-expansion-panel-header>
                   <div class="change-history-content">
                     <div *ngFor="let change of history.changes" class="change-item">
-                      <h4>{{ getFieldLabel(change.field) }}</h4>
-                      <div class="change-details">
-                        <div class="change-before">
-                          <strong>変更前:</strong>
-                          <pre>{{ formatChangeValue(change.before) }}</pre>
-                        </div>
-                        <div class="change-after">
-                          <strong>変更後:</strong>
-                          <pre>{{ formatChangeValue(change.after) }}</pre>
-                        </div>
+                      <div class="change-display">
+                        <mat-icon class="change-icon">edit</mat-icon>
+                        <span class="change-text">{{ formatChangeDisplay(change) }}</span>
                       </div>
                     </div>
                   </div>

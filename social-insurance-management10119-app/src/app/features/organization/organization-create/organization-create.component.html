@@ -27,10 +27,21 @@
       <h3>所在地（任意）</h3>
       <div class="form-row">
         <mat-form-field appearance="outline" class="half-width">
+          <mat-label>郵便番号</mat-label>
+          <input matInput formControlName="postalCode" placeholder="123-4567" maxlength="8">
+          <mat-hint>例: 123-4567（ハイフンなしでも可）</mat-hint>
+          <mat-error *ngIf="organizationForm.get('postalCode')?.hasError('pattern')">
+            正しい郵便番号の形式で入力してください（例: 123-4567）
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
           <mat-label>都道府県</mat-label>
           <input matInput formControlName="prefecture" placeholder="東京都">
         </mat-form-field>
+      </div>
 
+      <div class="form-row">
         <mat-form-field appearance="outline" class="half-width">
           <mat-label>市区町村</mat-label>
           <input matInput formControlName="city" placeholder="千代田区">
@@ -39,7 +50,7 @@
 
       <div class="form-row">
         <mat-form-field appearance="outline" class="half-width">
-          <mat-label>番地・建物名</mat-label>
+          <mat-label>町名・番地</mat-label>
           <input matInput formControlName="street" placeholder="1-1-1">
         </mat-form-field>
 

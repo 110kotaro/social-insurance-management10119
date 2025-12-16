@@ -37,6 +37,7 @@ export class OrganizationCreateComponent implements OnInit {
     this.organizationForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       corporateNumber: [''],
+      postalCode: ['', Validators.pattern(/^\d{3}-?\d{4}$/)],
       prefecture: [''],
       city: [''],
       street: [''],
@@ -80,6 +81,7 @@ export class OrganizationCreateComponent implements OnInit {
         name: formValue.name,
         corporateNumber: formValue.corporateNumber?.trim() || undefined,
         address: {
+          postalCode: formValue.postalCode?.trim() || undefined,
           prefecture: formValue.prefecture?.trim() || '',
           city: formValue.city?.trim() || '',
           street: formValue.street?.trim() || '',
