@@ -19,6 +19,7 @@ import { ApplicationService } from '../../../core/services/application.service';
 import { CalculationService } from '../../../core/services/calculation.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { StandardRewardCalculationService } from '../../../core/services/standard-reward-calculation.service';
+import { ModeService } from '../../../core/services/mode.service';
 import { Organization } from '../../../core/models/organization.model';
 import { Application, ApplicationStatus } from '../../../core/models/application.model';
 import { MonthlyCalculation } from '../../../core/models/monthly-calculation.model';
@@ -62,6 +63,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private calculationService = inject(CalculationService);
   private employeeService = inject(EmployeeService);
   private standardRewardCalculationService = inject(StandardRewardCalculationService);
+  private modeService = inject(ModeService);
   private snackBar = inject(MatSnackBar);
   
   currentUser = this.authService.getCurrentUser();
@@ -69,8 +71,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   setupTasks: SetupTask[] = [];
   showSetupGuide = false;
   
+  // モード判定
+  isAdminMode = true;
+  
   // ダッシュボードデータ
   isLoading = false;
+  
+  // 【修正21】社員用ダッシュボードデータ
+  myApplicationsByType: Array<{
+    typeId: string;
+    typeName: string;
+    statuses: Array<{ status: ApplicationStatus; statusLabel: string; count: number; applications: Application[] }>;
+  }> = [];
+  internalApplicationTypes: Array<{ id: string; name: string; code: string }> = [];
   
   // 必須①：要対応サマリー
   pendingInternalApplicationsCount = 0;
@@ -93,11 +106,28 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   
   private subscriptions = new Subscription();
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
+    // モードを取得
+    this.isAdminMode = this.modeService.getIsAdminMode();
+    
+    // モード変更を監視
+    const modeSub = this.modeService.isAdminMode$.subscribe(async (isAdminMode) => {
+      this.isAdminMode = isAdminMode;
+      // モード変更時にデータを再読み込み
+      const currentUser = this.authService.getCurrentUser();
+      if (currentUser?.organizationId) {
+        // 組織情報を再読み込みしてからダッシュボードデータを読み込む
+        await this.loadOrganization(currentUser.organizationId);
+        this.loadDashboardData(currentUser.organizationId);
+      }
+    });
+    this.subscriptions.add(modeSub);
+    
     // 組織情報を取得
     const currentUser = this.authService.getCurrentUser();
     if (currentUser?.organizationId) {
-      this.loadOrganization(currentUser.organizationId);
+      // 【修正21】組織情報の読み込み完了を待ってからダッシュボードデータを読み込む
+      await this.loadOrganization(currentUser.organizationId);
       // 【修正20】通知機能を削除するためコメントアウト
       // リマインダーをチェック（バックグラウンドで実行、エラーは無視）
       // this.checkReminders(currentUser.organizationId).catch(error => {
@@ -273,21 +303,39 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
    * ダッシュボードデータを読み込む
    */
   private async loadDashboardData(organizationId: string): Promise<void> {
+    console.log('[DEBUG] loadDashboardData called', { 
+      organizationId, 
+      isAdminMode: this.isAdminMode,
+      hasOrganization: !!this.organization,
+      organizationIdMatch: this.organization?.id === organizationId
+    });
     this.isLoading = true;
     try {
-      await Promise.all([
-        this.loadPendingApplications(organizationId),
-        this.loadOverdueApplications(organizationId),
-        this.loadUnconfirmedCalculations(organizationId),
-        this.loadDeadlineAlerts(organizationId),
-        this.loadRecentActivities(organizationId),
-        this.loadMonthlySummary(organizationId),
-        this.loadUnsubmittedApplications(organizationId) // 【修正20】未提出申請を読み込む
-      ]);
+      if (this.isAdminMode) {
+        // 管理者モード
+        console.log('[DEBUG] loadDashboardData - 管理者モードで実行');
+        await Promise.all([
+          this.loadPendingApplications(organizationId),
+          this.loadOverdueApplications(organizationId),
+          this.loadUnconfirmedCalculations(organizationId),
+          this.loadDeadlineAlerts(organizationId),
+          this.loadRecentActivities(organizationId),
+          this.loadMonthlySummary(organizationId),
+          this.loadUnsubmittedApplications(organizationId) // 【修正20】未提出申請を読み込む
+        ]);
+      } else {
+        // 社員モード
+        console.log('[DEBUG] loadDashboardData - 社員モードで実行');
+        await Promise.all([
+          this.loadMyApplications(organizationId),
+          this.loadInternalApplicationTypes(organizationId)
+        ]);
+      }
     } catch (error) {
       console.error('ダッシュボードデータの読み込みに失敗しました:', error);
     } finally {
       this.isLoading = false;
+      console.log('[DEBUG] loadDashboardData completed');
     }
   }
 
@@ -826,6 +874,238 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       'application_status_change': 'description'
     };
     return icons[type] || 'info';
+  }
+
+  /**
+   * 【修正21】自分の申請状況を読み込む（社員モード用）
+   */
+  private async loadMyApplications(organizationId: string): Promise<void> {
+    console.log('[DEBUG] loadMyApplications called', { organizationId });
+    try {
+      const currentUser = this.authService.getCurrentUser();
+      console.log('[DEBUG] loadMyApplications - currentUser', { 
+        hasEmployeeId: !!currentUser?.employeeId,
+        employeeId: currentUser?.employeeId 
+      });
+      if (!currentUser?.employeeId) {
+        console.log('[DEBUG] loadMyApplications - employeeIdがないため終了');
+        this.myApplicationsByType = [];
+        return;
+      }
+
+      // 自分の内部申請を取得
+      const applications = await this.applicationService.getApplicationsByOrganization(organizationId, {
+        employeeId: currentUser.employeeId,
+        category: 'internal'
+      });
+
+      // 申請種別ごとにグループ化
+      const applicationsByType = new Map<string, Application[]>();
+      for (const app of applications) {
+        const typeId = app.type;
+        if (!applicationsByType.has(typeId)) {
+          applicationsByType.set(typeId, []);
+        }
+        applicationsByType.get(typeId)!.push(app);
+      }
+
+      // 申請種別ごとにステータス別に集計
+      const result: Array<{
+        typeId: string;
+        typeName: string;
+        statuses: Array<{ status: ApplicationStatus; statusLabel: string; count: number; applications: Application[] }>;
+      }> = [];
+
+      for (const [typeId, apps] of applicationsByType.entries()) {
+        // 申請種別名を取得
+        const typeName = this.getApplicationTypeLabel(typeId);
+
+        // ステータス別に集計
+        const statusMap = new Map<ApplicationStatus, Application[]>();
+        for (const app of apps) {
+          if (!statusMap.has(app.status)) {
+            statusMap.set(app.status, []);
+          }
+          statusMap.get(app.status)!.push(app);
+        }
+
+        // ステータス配列を作成（日付順でソート、直近5件まで）
+        const statuses: Array<{ status: ApplicationStatus; statusLabel: string; count: number; applications: Application[] }> = [];
+        for (const [status, statusApps] of statusMap.entries()) {
+          // 日付でソート（新しい順）
+          const sortedApps = statusApps.sort((a, b) => {
+            const dateA = a.createdAt instanceof Date ? a.createdAt : (a.createdAt as any).toDate ? (a.createdAt as any).toDate() : new Date(0);
+            const dateB = b.createdAt instanceof Date ? b.createdAt : (b.createdAt as any).toDate ? (b.createdAt as any).toDate() : new Date(0);
+            return dateB.getTime() - dateA.getTime();
+          });
+
+          statuses.push({
+            status,
+            statusLabel: this.getStatusLabel(status),
+            count: statusApps.length,
+            applications: sortedApps.slice(0, 5) // 直近5件まで
+          });
+        }
+
+        // ステータスでソート（draft, created, pending, approved, rejected, returned, withdrawnの順）
+        const statusOrder: ApplicationStatus[] = ['draft', 'created', 'pending', 'pending_received', 'pending_not_received', 'approved', 'rejected', 'returned', 'withdrawn'];
+        statuses.sort((a, b) => {
+          const indexA = statusOrder.indexOf(a.status);
+          const indexB = statusOrder.indexOf(b.status);
+          return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+        });
+
+        result.push({
+          typeId,
+          typeName,
+          statuses
+        });
+      }
+
+      // 申請種別でソート（設定順序に従う）
+      if (this.organization?.applicationFlowSettings?.applicationTypes) {
+        const typeOrder = this.organization.applicationFlowSettings.applicationTypes.map(t => t.id);
+        result.sort((a, b) => {
+          const indexA = typeOrder.indexOf(a.typeId);
+          const indexB = typeOrder.indexOf(b.typeId);
+          return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+        });
+      }
+
+      // 直近5件までに制限（申請種別×ステータスの組み合わせで最大5件）
+      const limitedResult: typeof result = [];
+      let totalCount = 0;
+      for (const typeData of result) {
+        if (totalCount >= 5) break;
+        
+        const limitedStatuses: typeof typeData.statuses = [];
+        for (const statusData of typeData.statuses) {
+          if (totalCount >= 5) break;
+          limitedStatuses.push(statusData);
+          totalCount++;
+        }
+        
+        if (limitedStatuses.length > 0) {
+          limitedResult.push({
+            ...typeData,
+            statuses: limitedStatuses
+          });
+        }
+      }
+
+      this.myApplicationsByType = limitedResult;
+      console.log('[DEBUG] loadMyApplications completed', { 
+        resultCount: limitedResult.length,
+        myApplicationsByType: this.myApplicationsByType 
+      });
+    } catch (error) {
+      console.error('自分の申請状況の読み込みに失敗しました:', error);
+      this.myApplicationsByType = [];
+    }
+  }
+
+  /**
+   * 【修正21】内部申請種別を読み込む（社員モード用）
+   */
+  private async loadInternalApplicationTypes(organizationId: string): Promise<void> {
+    console.log('[DEBUG] loadInternalApplicationTypes called', { 
+      organizationId,
+      hasOrganization: !!this.organization,
+      organizationIdMatch: this.organization?.id === organizationId,
+      hasApplicationFlowSettings: !!this.organization?.applicationFlowSettings,
+      applicationTypesCount: this.organization?.applicationFlowSettings?.applicationTypes?.length || 0
+    });
+    
+    try {
+      if (!this.organization?.applicationFlowSettings?.applicationTypes) {
+        console.log('[DEBUG] loadInternalApplicationTypes - organizationまたはapplicationFlowSettingsが存在しない', {
+          organization: this.organization,
+          applicationFlowSettings: this.organization?.applicationFlowSettings,
+          applicationTypes: this.organization?.applicationFlowSettings?.applicationTypes
+        });
+        this.internalApplicationTypes = [];
+        return;
+      }
+
+      const allTypes = this.organization.applicationFlowSettings.applicationTypes;
+      console.log('[DEBUG] loadInternalApplicationTypes - 全申請種別', {
+        allTypesCount: allTypes.length,
+        allTypes: allTypes.map(t => ({ id: t.id, name: t.name, category: t.category, code: t.code }))
+      });
+
+      // 内部申請種別のみをフィルタし、作成可能な3種類のみに絞る
+      const allowedCodes = ['DEPENDENT_CHANGE', 'ADDRESS_CHANGE', 'NAME_CHANGE'];
+      const internalTypes = allTypes.filter(type => 
+        type.category === 'internal' && allowedCodes.includes(type.code || '')
+      );
+      console.log('[DEBUG] loadInternalApplicationTypes - 内部申請種別フィルタ後（作成可能な3種類のみ）', {
+        internalTypesCount: internalTypes.length,
+        internalTypes: internalTypes.map(t => ({ id: t.id, name: t.name, category: t.category, code: t.code }))
+      });
+
+      this.internalApplicationTypes = internalTypes.map(type => ({
+        id: type.id,
+        name: type.name,
+        code: type.code || ''
+      }));
+
+      console.log('[DEBUG] loadInternalApplicationTypes completed', {
+        resultCount: this.internalApplicationTypes.length,
+        internalApplicationTypes: this.internalApplicationTypes
+      });
+    } catch (error) {
+      console.error('内部申請種別の読み込みに失敗しました:', error);
+      this.internalApplicationTypes = [];
+    }
+  }
+
+  /**
+   * 【修正21】申請作成画面に遷移（申請種別を指定）
+   */
+  navigateToCreateApplication(typeId?: string): void {
+    if (typeId) {
+      this.router.navigate(['/applications/create'], { queryParams: { type: typeId } });
+    } else {
+      this.router.navigate(['/applications/create']);
+    }
+  }
+
+  /**
+   * 【修正21】申請一覧に遷移（申請種別とステータスでフィルタ）
+   */
+  navigateToMyApplications(typeId: string, status?: ApplicationStatus): void {
+    const queryParams: any = {
+      type: typeId,
+      category: 'internal'
+    };
+    if (status) {
+      queryParams.status = status;
+    }
+    this.router.navigate(['/applications'], { queryParams });
+  }
+
+  /**
+   * 【修正21】ステータスのチップ色を取得
+   */
+  getStatusChipColor(status: ApplicationStatus): 'primary' | 'accent' | 'warn' | undefined {
+    switch (status) {
+      case 'draft':
+      case 'created':
+        return 'accent';
+      case 'pending':
+      case 'pending_received':
+      case 'pending_not_received':
+        return 'primary';
+      case 'approved':
+        return 'primary';
+      case 'rejected':
+      case 'withdrawn':
+        return 'warn';
+      case 'returned':
+        return 'accent';
+      default:
+        return undefined;
+    }
   }
 }
 

@@ -46,8 +46,8 @@
       <p>データを読み込み中...</p>
     </div>
 
-    <!-- ダッシュボードコンテンツ -->
-    <div *ngIf="!isLoading" class="dashboard-grid">
+    <!-- 管理者モードのダッシュボード -->
+    <div *ngIf="!isLoading && isAdminMode" class="dashboard-grid">
       <!-- 必須①：要対応サマリー -->
       <mat-card class="summary-card">
         <mat-card-header>
@@ -244,6 +244,79 @@
         </mat-card-content>
       </mat-card>
       -->
+    </div>
+
+    <!-- 【修正21】社員モードのダッシュボード -->
+    <div *ngIf="!isLoading && !isAdminMode" class="dashboard-grid">
+      <!-- 自分の申請状況 -->
+      <mat-card class="summary-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>description</mat-icon>
+            自分の申請状況
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div *ngIf="myApplicationsByType.length > 0" class="my-applications-section">
+            <div *ngFor="let typeData of myApplicationsByType" class="application-type-section">
+              <h4 class="type-title">{{ typeData.typeName }}</h4>
+              <div class="status-list">
+                <div *ngFor="let statusData of typeData.statuses" class="status-item clickable"
+                     (click)="navigateToMyApplications(typeData.typeId, statusData.status)">
+                  <div class="status-info">
+                    <mat-chip [color]="getStatusChipColor(statusData.status)">
+                      {{ statusData.statusLabel }}
+                    </mat-chip>
+                    <span class="status-count">{{ statusData.count }}件</span>
+                  </div>
+                  <!-- 直近の申請リスト（最大5件） -->
+                  <mat-list *ngIf="statusData.applications.length > 0" class="recent-applications-list">
+                    <mat-list-item *ngFor="let app of statusData.applications" 
+                                   class="application-item clickable"
+                                   (click)="navigateToApplicationDetail(app.id!)">
+                      <mat-icon matListItemIcon>description</mat-icon>
+                      <div matListItemTitle>
+                        {{ getApplicationTypeLabel(app.type) }}
+                        <span class="application-date">（{{ formatDate(app.createdAt) }}）</span>
+                      </div>
+                    </mat-list-item>
+                  </mat-list>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="myApplicationsByType.length === 0" class="no-items">
+            <mat-icon>info</mat-icon>
+            <span>申請はありません</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 申請作成のショートカット -->
+      <mat-card class="create-shortcut-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>add_circle</mat-icon>
+            申請作成
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div *ngIf="internalApplicationTypes.length > 0" class="application-types-grid">
+            <button *ngFor="let type of internalApplicationTypes" 
+                    mat-raised-button 
+                    color="primary" 
+                    class="create-button"
+                    (click)="navigateToCreateApplication(type.id)">
+              <mat-icon>add</mat-icon>
+              {{ type.name }}を作成
+            </button>
+          </div>
+          <div *ngIf="internalApplicationTypes.length === 0" class="no-items">
+            <mat-icon>info</mat-icon>
+            <span>作成可能な申請種別がありません</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
     </div>
       </div>
     </mat-card-content>
