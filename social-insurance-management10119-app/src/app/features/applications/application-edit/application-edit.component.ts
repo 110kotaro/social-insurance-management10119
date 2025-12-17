@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, AfterViewInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit, OnDestroy, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormArray } from '@angular/forms';
@@ -79,6 +79,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private standardRewardCalculationService = inject(StandardRewardCalculationService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
+  private cdr = inject(ChangeDetectorRef);
 
   // 編集対象の申請
   editingApplicationId: string | null = null;
@@ -466,6 +467,9 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         // 既存データをフォームに設定
         this.populateFormWithExistingData(this.editingApplication.data);
         
+        // 変更検知を明示的にトリガー（employeeIdの設定を反映させるため）
+        this.cdr.detectChanges();
+        
         // フォーム変更を購読
         this.subscribeToFormChanges();
       }
@@ -478,6 +482,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private populateFormWithExistingData(data: Record<string, any>): void {
     // 申請種別ごとに既存データを設定
     // 注意: FormArrayを含む複雑なデータ構造を処理する必要がある
+    
     if (this.isInsuranceAcquisitionForm && this.insuranceAcquisitionForm) {
       // FormArrayの処理（insuredPersons）
       if (data['insuredPersons'] && Array.isArray(data['insuredPersons'])) {
@@ -593,10 +598,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
           console.error('事業主等受付年月日の自動転記に失敗しました:', error);
         });
       }
-    } else if (this.isAddressChangeForm && this.addressChangeForm) {
-      this.addressChangeForm.patchValue(data);
-    } else if (this.isNameChangeForm && this.nameChangeForm) {
-      this.nameChangeForm.patchValue(data);
     } else if (this.isRewardBaseForm && this.rewardBaseForm) {
       // FormArrayの処理（rewardBasePersons）
       if (data['rewardBasePersons'] && Array.isArray(data['rewardBasePersons'])) {
@@ -618,30 +619,57 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       delete dataWithoutArray['rewardBasePersons'];
       this.rewardBaseForm.patchValue(dataWithoutArray);
     } else if (this.isRewardChangeForm && this.rewardChangeForm) {
-      // FormArrayの処理（persons）
-      if (data['persons'] && Array.isArray(data['persons'])) {
-        const personsArray = this.rewardChangeForm.get('persons') as FormArray;
+      // FormArrayの処理（insuredPersonsまたはrewardChangePersons）
+      const personsData = data['rewardChangePersons'] || data['insuredPersons'];
+      if (personsData && Array.isArray(personsData)) {
+        const personsArray = this.rewardChangeForm.get('insuredPersons') as FormArray;
         personsArray.clear();
-        data['persons'].forEach((person: any) => {
+        personsData.forEach((person: any) => {
+          // すべての要素を追加してからpatchValue
           this.addRewardChangePerson();
-          personsArray.at(personsArray.length - 1)?.patchValue(person);
+          const personGroup = personsArray.at(personsArray.length - 1) as FormGroup;
+          // employeeIdを設定（既存データから逆引き）
+          const employeeId = this.findEmployeeIdByPersonData(person);
+          // employeeIdを除外したpersonオブジェクトを作成
+          const { employeeId: _, ...personWithoutEmployeeId } = person;
+          // employeeIdを先に設定
+          if (employeeId) {
+            personGroup.patchValue({ employeeId: employeeId });
+          }
+          // employeeIdを除外したpersonでpatchValue（employeeIdが上書きされない）
+          personGroup.patchValue(personWithoutEmployeeId);
         });
       }
       const dataWithoutArray = { ...data };
-      delete dataWithoutArray['persons'];
+      delete dataWithoutArray['rewardChangePersons'];
+      delete dataWithoutArray['insuredPersons'];
       this.rewardChangeForm.patchValue(dataWithoutArray);
     } else if (this.isBonusPaymentForm && this.bonusPaymentForm) {
-      // FormArrayの処理（persons）
-      if (data['persons'] && Array.isArray(data['persons'])) {
-        const personsArray = this.bonusPaymentForm.get('persons') as FormArray;
+      // FormArrayの処理（insuredPersonsまたはbonusPaymentPersons）
+      const personsData = data['bonusPaymentPersons'] || data['insuredPersons'];
+      if (personsData && Array.isArray(personsData)) {
+        const personsArray = this.bonusPaymentForm.get('insuredPersons') as FormArray;
         personsArray.clear();
-        data['persons'].forEach((person: any) => {
+        personsData.forEach((person: any) => {
+          // すべての要素を追加してからpatchValue
           this.addBonusPaymentPerson();
-          personsArray.at(personsArray.length - 1)?.patchValue(person);
+          const personGroup = personsArray.at(personsArray.length - 1) as FormGroup;
+          // employeeIdを設定（既存データから逆引き）
+          const employeeId = this.findEmployeeIdByPersonData(person);
+          // employeeIdを除外したpersonオブジェクトを作成
+          const { employeeId: _, ...personWithoutEmployeeId } = person;
+          // employeeIdを先に設定
+          if (employeeId) {
+            personGroup.patchValue({ employeeId: employeeId });
+          }
+          // employeeIdを除外したpersonでpatchValue（employeeIdが上書きされない）
+          personGroup.patchValue(personWithoutEmployeeId);
         });
       }
+      // データを設定（insuredPersons/bonusPaymentPersonsを除外してから設定）
       const dataWithoutArray = { ...data };
-      delete dataWithoutArray['persons'];
+      delete dataWithoutArray['bonusPaymentPersons'];
+      delete dataWithoutArray['insuredPersons'];
       
       // commonBonusPaymentDate（Date形式）を年号形式に変換
       if (dataWithoutArray['commonBonusPaymentDate'] && !(dataWithoutArray['commonBonusPaymentDate'] && typeof dataWithoutArray['commonBonusPaymentDate'] === 'object' && dataWithoutArray['commonBonusPaymentDate'].era)) {
@@ -668,36 +696,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
           };
         }
       }
-
-      // 各被保険者のbonusPaymentDate（Date形式）を年号形式に変換
-      if (dataWithoutArray['insuredPersons'] && Array.isArray(dataWithoutArray['insuredPersons'])) {
-        for (const person of dataWithoutArray['insuredPersons']) {
-          if (person.bonusPaymentDate && !(person.bonusPaymentDate && typeof person.bonusPaymentDate === 'object' && person.bonusPaymentDate.era)) {
-            const bonusPaymentDate = person.bonusPaymentDate;
-            let date: Date | null = null;
-            
-            if (bonusPaymentDate instanceof Date) {
-              date = bonusPaymentDate;
-            } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).toDate === 'function') {
-              date = (bonusPaymentDate as any).toDate();
-            } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).seconds === 'number') {
-              date = new Date((bonusPaymentDate as any).seconds * 1000);
-            } else {
-              date = new Date(bonusPaymentDate);
-            }
-            
-            if (date && !isNaN(date.getTime())) {
-              const eraDateInfo = this.convertToEraDate(date);
-              person.bonusPaymentDate = {
-                era: eraDateInfo.era,
-                year: eraDateInfo.year.toString(),
-                month: eraDateInfo.month.toString(),
-                day: eraDateInfo.day.toString()
-          };
-            }
-          }
-        }
-      }
       
       this.bonusPaymentForm.patchValue(dataWithoutArray);
     } else if (this.isDependentChangeFormInternal && this.dependentChangeFormInternal) {
@@ -714,25 +712,67 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       delete dataWithoutArray['otherDependents'];
       this.dependentChangeFormInternal.patchValue(dataWithoutArray);
     } else if (this.isAddressChangeForm && this.addressChangeForm) {
-      // 住所変更届（外部申請）の場合、被保険者情報から社員IDを逆引き
+      // 住所変更届（外部申請）の場合、被保険者情報から社員IDを先に取得
       const insuredPerson = data['insuredPerson'];
+      let employeeId: string | null = null;
       if (insuredPerson) {
-        const employeeId = this.findEmployeeIdByPersonData(insuredPerson);
-        if (employeeId) {
-          this.addressChangeForm.get('insuredPerson.employeeId')?.patchValue(employeeId);
+        // まず、データに直接employeeIdが含まれているか確認
+        employeeId = insuredPerson.employeeId;
+        // 含まれていない場合は逆引き
+        if (!employeeId) {
+          employeeId = this.findEmployeeIdByPersonData(insuredPerson);
         }
       }
-      this.addressChangeForm.patchValue(data);
+      // データを設定（insuredPersonを除外してから設定し、その後個別に設定）
+      const dataWithoutInsuredPerson = { ...data };
+      delete dataWithoutInsuredPerson['insuredPerson'];
+      this.addressChangeForm.patchValue(dataWithoutInsuredPerson);
+      // 被保険者情報を設定（資格取得届と同じパターン）
+      if (insuredPerson) {
+        const insuredPersonGroup = this.addressChangeForm.get('insuredPerson') as FormGroup;
+        if (insuredPersonGroup) {
+          // employeeIdを除外したinsuredPersonオブジェクトを作成
+          const { employeeId: _, ...insuredPersonWithoutEmployeeId } = insuredPerson;
+          // employeeIdを先に設定
+          if (employeeId) {
+            insuredPersonGroup.patchValue({ employeeId: employeeId });
+          }
+          // employeeIdを除外したinsuredPersonでpatchValue（employeeIdが上書きされない）
+          insuredPersonGroup.patchValue(insuredPersonWithoutEmployeeId);
+        }
+      }
     } else if (this.isNameChangeForm && this.nameChangeForm) {
-      // 氏名変更届（外部申請）の場合、被保険者情報から社員IDを逆引き
+      // 氏名変更届（外部申請）の場合、被保険者情報から社員IDを先に取得
       const insuredPerson = data['insuredPerson'];
+      let employeeId: string | null = null;
       if (insuredPerson) {
-        const employeeId = this.findEmployeeIdByPersonData(insuredPerson);
-        if (employeeId) {
-          this.nameChangeForm.get('insuredPerson.employeeId')?.patchValue(employeeId);
+        // まず、データに直接employeeIdが含まれているか確認
+        employeeId = insuredPerson.employeeId;
+        // 含まれていない場合は逆引き
+        if (!employeeId) {
+          employeeId = this.findEmployeeIdByPersonData(insuredPerson);
         }
       }
-      this.nameChangeForm.patchValue(data);
+      // データを設定（insuredPersonを除外してから設定し、その後個別に設定）
+      const dataWithoutInsuredPerson = { ...data };
+      delete dataWithoutInsuredPerson['insuredPerson'];
+      this.nameChangeForm.patchValue(dataWithoutInsuredPerson);
+      // 被保険者情報を設定（資格取得届と同じパターン）
+      if (insuredPerson) {
+        const insuredPersonGroup = this.nameChangeForm.get('insuredPerson') as FormGroup;
+        if (insuredPersonGroup) {
+          // employeeIdを除外したinsuredPersonオブジェクトを作成
+          const { employeeId: _, ...insuredPersonWithoutEmployeeId } = insuredPerson;
+          // employeeIdを先に設定
+          if (employeeId) {
+            insuredPersonGroup.patchValue({ employeeId: employeeId });
+          }
+          // employeeIdを除外したinsuredPersonでpatchValue（employeeIdが上書きされない）
+          insuredPersonGroup.patchValue(insuredPersonWithoutEmployeeId);
+          // 変更検知を明示的にトリガー（employeeIdの設定を反映させるため）
+          this.cdr.detectChanges();
+        }
+      }
     } else if (this.isAddressChangeFormInternal && this.addressChangeFormInternal) {
       this.addressChangeFormInternal.patchValue(data);
     } else if (this.isNameChangeFormInternal && this.nameChangeFormInternal) {
@@ -1697,6 +1737,72 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         });
       }
     }
+
+    // 被扶養配偶者の情報を自動転記
+    if (employee.dependentInfo && employee.dependentInfo.length > 0) {
+      const spouse = employee.dependentInfo.find(dep => dep.relationship === '配偶者');
+      if (spouse) {
+        // 配偶者の氏名を設定（lastName/firstNameまたはnameから取得）
+        const spouseLastName = spouse.lastName || (spouse.name ? spouse.name.split(' ')[0] : '');
+        const spouseFirstName = spouse.firstName || (spouse.name && spouse.name.split(' ').length > 1 ? spouse.name.split(' ')[1] : '');
+        const spouseLastNameKana = spouse.lastNameKana || (spouse.nameKana ? spouse.nameKana.split(' ')[0] : '');
+        const spouseFirstNameKana = spouse.firstNameKana || (spouse.nameKana && spouse.nameKana.split(' ').length > 1 ? spouse.nameKana.split(' ')[1] : '');
+
+        insuredPersonGroup.patchValue({
+          livingWithSpouse: spouse.livingTogether !== undefined ? spouse.livingTogether : true,
+          spouseLastName: spouseLastName,
+          spouseFirstName: spouseFirstName,
+          spouseLastNameKana: spouseLastNameKana,
+          spouseFirstNameKana: spouseFirstNameKana
+        });
+
+        // 配偶者の生年月日を設定
+        if (spouse.birthDate) {
+          const spouseBirthDate = spouse.birthDate instanceof Date 
+            ? spouse.birthDate 
+            : (spouse.birthDate instanceof Timestamp ? spouse.birthDate.toDate() : new Date(spouse.birthDate));
+          const spouseBirthDateInfo = this.convertToEraDate(spouseBirthDate);
+          insuredPersonGroup.get('spouseBirthDate')?.patchValue(spouseBirthDateInfo);
+        }
+
+        // 配偶者の個人番号または基礎年金番号
+        if (spouse.dependentId) {
+          // dependentIdが個人番号形式（12桁）か基礎年金番号形式（10桁）かを判定
+          const idStr = String(spouse.dependentId).replace(/-/g, '');
+          if (idStr.length === 12) {
+            // 個人番号
+            insuredPersonGroup.patchValue({
+              spouseIdentificationType: 'personal_number',
+              spousePersonalNumber: spouse.dependentId
+            });
+          } else if (idStr.length === 10) {
+            // 基礎年金番号
+            insuredPersonGroup.patchValue({
+              spouseIdentificationType: 'basic_pension_number',
+              spouseBasicPensionNumber: spouse.dependentId
+            });
+          }
+        }
+
+        // 配偶者の変更前住所を設定（被保険者と同じ住所と仮定）
+        if (employee.address) {
+          const address = employee.address.official;
+          if (address) {
+            const spouseOldAddressParts = [
+              address.postalCode ? `〒${address.postalCode}` : '',
+              address.prefecture || '',
+              address.city || '',
+              address.street || '',
+              address.building || ''
+            ].filter(part => part).join(' ');
+            
+            insuredPersonGroup.patchValue({
+              spouseOldAddress: spouseOldAddressParts
+            });
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -2311,7 +2417,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private initializeAddressChangeFormInternal(): void {
     this.addressChangeFormInternal = this.fb.group({
       insuredPerson: this.fb.group({
-        employeeId: [''], // 社員ID（編集時に使用、保存時は除外）
+        employeeId: [null], // 社員ID（編集時に使用、保存時は除外）
         insuranceNumber: [''],
         identificationType: ['personal_number', [Validators.required]],
         personalNumber: [''],
@@ -2474,7 +2580,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         phoneNumber: [submitterPhone]
       }),
       insuredPerson: this.fb.group({
-        employeeId: [''], // 社員ID（編集時に使用、保存時は除外）
+        employeeId: [null], // 社員ID（編集時に使用、保存時は除外）
         insuranceNumber: [''],
         identificationType: ['personal_number', [Validators.required]],
         personalNumber: [''],
@@ -2862,9 +2968,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private initializeRewardChangeForm(): void {
     const today = new Date();
     
-    const submitterAddress = this.organization?.address 
-      ? `${this.organization.address.prefecture}${this.organization.address.city}${this.organization.address.street}${this.organization.address.building || ''}`
-      : '';
+    const submitterAddress = this.buildAddressWithPostalCode();
     const submitterName = this.organization?.name || '';
     const submitterPhone = this.organization?.phoneNumber || '';
 
@@ -2987,6 +3091,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     }
 
     const personGroup = this.fb.group({
+      employeeId: [null], // 社員ID（社員選択時に使用）
       insuranceNumber: [''],
       name: ['', [Validators.required]],
       birthDate: this.fb.group({
@@ -3029,7 +3134,9 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       adjustedAverage: [null], // 修正平均額
       remarks: [''],
       remarksOther: [''],
-      personalNumber: [''] // 備考で70歳以上被用者算定を選択した時
+      identificationType: ['personal_number'], // 個人番号 or 基礎年金番号（備考で70歳以上被用者算定を選択した時）
+      personalNumber: [''], // 個人番号（備考で70歳以上被用者算定を選択した時）
+      basicPensionNumber: [''] // 基礎年金番号（備考で70歳以上被用者算定を選択した時）
     });
 
     // 初月の変更を監視して、自動的に次の2か月を設定
@@ -3173,6 +3280,129 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       }
     } catch (error) {
       console.error('算定計算履歴の取得に失敗しました:', error);
+      // エラーが発生しても社員情報の自動転記は続行
+    }
+
+    // 社員IDを保存
+    personGroup.patchValue({
+      employeeId: employeeId
+    });
+  }
+
+  /**
+   * 社員を選択して被保険者情報に自動入力（報酬月額変更届用）
+   */
+  async onEmployeeSelectForRewardChange(index: number, employeeId: string): Promise<void> {
+    const employee = this.employees.find(e => e.id === employeeId);
+    if (!employee) {
+      return;
+    }
+
+    const personGroup = this.getRewardChangePersonFormGroup(index);
+    if (!personGroup) {
+      return;
+    }
+
+    // 被保険者整理番号
+    if (employee.insuranceInfo?.healthInsuranceNumber) {
+      personGroup.patchValue({
+        insuranceNumber: employee.insuranceInfo.healthInsuranceNumber
+      });
+    }
+
+    // 氏名を設定
+    const fullName = `${employee.lastName} ${employee.firstName}`.trim();
+    personGroup.patchValue({
+      name: fullName
+    });
+
+    // 生年月日を設定
+    if (employee.birthDate) {
+      const birthDate = employee.birthDate instanceof Date 
+        ? employee.birthDate 
+        : (employee.birthDate instanceof Timestamp ? employee.birthDate.toDate() : new Date(employee.birthDate));
+      const birthDateInfo = this.convertToEraDate(birthDate);
+      personGroup.get('birthDate')?.patchValue(birthDateInfo);
+    }
+
+    // 従前の標準報酬月額（健康保険・厚生年金ともに現在の標準報酬月額を転記）
+    const currentStandardReward = employee.insuranceInfo?.standardReward;
+    if (currentStandardReward) {
+      personGroup.get('previousStandardReward')?.patchValue({
+        healthInsurance: currentStandardReward,
+        pensionInsurance: currentStandardReward
+      });
+    }
+
+    // 従前改定月（現在の等級等適用年月を転記）
+    if (employee.insuranceInfo?.gradeAndStandardRewardEffectiveDate) {
+      const effectiveDate = employee.insuranceInfo.gradeAndStandardRewardEffectiveDate instanceof Date 
+        ? employee.insuranceInfo.gradeAndStandardRewardEffectiveDate 
+        : (employee.insuranceInfo.gradeAndStandardRewardEffectiveDate instanceof Timestamp 
+          ? employee.insuranceInfo.gradeAndStandardRewardEffectiveDate.toDate() 
+          : new Date(employee.insuranceInfo.gradeAndStandardRewardEffectiveDate));
+      const effectiveDateInfo = this.convertToEraDate(effectiveDate);
+      personGroup.get('previousChangeDate')?.patchValue({
+        era: effectiveDateInfo.era,
+        year: effectiveDateInfo.year,
+        month: effectiveDateInfo.month
+      });
+    }
+
+    // 月変計算履歴から遡及支払額、基礎日数、通貨を引用
+    try {
+      const calculations = await this.standardRewardCalculationService.getCalculationsByEmployee(employeeId, 'monthly_change');
+      if (calculations && calculations.length > 0) {
+        // 最新の月変計算履歴を取得（calculatedAtが最新）
+        const latestCalculation = calculations[0];
+        
+        if (latestCalculation.salaryData && latestCalculation.salaryData.length > 0) {
+          const salaryMonthsArray = personGroup.get('salaryMonths') as FormArray;
+          const retroactivePaymentArray = personGroup.get('retroactivePayment') as FormArray;
+
+          // 給与データを設定（変動月を含む3か月分）
+          latestCalculation.salaryData.forEach((salary, idx) => {
+            if (idx < salaryMonthsArray.length) {
+              const monthGroup = salaryMonthsArray.at(idx) as FormGroup;
+              // 基礎日数と通貨（総支給）を設定
+              monthGroup.patchValue({
+                month: salary.month,
+                baseDays: salary.baseDays,
+                currency: salary.totalPayment,
+                inKind: 0,
+                total: salary.totalPayment
+              });
+            }
+
+            // 遡及支払額を設定
+            if (salary.retroactivePayment && salary.retroactivePayment > 0 && idx < retroactivePaymentArray.length) {
+              const retroGroup = retroactivePaymentArray.at(idx) as FormGroup;
+              retroGroup.patchValue({
+                month: salary.month,
+                amount: salary.retroactivePayment
+              });
+            }
+          });
+
+          // 初月を設定（変動月を初月とする）
+          if (latestCalculation.changeMonth) {
+            personGroup.patchValue({
+              firstMonth: latestCalculation.changeMonth.month
+            });
+
+            // 改定年月も設定
+            const changeDate = new Date(latestCalculation.changeMonth.year, latestCalculation.changeMonth.month - 1, 1);
+            const changeDateInfo = this.convertToEraDate(changeDate);
+            personGroup.get('changeDate')?.patchValue({
+              era: changeDateInfo.era,
+              year: changeDateInfo.year,
+              month: changeDateInfo.month
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('月変計算履歴の取得に失敗しました:', error);
       // エラーが発生しても社員情報の自動転記は続行
     }
 
@@ -3676,9 +3906,11 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     }
 
     const eraCode: Record<string, string> = {
+      'meiji': '1',
+      'taisho': '3',
       'showa': '5',
       'heisei': '7',
-      'reiwa': '3'
+      'reiwa': '9'
     };
 
     const eraNum = eraCode[era] || '';
@@ -4242,6 +4474,12 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       delete formData['insuredPersons'];
     }
     
+    // 報酬月額変更届の場合、insuredPersonsをrewardChangePersonsに変換（プレビュー表示用）
+    if (this.selectedApplicationType.code === 'REWARD_CHANGE' && formData['insuredPersons']) {
+      formData['rewardChangePersons'] = formData['insuredPersons'];
+      delete formData['insuredPersons'];
+    }
+    
     this.formattedApplicationData = this.formatApplicationDataForPreview(formData, this.selectedApplicationType.code);
   }
 
@@ -4683,9 +4921,13 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
       
-      // 住所に郵便番号を追加（組織情報から取得）
+      // 住所に郵便番号を追加（重複を避ける）
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
-      const address = bi.address || bi.officeAddress || '';
+      let address = bi.address || bi.officeAddress || '';
+      // 住所に既に郵便番号が含まれている場合は除去
+      if (address.match(/^〒\d{3}-?\d{4}/)) {
+        address = address.replace(/^〒\d{3}-?\d{4}\s*/, '');
+      }
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
       biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
@@ -4714,7 +4956,17 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       }
       
       ipItems.push({ label: '変更前住所', value: ip.oldAddress || '', isEmpty: !ip.oldAddress });
-      ipItems.push({ label: '変更後住所', value: ip.newAddress || '', isEmpty: !ip.newAddress });
+      
+      // 変更後住所を個別フィールドから組み立て
+      const newAddressParts = [
+        ip.newPostalCode ? `〒${ip.newPostalCode}` : '',
+        ip.newPrefecture || '',
+        ip.newCity || '',
+        ip.newStreet || '',
+        ip.newBuilding || ''
+      ].filter(part => part);
+      const newAddress = newAddressParts.length > 0 ? newAddressParts.join(' ') : (ip.newAddress || '');
+      ipItems.push({ label: '変更後住所', value: newAddress, isEmpty: !newAddress });
 
       sections.push({
         title: '被保険者情報',
@@ -4722,6 +4974,55 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       });
     }
 
+    // 配偶者情報をinsuredPersonから取得
+    if (data['insuredPerson']) {
+      const ip = data['insuredPerson'];
+      const hasSpouseInfo = ip.spouseLastName || ip.spouseFirstName || ip.spouseLastNameKana || ip.spouseFirstNameKana || ip.spouseBirthDate;
+      
+      if (hasSpouseInfo) {
+        const siItems: FormattedItem[] = [];
+        siItems.push({ label: '配偶者氏名', value: `${ip.spouseLastName || ''} ${ip.spouseFirstName || ''}`.trim() || '', isEmpty: !ip.spouseLastName && !ip.spouseFirstName });
+        siItems.push({ label: '配偶者氏名（カナ）', value: `${ip.spouseLastNameKana || ''} ${ip.spouseFirstNameKana || ''}`.trim() || '', isEmpty: !ip.spouseLastNameKana && !ip.spouseFirstNameKana });
+        siItems.push({ label: '配偶者生年月日', value: this.formatEraDate(ip.spouseBirthDate), isEmpty: !ip.spouseBirthDate });
+        
+        // 配偶者の個人番号または基礎年金番号
+        if (ip.spouseIdentificationType === 'personal_number') {
+          siItems.push({ label: '配偶者個人番号', value: ip.spousePersonalNumber || '', isEmpty: !ip.spousePersonalNumber });
+        } else if (ip.spouseIdentificationType === 'basic_pension_number') {
+          siItems.push({ label: '配偶者基礎年金番号', value: ip.spouseBasicPensionNumber || '', isEmpty: !ip.spouseBasicPensionNumber });
+        }
+
+        // 配偶者の変更前住所
+        if (ip.spouseOldAddress) {
+          siItems.push({ label: '配偶者の変更前住所', value: ip.spouseOldAddress, isEmpty: !ip.spouseOldAddress });
+        }
+
+        // 配偶者の変更後住所を個別フィールドから組み立て
+        const spouseNewAddressParts = [
+          ip.spouseNewPostalCode ? `〒${ip.spouseNewPostalCode}` : '',
+          ip.spouseNewPrefecture || '',
+          ip.spouseNewCity || '',
+          ip.spouseNewStreet || '',
+          ip.spouseNewBuilding || ''
+        ].filter(part => part);
+        const spouseNewAddress = spouseNewAddressParts.length > 0 ? spouseNewAddressParts.join(' ') : '';
+        if (spouseNewAddress) {
+          siItems.push({ label: '配偶者の変更後住所', value: spouseNewAddress, isEmpty: !spouseNewAddress });
+        }
+
+        // 配偶者の備考
+        if (ip.spouseRemarks) {
+          siItems.push({ label: '配偶者の備考', value: this.formatRemarks(ip.spouseRemarks), isEmpty: !ip.spouseRemarks });
+        }
+
+        sections.push({
+          title: '配偶者情報',
+          items: siItems
+        });
+      }
+    }
+
+    // 旧形式のspouseInfoもサポート（後方互換性のため）
     if (data['spouseInfo']) {
       const siItems: FormattedItem[] = [];
       const si = data['spouseInfo'];
@@ -4762,9 +5063,13 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
       
-      // 住所に郵便番号を追加（組織情報から取得）
+      // 住所に郵便番号を追加（重複を避ける）
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
-      const address = bi.address || bi.officeAddress || '';
+      let address = bi.address || bi.officeAddress || '';
+      // 住所に既に郵便番号が含まれている場合は除去
+      if (address.match(/^〒\d{3}-?\d{4}/)) {
+        address = address.replace(/^〒\d{3}-?\d{4}\s*/, '');
+      }
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
       biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
@@ -4782,7 +5087,6 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const ip = data['insuredPerson'];
       ipItems.push({ label: '被保険者整理番号', value: ip.insuranceNumber || '', isEmpty: !ip.insuranceNumber });
       ipItems.push({ label: '変更前氏名', value: `${ip.oldLastName || ''} ${ip.oldFirstName || ''}`.trim() || '', isEmpty: !ip.oldLastName && !ip.oldFirstName });
-      ipItems.push({ label: '変更前氏名（カナ）', value: `${ip.oldLastNameKana || ''} ${ip.oldFirstNameKana || ''}`.trim() || '', isEmpty: !ip.oldLastNameKana && !ip.oldFirstNameKana });
       ipItems.push({ label: '変更後氏名', value: `${ip.newLastName || ''} ${ip.newFirstName || ''}`.trim() || '', isEmpty: !ip.newLastName && !ip.newFirstName });
       ipItems.push({ label: '変更後氏名（カナ）', value: `${ip.newLastNameKana || ''} ${ip.newFirstNameKana || ''}`.trim() || '', isEmpty: !ip.newLastNameKana && !ip.newFirstNameKana });
       ipItems.push({ label: '生年月日', value: this.formatEraDate(ip.birthDate), isEmpty: !ip.birthDate });
@@ -4957,9 +5261,13 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
       
-      // 住所に郵便番号を追加（組織情報から取得）
+      // 住所に郵便番号を追加（重複を避ける）
       const postalCode = bi.postalCode || (this.organization?.address as any)?.postalCode || '';
-      const address = bi.address || bi.officeAddress || '';
+      let address = bi.address || bi.officeAddress || '';
+      // 住所に既に郵便番号が含まれている場合は除去
+      if (address.match(/^〒\d{3}-?\d{4}/)) {
+        address = address.replace(/^〒\d{3}-?\d{4}\s*/, '');
+      }
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
       biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
@@ -4977,14 +5285,66 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         const personItems: FormattedItem[] = [];
         
         personItems.push({ label: '被保険者整理番号', value: person.insuranceNumber || '', isEmpty: !person.insuranceNumber });
-        personItems.push({ label: '氏名', value: `${person.lastName || ''} ${person.firstName || ''}`.trim() || '', isEmpty: !person.lastName && !person.firstName });
+        personItems.push({ label: '氏名', value: person.name || '', isEmpty: !person.name });
         personItems.push({ label: '生年月日', value: this.formatEraDateForReward(person.birthDate), isEmpty: !person.birthDate });
+        
+        // 改定年月（年月のみ表示）
+        let changeDateValue = '';
+        if (person.changeDate && typeof person.changeDate === 'object' && !(person.changeDate instanceof Date) && !(person.changeDate instanceof Timestamp)) {
+          changeDateValue = this.formatEraDateYearMonth(person.changeDate);
+        } else if (person.changeDate) {
+          changeDateValue = this.formatDateValue(person.changeDate);
+        }
+        personItems.push({ label: '改定年月', value: changeDateValue, isEmpty: !changeDateValue });
+        
+        // 従前の標準報酬（健康保険と厚生年金を別々に表示）
+        if (person.previousStandardReward && typeof person.previousStandardReward === 'object') {
+          const healthInsurance = person.previousStandardReward.healthInsurance;
+          const pensionInsurance = person.previousStandardReward.pensionInsurance;
+          const healthInsuranceValue = healthInsurance ? `健康保険：${healthInsurance.toLocaleString()}円` : '';
+          const pensionInsuranceValue = pensionInsurance ? `厚生年金：${pensionInsurance.toLocaleString()}円` : '';
+          const rewardValue = [healthInsuranceValue, pensionInsuranceValue].filter(Boolean).join('、') || '';
+          personItems.push({ label: '従前の標準報酬月額', value: rewardValue, isEmpty: !rewardValue });
+        } else {
+          personItems.push({ label: '従前の標準報酬月額', value: '', isEmpty: true });
+        }
+        
+        // 従前の改定年月
+        let previousChangeDateValue = '';
+        if (person.previousChangeDate && typeof person.previousChangeDate === 'object' && !(person.previousChangeDate instanceof Date) && !(person.previousChangeDate instanceof Timestamp)) {
+          previousChangeDateValue = this.formatEraDateYearMonth(person.previousChangeDate);
+        }
+        personItems.push({ label: '従前改定月', value: previousChangeDateValue, isEmpty: !previousChangeDateValue });
+        
+        // 昇給/降給（月も表示）
+        let salaryChangeValue = '';
+        if (person.salaryChange && person.salaryChange.type) {
+          const changeType = person.salaryChange.type === 'raise' ? '昇給' : person.salaryChange.type === 'reduction' ? '降給' : '';
+          let changeMonth = '';
+          if (person.salaryChange.month) {
+            if (person.salaryChange.month === 'month1') {
+              changeMonth = '1か月目';
+            } else if (person.salaryChange.month === 'month2') {
+              changeMonth = '2か月目';
+            } else if (person.salaryChange.month === 'month3') {
+              changeMonth = '3か月目';
+            }
+          }
+          if (changeType && changeMonth) {
+            salaryChangeValue = `${changeType}（${changeMonth}）`;
+          } else if (changeType) {
+            salaryChangeValue = changeType;
+          }
+        }
+        personItems.push({ label: '昇(降)給', value: salaryChangeValue, isEmpty: !salaryChangeValue });
+        
         personItems.push({ label: '初月', value: person.firstMonth ? `${person.firstMonth}月` : '', isEmpty: !person.firstMonth });
         
         if (person.retroactivePayment && Array.isArray(person.retroactivePayment)) {
           person.retroactivePayment.forEach((rp: any) => {
+            const monthLabel = typeof rp.month === 'number' ? `${rp.month}月` : (rp.month || '');
             personItems.push({ 
-              label: `遡及支払額（${rp.month}月）`, 
+              label: `遡及支払額（${monthLabel}）`, 
               value: rp.amount ? `${rp.amount.toLocaleString()}円` : '', 
               isEmpty: !rp.amount 
             });
@@ -4993,16 +5353,50 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         
         if (person.salaryMonths && Array.isArray(person.salaryMonths)) {
           person.salaryMonths.forEach((sm: any) => {
-            personItems.push({ 
-              label: `報酬月額（${sm.month}月）`, 
-              value: sm.total ? `${sm.total.toLocaleString()}円` : '', 
-              isEmpty: !sm.total 
-            });
+            const monthLabel = typeof sm.month === 'number' ? `${sm.month}月` : (sm.month || '');
+            // 給与支給月の詳細情報を表示
+            if (sm.baseDays || sm.currency || sm.inKind || sm.total) {
+              const details: string[] = [];
+              if (sm.baseDays) details.push(`基礎日数：${sm.baseDays}日`);
+              if (sm.currency) details.push(`通貨：${sm.currency.toLocaleString()}円`);
+              if (sm.inKind) details.push(`現物：${sm.inKind.toLocaleString()}円`);
+              if (sm.total) details.push(`合計：${sm.total.toLocaleString()}円`);
+              personItems.push({ 
+                label: `給与支給月（${monthLabel}）`, 
+                value: details.join('、') || '', 
+                isEmpty: !sm.total 
+              });
+            } else {
+              personItems.push({ 
+                label: `報酬月額（${monthLabel}）`, 
+                value: sm.total ? `${sm.total.toLocaleString()}円` : '', 
+                isEmpty: !sm.total 
+              });
+            }
           });
         }
         
-        personItems.push({ label: '備考', value: this.formatRemarks(person.remarks), isEmpty: !person.remarks });
-        personItems.push({ label: '個人番号', value: person.personalNumber || '', isEmpty: !person.personalNumber });
+        // 計算結果
+        personItems.push({ label: '総計', value: person.total ? `${person.total.toLocaleString()}円` : '', isEmpty: !person.total });
+        personItems.push({ label: '平均額', value: person.average ? `${person.average.toLocaleString()}円` : '', isEmpty: !person.average });
+        personItems.push({ label: '修正平均額', value: person.adjustedAverage ? `${person.adjustedAverage.toLocaleString()}円` : '', isEmpty: !person.adjustedAverage });
+        
+        // 備考（その他の場合は備考内容も表示）
+        let remarksValue = this.formatRemarks(person.remarks);
+        if ((person.remarks === 'other' || person.remarks === 'salary_reason') && person.remarksOther) {
+          remarksValue = `${remarksValue}: ${person.remarksOther}`;
+        }
+        personItems.push({ label: '備考', value: remarksValue, isEmpty: !person.remarks });
+        
+        // 個人番号または基礎年金番号
+        if (person.identificationType === 'personal_number') {
+          personItems.push({ label: '個人番号', value: person.personalNumber || '', isEmpty: !person.personalNumber });
+        } else if (person.identificationType === 'basic_pension_number') {
+          personItems.push({ label: '基礎年金番号', value: person.basicPensionNumber || '', isEmpty: !person.basicPensionNumber });
+        } else if (person.personalNumber) {
+          // identificationTypeが設定されていない場合のフォールバック
+          personItems.push({ label: '個人番号', value: person.personalNumber || '', isEmpty: !person.personalNumber });
+        }
 
         sections.push({
           title: `被保険者情報 ${index + 1}`,
@@ -5183,15 +5577,15 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   private formatEraDateForReward(birthDate: any): string {
     if (!birthDate || typeof birthDate !== 'object') return '';
     
-    const eraLabels: Record<string, string> = {
-      'meiji': 'M',
-      'taisho': 'T',
-      'showa': 'S',
-      'heisei': 'H',
-      'reiwa': 'R'
+    const eraNumbers: Record<string, string> = {
+      'meiji': '1',
+      'taisho': '3',
+      'showa': '5',
+      'heisei': '7',
+      'reiwa': '9'
     };
     
-    const era = eraLabels[birthDate.era] || '';
+    const era = eraNumbers[birthDate.era] || '';
     const year = birthDate.year ? String(birthDate.year).padStart(2, '0') : '';
     const month = birthDate.month ? String(birthDate.month).padStart(2, '0') : '';
     const day = birthDate.day ? String(birthDate.day).padStart(2, '0') : '';

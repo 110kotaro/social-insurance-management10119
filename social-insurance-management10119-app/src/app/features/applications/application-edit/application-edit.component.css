@@ -198,3 +198,19 @@ h3 {
   color: #999;
 }
 
+.employee-name-display {
+  margin-bottom: 16px;
+  padding: 8px 0;
+}
+
+.employee-name-display p {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.employee-name-display strong {
+  font-weight: 500;
+  margin-right: 8px;
+}
+

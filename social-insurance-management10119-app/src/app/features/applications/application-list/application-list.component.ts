@@ -404,6 +404,31 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
         }
       }
     }
+    // 氏名変更届・住所変更届：insuredPerson（単数形）から取得
+    else if (data['insuredPerson'] && typeof data['insuredPerson'] === 'object') {
+      const person = data['insuredPerson'];
+      // employeeIdから取得を試みる（逆引きで取得可能な場合）
+      if (person.employeeId) {
+        const employee = this.employees.find(e => e.id === person.employeeId);
+        if (employee) {
+          targetEmployees.push(`${employee.lastName} ${employee.firstName}`);
+        }
+      }
+      // employeeIdがない場合は氏名を使用
+      else if (person.lastName || person.firstName) {
+        const name = `${person.lastName || ''} ${person.firstName || ''}`.trim();
+        if (name) {
+          targetEmployees.push(name);
+        }
+      }
+      // 変更後氏名がある場合（氏名変更届）
+      else if (person.newLastName || person.newFirstName) {
+        const name = `${person.newLastName || ''} ${person.newFirstName || ''}`.trim();
+        if (name) {
+          targetEmployees.push(name);
+        }
+      }
+    }
     // その他：application.employeeIdを使用
     else if (application.employeeId) {
       const employee = this.employees.find(e => e.id === application.employeeId);

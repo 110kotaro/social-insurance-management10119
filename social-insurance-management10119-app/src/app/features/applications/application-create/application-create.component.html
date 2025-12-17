@@ -4229,6 +4229,20 @@
                           </button>
                         </mat-card-header>
                         <mat-card-content>
+                          <!-- 社員選択 -->
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>社員を選択（情報を自動入力）</mat-label>
+                            <mat-select (selectionChange)="onEmployeeSelectForRewardChange(i, $event.value)" [value]="null">
+                              <mat-option value="">選択してください</mat-option>
+                              <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                                {{ getEmployeeDisplayName(employee) }}
+                              </mat-option>
+                            </mat-select>
+                            <mat-hint>社員を選択すると、被保険者整理番号・氏名・生年月日・従前の標準報酬月額・従前改定月・月変計算データが自動入力されます</mat-hint>
+                          </mat-form-field>
+
+                          <mat-divider style="margin: 16px 0;"></mat-divider>
+
                           <mat-form-field appearance="outline" class="full-width">
                             <mat-label>被保険者整理番号</mat-label>
                             <input matInput formControlName="insuranceNumber">
@@ -4413,11 +4427,25 @@
                             </mat-select>
                           </mat-form-field>
 
-                          <mat-form-field *ngIf="isOver70RemarkSelected(i, 'change')" 
-                                          appearance="outline" class="full-width">
-                            <mat-label>個人番号 *</mat-label>
-                            <input matInput formControlName="personalNumber">
-                          </mat-form-field>
+                          <div *ngIf="isOver70RemarkSelected(i, 'change')" class="form-section">
+                            <div class="form-section-title">個人番号または基礎年金番号</div>
+                            <mat-radio-group formControlName="identificationType">
+                              <mat-radio-button value="personal_number">個人番号</mat-radio-button>
+                              <mat-radio-button value="basic_pension_number">基礎年金番号</mat-radio-button>
+                            </mat-radio-group>
+
+                            <mat-form-field *ngIf="getRewardChangePersonFormGroup(i).get('identificationType')?.value === 'personal_number'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>個人番号</mat-label>
+                              <input matInput formControlName="personalNumber">
+                            </mat-form-field>
+
+                            <mat-form-field *ngIf="getRewardChangePersonFormGroup(i).get('identificationType')?.value === 'basic_pension_number'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>基礎年金番号</mat-label>
+                              <input matInput formControlName="basicPensionNumber">
+                            </mat-form-field>
+                          </div>
 
                           <mat-form-field *ngIf="getRewardChangePersonFormGroup(i).get('remarks')?.value === 'other' || getRewardChangePersonFormGroup(i).get('remarks')?.value === 'salary_reason'" 
                                           appearance="outline" class="full-width">
