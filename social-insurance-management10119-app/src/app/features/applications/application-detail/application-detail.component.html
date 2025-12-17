@@ -151,11 +151,11 @@
                             {{ item.label }}
                           </span>
                           <span matListItemLine [class.empty-value]="item.isEmpty" [class.deadline-value]="item.label === '期限' || item.label === '申請期限'" [class.deadline-overdue]="(item.label === '期限' || item.label === '申請期限') && isDeadlineOverdue(item.value)" [class.deadline-warning]="(item.label === '期限' || item.label === '申請期限') && !isDeadlineOverdue(item.value) && isDeadlineWithinFiveDays(item.value)">
-                            {{ item.isEmpty ? '(未入力)' : item.value }}
+                          {{ item.isEmpty ? '(未入力)' : item.value }}
                             <span *ngIf="(item.label === '期限' || item.label === '申請期限') && isDeadlineOverdue(item.value)" class="deadline-badge overdue">期限超過</span>
                             <span *ngIf="(item.label === '期限' || item.label === '申請期限') && !isDeadlineOverdue(item.value) && isDeadlineWithinFiveDays(item.value)" class="deadline-badge warning">5日以内</span>
-                          </span>
-                        </mat-list-item>
+                        </span>
+                      </mat-list-item>
                         <mat-divider></mat-divider>
                       </ng-container>
                     </mat-list>

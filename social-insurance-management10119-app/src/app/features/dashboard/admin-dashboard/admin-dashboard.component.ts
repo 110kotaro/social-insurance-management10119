@@ -458,13 +458,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           
           // 各被保険者の期限をチェック
           for (const deadline of deadlines) {
-            if (deadline < now) {
-              // 期限超過
-              counts.overdueCount++;
+          if (deadline < now) {
+            // 期限超過
+            counts.overdueCount++;
               hasOverdue = true;
-            } else if (deadline <= fiveDaysLater) {
-              // 期限5日以内
-              counts.nearDeadlineCount++;
+          } else if (deadline <= fiveDaysLater) {
+            // 期限5日以内
+            counts.nearDeadlineCount++;
               hasNearDeadline = true;
             }
           }

@@ -847,21 +847,21 @@
 
                   <div class="form-row">
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>変更後郵便番号</mat-label>
+                    <mat-label>変更後郵便番号</mat-label>
                       <input matInput formControlName="newPostalCode" placeholder="例: 123-4567">
-                    </mat-form-field>
+                  </mat-form-field>
                   </div>
 
                   <div class="form-row">
                     <mat-form-field appearance="outline" class="form-field">
                       <mat-label>都道府県</mat-label>
                       <input matInput formControlName="newPrefecture">
-                    </mat-form-field>
+                  </mat-form-field>
 
                     <mat-form-field appearance="outline" class="form-field">
                       <mat-label>市区町村</mat-label>
                       <input matInput formControlName="newCity">
-                    </mat-form-field>
+                  </mat-form-field>
                   </div>
 
                   <div class="form-row">
@@ -995,21 +995,21 @@
                     <div class="form-section-title">配偶者情報</div>
                     <div class="form-row">
                       <mat-form-field appearance="outline" class="form-field">
-                        <mat-label>配偶者の変更後郵便番号</mat-label>
+                      <mat-label>配偶者の変更後郵便番号</mat-label>
                         <input matInput formControlName="spouseNewPostalCode" placeholder="例: 123-4567">
-                      </mat-form-field>
+                    </mat-form-field>
                     </div>
 
                     <div class="form-row">
                       <mat-form-field appearance="outline" class="form-field">
                         <mat-label>都道府県</mat-label>
                         <input matInput formControlName="spouseNewPrefecture">
-                      </mat-form-field>
+                    </mat-form-field>
 
                       <mat-form-field appearance="outline" class="form-field">
                         <mat-label>市区町村</mat-label>
                         <input matInput formControlName="spouseNewCity">
-                      </mat-form-field>
+                    </mat-form-field>
                     </div>
 
                     <div class="form-row">
@@ -3879,6 +3879,29 @@
                           </button>
                         </mat-card-header>
                         <mat-card-content>
+                          <!-- 社員選択（既存の場合は固定表示、新規追加時のみ選択可能） -->
+                          <div *ngIf="getRewardBasePersonFormGroup(i).get('employeeId')?.value; else employeeSelectForRewardBaseTemplate">
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>社員</mat-label>
+                              <input matInput [value]="getEmployeeDisplayNameById(getRewardBasePersonFormGroup(i).get('employeeId')?.value)" readonly>
+                              <mat-hint>編集時は社員を変更できません。変更する場合は一度削除して新規追加してください。</mat-hint>
+                            </mat-form-field>
+                          </div>
+                          <ng-template #employeeSelectForRewardBaseTemplate>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>社員を選択（情報を自動入力）</mat-label>
+                              <mat-select (selectionChange)="onEmployeeSelectForRewardBase(i, $event.value)" [value]="null">
+                                <mat-option value="">選択してください</mat-option>
+                                <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                                  {{ getEmployeeDisplayName(employee) }}
+                                </mat-option>
+                              </mat-select>
+                              <mat-hint>社員を選択すると、被保険者整理番号・氏名・生年月日・従前の標準報酬月額・従前改定月・適用年月・算定計算データが自動入力されます</mat-hint>
+                            </mat-form-field>
+                          </ng-template>
+
+                          <mat-divider style="margin: 16px 0;"></mat-divider>
+
                           <mat-form-field appearance="outline" class="full-width">
                             <mat-label>被保険者整理番号</mat-label>
                             <input matInput formControlName="insuranceNumber">
@@ -4054,11 +4077,25 @@
                             </mat-select>
                           </mat-form-field>
 
-                          <mat-form-field *ngIf="isOver70RemarkSelected(i, 'base')" 
-                                          appearance="outline" class="full-width">
-                            <mat-label>個人番号</mat-label>
-                            <input matInput formControlName="personalNumber">
-                          </mat-form-field>
+                          <div *ngIf="isOver70RemarkSelected(i, 'base')" class="form-section">
+                            <div class="form-section-title">個人番号または基礎年金番号</div>
+                            <mat-radio-group formControlName="identificationType">
+                              <mat-radio-button value="personal_number">個人番号</mat-radio-button>
+                              <mat-radio-button value="basic_pension_number">基礎年金番号</mat-radio-button>
+                            </mat-radio-group>
+
+                            <mat-form-field *ngIf="getRewardBasePersonFormGroup(i).get('identificationType')?.value === 'personal_number'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>個人番号</mat-label>
+                              <input matInput formControlName="personalNumber">
+                            </mat-form-field>
+
+                            <mat-form-field *ngIf="getRewardBasePersonFormGroup(i).get('identificationType')?.value === 'basic_pension_number'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>基礎年金番号</mat-label>
+                              <input matInput formControlName="basicPensionNumber">
+                            </mat-form-field>
+                          </div>
 
                           <mat-form-field *ngIf="getRewardBasePersonFormGroup(i).get('remarks')?.value === 'other'" 
                                           appearance="outline" class="full-width">
@@ -4438,6 +4475,20 @@
                           </button>
                         </mat-card-header>
                         <mat-card-content>
+                          <!-- 社員選択（既存の場合は固定表示、新規追加時のみ選択可能） -->
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>社員を選択（情報を自動入力）</mat-label>
+                            <mat-select (selectionChange)="onEmployeeSelectForBonusPayment(i, $event.value)" [value]="null">
+                              <mat-option value="">選択してください</mat-option>
+                              <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                                {{ getEmployeeDisplayName(employee) }}
+                              </mat-option>
+                            </mat-select>
+                            <mat-hint>社員を選択すると、被保険者整理番号・氏名・生年月日が自動入力されます</mat-hint>
+                          </mat-form-field>
+
+                          <mat-divider style="margin: 16px 0;"></mat-divider>
+
                           <mat-form-field appearance="outline" class="full-width">
                             <mat-label>被保険者整理番号</mat-label>
                             <input matInput formControlName="insuranceNumber">
@@ -4475,21 +4526,21 @@
                           <div formGroupName="bonusPaymentDate" class="date-input-group">
                             <mat-form-field appearance="outline" class="form-field-small">
                               <mat-label>年号</mat-label>
-                              <mat-select formControlName="era" required>
+                              <mat-select formControlName="era">
                                 <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
                               </mat-select>
                             </mat-form-field>
                             <mat-form-field appearance="outline" class="form-field-small">
                               <mat-label>年</mat-label>
-                              <input matInput type="number" formControlName="year" required>
+                              <input matInput type="number" formControlName="year">
                             </mat-form-field>
                             <mat-form-field appearance="outline" class="form-field-small">
                               <mat-label>月</mat-label>
-                              <input matInput type="number" formControlName="month" required min="1" max="12">
+                              <input matInput type="number" formControlName="month" min="1" max="12">
                             </mat-form-field>
                             <mat-form-field appearance="outline" class="form-field-small">
                               <mat-label>日</mat-label>
-                              <input matInput type="number" formControlName="day" required min="1" max="31">
+                              <input matInput type="number" formControlName="day" min="1" max="31">
                             </mat-form-field>
                           </div>
 
@@ -4625,21 +4676,21 @@
 
                   <div class="form-row">
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>変更後郵便番号</mat-label>
+                    <mat-label>変更後郵便番号</mat-label>
                       <input matInput formControlName="newPostalCode" placeholder="例: 123-4567">
-                    </mat-form-field>
+                  </mat-form-field>
                   </div>
 
                   <div class="form-row">
                     <mat-form-field appearance="outline" class="form-field">
                       <mat-label>都道府県</mat-label>
                       <input matInput formControlName="newPrefecture">
-                    </mat-form-field>
+                  </mat-form-field>
 
                     <mat-form-field appearance="outline" class="form-field">
                       <mat-label>市区町村</mat-label>
                       <input matInput formControlName="newCity">
-                    </mat-form-field>
+                  </mat-form-field>
                   </div>
 
                   <div class="form-row">
@@ -4773,21 +4824,21 @@
                     <div class="form-section-title">配偶者情報</div>
                     <div class="form-row">
                       <mat-form-field appearance="outline" class="form-field">
-                        <mat-label>配偶者の変更後郵便番号</mat-label>
+                      <mat-label>配偶者の変更後郵便番号</mat-label>
                         <input matInput formControlName="spouseNewPostalCode" placeholder="例: 123-4567">
-                      </mat-form-field>
+                    </mat-form-field>
                     </div>
 
                     <div class="form-row">
                       <mat-form-field appearance="outline" class="form-field">
                         <mat-label>都道府県</mat-label>
                         <input matInput formControlName="spouseNewPrefecture">
-                      </mat-form-field>
+                    </mat-form-field>
 
                       <mat-form-field appearance="outline" class="form-field">
                         <mat-label>市区町村</mat-label>
                         <input matInput formControlName="spouseNewCity">
-                      </mat-form-field>
+                    </mat-form-field>
                     </div>
 
                     <div class="form-row">

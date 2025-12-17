@@ -23,7 +23,7 @@
           </a>
         </div>
         <p class="file-hint">
-          CSV/Excelファイル形式: 基本情報（社員番号, 氏名, 氏名カナ, メールアドレス, 部署名, 入社日(yyyy-MM-dd), 生年月日，ステータス(在籍/休職/退職/未入社)，権限），住所情報は必須項目です。
+          CSV/Excelファイル形式: 基本情報（社員番号, 氏, 名, 氏（カナ）, 名（カナ）, メールアドレス, 部署名, 入社日(yyyy-MM-dd), 生年月日，ステータス(在籍/休職/退職/未入社)，権限），住所情報は必須項目です。
         </p>
       </div>
 
@@ -46,16 +46,28 @@
               <td mat-cell *matCellDef="let emp">{{ emp.employeeNumber }}</td>
             </ng-container>
 
-            <!-- 氏名 -->
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>氏名</th>
-              <td mat-cell *matCellDef="let emp">{{ emp.name }}</td>
+            <!-- 氏（姓） -->
+            <ng-container matColumnDef="lastName">
+              <th mat-header-cell *matHeaderCellDef>氏</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.lastName }}</td>
             </ng-container>
 
-            <!-- 氏名カナ -->
-            <ng-container matColumnDef="nameKana">
-              <th mat-header-cell *matHeaderCellDef>氏名カナ</th>
-              <td mat-cell *matCellDef="let emp">{{ emp.nameKana }}</td>
+            <!-- 名 -->
+            <ng-container matColumnDef="firstName">
+              <th mat-header-cell *matHeaderCellDef>名</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.firstName }}</td>
+            </ng-container>
+
+            <!-- 氏（カナ） -->
+            <ng-container matColumnDef="lastNameKana">
+              <th mat-header-cell *matHeaderCellDef>氏（カナ）</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.lastNameKana }}</td>
+            </ng-container>
+
+            <!-- 名（カナ） -->
+            <ng-container matColumnDef="firstNameKana">
+              <th mat-header-cell *matHeaderCellDef>名（カナ）</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.firstNameKana }}</td>
             </ng-container>
 
             <!-- メールアドレス -->

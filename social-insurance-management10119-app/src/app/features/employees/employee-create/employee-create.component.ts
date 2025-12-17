@@ -91,6 +91,7 @@ export class EmployeeCreateComponent implements OnInit {
       joinDate: [new Date(), [Validators.required]],
       birthDate: [null, [this.birthDateRequiredValidator]],
       status: ['active', [Validators.required]],
+      retirementDate: [null], // 退職（予定）日（任意項目）
       role: ['employee', [Validators.required]]
     });
 
@@ -445,6 +446,7 @@ export class EmployeeCreateComponent implements OnInit {
         joinDate: basicInfo.joinDate,
         birthDate: basicInfo.birthDate,
         status: basicInfo.status,
+        retirementDate: basicInfo.retirementDate,
         role: basicInfo.role || 'employee', // 権限（デフォルト: 'employee'）
         dependentInfo,
         insuranceInfo,

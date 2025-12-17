@@ -367,11 +367,14 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
             targetEmployees.push(`${employee.lastName} ${employee.firstName}`);
           }
         } else if (person.lastName || person.firstName) {
-          // 手入力の場合：氏名を使用
+          // 手入力の場合：氏名を使用（資格取得届・資格喪失届）
           const name = `${person.lastName || ''} ${person.firstName || ''}`.trim();
           if (name) {
             targetEmployees.push(name);
           }
+        } else if (person.name) {
+          // 手入力の場合：氏名を使用（賞与支払届）
+          targetEmployees.push(person.name);
         }
       }
     }

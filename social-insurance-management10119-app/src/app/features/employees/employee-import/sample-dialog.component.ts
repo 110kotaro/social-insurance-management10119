@@ -36,16 +36,28 @@ import * as XLSX from 'xlsx';
               <td mat-cell *matCellDef="let row">{{ row.employeeNumber }}</td>
             </ng-container>
 
-            <!-- 氏名 -->
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>氏名 *</th>
-              <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+            <!-- 氏（姓） -->
+            <ng-container matColumnDef="lastName">
+              <th mat-header-cell *matHeaderCellDef>氏 *</th>
+              <td mat-cell *matCellDef="let row">{{ row.lastName }}</td>
             </ng-container>
 
-            <!-- 氏名カナ -->
-            <ng-container matColumnDef="nameKana">
-              <th mat-header-cell *matHeaderCellDef>氏名カナ *</th>
-              <td mat-cell *matCellDef="let row">{{ row.nameKana }}</td>
+            <!-- 名 -->
+            <ng-container matColumnDef="firstName">
+              <th mat-header-cell *matHeaderCellDef>名 *</th>
+              <td mat-cell *matCellDef="let row">{{ row.firstName }}</td>
+            </ng-container>
+
+            <!-- 氏（カナ） -->
+            <ng-container matColumnDef="lastNameKana">
+              <th mat-header-cell *matHeaderCellDef>氏（カナ） *</th>
+              <td mat-cell *matCellDef="let row">{{ row.lastNameKana }}</td>
+            </ng-container>
+
+            <!-- 名（カナ） -->
+            <ng-container matColumnDef="firstNameKana">
+              <th mat-header-cell *matHeaderCellDef>名（カナ） *</th>
+              <td mat-cell *matCellDef="let row">{{ row.firstNameKana }}</td>
             </ng-container>
 
             <!-- メールアドレス -->
@@ -254,7 +266,7 @@ import * as XLSX from 'xlsx';
 })
 export class SampleDialogComponent {
   displayedColumns: string[] = [
-    'employeeNumber', 'name', 'nameKana', 'email', 'departmentName', 'joinDate', 'birthDate', 'status', 'role',
+    'employeeNumber', 'lastName', 'firstName', 'lastNameKana', 'firstNameKana', 'email', 'departmentName', 'joinDate', 'birthDate', 'status', 'role',
     'healthInsuranceNumber', 'pensionNumber', 'myNumber', 'standardReward', 'insuranceStartDate',
     'postalCode', 'prefecture', 'city', 'street', 'building'
   ];
@@ -262,8 +274,10 @@ export class SampleDialogComponent {
   sampleData = [
     {
       employeeNumber: 'EMP001',
-      name: '山田 太郎',
-      nameKana: 'ヤマダ タロウ',
+      lastName: '山田',
+      firstName: '太郎',
+      lastNameKana: 'ヤマダ',
+      firstNameKana: 'タロウ',
       email: 'yamada.taro@example.com',
       departmentName: '営業部',
       joinDate: '2024-04-01',
@@ -283,8 +297,10 @@ export class SampleDialogComponent {
     },
     {
       employeeNumber: 'EMP002',
-      name: '佐藤 花子',
-      nameKana: 'サトウ ハナコ',
+      lastName: '佐藤',
+      firstName: '花子',
+      lastNameKana: 'サトウ',
+      firstNameKana: 'ハナコ',
       email: 'sato.hanako@example.com',
       departmentName: '総務部',
       joinDate: '2023-10-01',
@@ -304,8 +320,10 @@ export class SampleDialogComponent {
     },
     {
       employeeNumber: 'EMP003',
-      name: '鈴木 一郎',
-      nameKana: 'スズキ イチロウ',
+      lastName: '鈴木',
+      firstName: '一郎',
+      lastNameKana: 'スズキ',
+      firstNameKana: 'イチロウ',
       email: 'suzuki.ichiro@example.com',
       departmentName: '開発部',
       joinDate: '2022-07-01',
@@ -325,8 +343,10 @@ export class SampleDialogComponent {
     },
     {
       employeeNumber: 'EMP004',
-      name: '田中 美咲',
-      nameKana: 'タナカ ミサキ',
+      lastName: '田中',
+      firstName: '美咲',
+      lastNameKana: 'タナカ',
+      firstNameKana: 'ミサキ',
       email: 'tanaka.misaki@example.com',
       departmentName: '人事部',
       joinDate: '2025-04-01',
@@ -346,11 +366,11 @@ export class SampleDialogComponent {
     }
   ];
 
-  csvText = `社員番号,氏名,氏名カナ,メールアドレス,部署名,入社日,生年月日,ステータス,権限,被保険者整理番号,基礎年金番号,マイナンバー,標準報酬月額,保険適用開始日,郵便番号,都道府県,市区町村,町名・番地,建物名・部屋番号
-EMP001,山田 太郎,ヤマダ タロウ,yamada.taro@example.com,営業部,2024-04-01,1990-05-15,在籍,一般社員,12345678,87654321,1234567890123,300000,2024-04-01,100-0001,東京都,千代田区,千代田1-1-1,サンプルビル101
-EMP002,佐藤 花子,サトウ ハナコ,sato.hanako@example.com,総務部,2023-10-01,1992-08-20,在籍,管理者,23456789,98765432,2345678901234,280000,2023-10-01,150-0001,東京都,渋谷区,渋谷2-2-2,サンプルマンション202
-EMP003,鈴木 一郎,スズキ イチロウ,suzuki.ichiro@example.com,開発部,2022-07-01,1988-12-10,休職,一般社員,34567890,10987654,3456789012345,350000,2022-07-01,200-0002,東京都,港区,港3-3-3,サンプルタワー303
-EMP004,田中 美咲,タナカ ミサキ,tanaka.misaki@example.com,人事部,2025-04-01,1995-03-25,未入社,一般社員,45678901,21098765,4567890123456,250000,2025-04-01,250-0003,神奈川県,横浜市,中区4-4-4,サンプルハイツ404`;
+  csvText = `社員番号,氏,名,氏（カナ）,名（カナ）,メールアドレス,部署名,入社日,生年月日,ステータス,権限,被保険者整理番号,基礎年金番号,マイナンバー,標準報酬月額,保険適用開始日,郵便番号,都道府県,市区町村,町名・番地,建物名・部屋番号
+EMP001,山田,太郎,ヤマダ,タロウ,yamada.taro@example.com,営業部,2024-04-01,1990-05-15,在籍,一般社員,12345678,87654321,1234567890123,300000,2024-04-01,100-0001,東京都,千代田区,千代田1-1-1,サンプルビル101
+EMP002,佐藤,花子,サトウ,ハナコ,sato.hanako@example.com,総務部,2023-10-01,1992-08-20,在籍,管理者,23456789,98765432,2345678901234,280000,2023-10-01,150-0001,東京都,渋谷区,渋谷2-2-2,サンプルマンション202
+EMP003,鈴木,一郎,スズキ,イチロウ,suzuki.ichiro@example.com,開発部,2022-07-01,1988-12-10,休職,一般社員,34567890,10987654,3456789012345,350000,2022-07-01,200-0002,東京都,港区,港3-3-3,サンプルタワー303
+EMP004,田中,美咲,タナカ,ミサキ,tanaka.misaki@example.com,人事部,2025-04-01,1995-03-25,未入社,一般社員,45678901,21098765,4567890123456,250000,2025-04-01,250-0003,神奈川県,横浜市,中区4-4-4,サンプルハイツ404`;
 
   private dialogRef = inject(MatDialogRef<SampleDialogComponent>);
 

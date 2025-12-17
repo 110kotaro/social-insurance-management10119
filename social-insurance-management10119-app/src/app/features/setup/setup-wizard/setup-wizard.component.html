@@ -241,7 +241,7 @@
               <mat-form-field appearance="outline" class="half-width">
                 <mat-label>事業所整理記号</mat-label>
                 <input matInput formControlName="healthInsuranceOfficeSymbol" placeholder="例: 1234" required>
-                <mat-hint>各申請の事業所整理記号に使用されます</mat-hint>
+                <!--<mat-hint>各申請の事業所整理記号に使用されます</mat-hint>-->
                 <mat-error *ngIf="insuranceForm.get('healthInsuranceOfficeSymbol')?.hasError('required')">
                   事業所整理記号を入力してください
                 </mat-error>
@@ -783,7 +783,7 @@
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>ファイルサイズ制限（MB）</mat-label>
                       <input matInput type="number" [(ngModel)]="editingAttachmentSetting.maxFileSize" [ngModelOptions]="{standalone: true}" min="0" placeholder="10">
-                      <mat-hint>空欄の場合は制限なし</mat-hint>
+                      <mat-hint>空欄の場合は50MB制限</mat-hint>
                     </mat-form-field>
 
                     <mat-form-field appearance="outline" class="full-width">

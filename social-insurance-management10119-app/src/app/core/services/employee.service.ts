@@ -494,6 +494,7 @@ export class EmployeeService {
       departmentId: data['departmentId'],
       joinDate: this.convertToDate(data['joinDate']) || data['joinDate'],
       birthDate: this.convertToDate(data['birthDate']) || data['birthDate'],
+      retirementDate: data['retirementDate'] ? (this.convertToDate(data['retirementDate']) || data['retirementDate']) : undefined,
       status: data['status'],
       dependentInfo: dependentInfo,
       insuranceInfo: insuranceInfo,

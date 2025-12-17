@@ -44,11 +44,11 @@ export const authGuard: CanActivateFn = (
     return of(true);
   }
 
-  // nullの場合は、currentUser$を待つ（リロード時の問題は置いておくため、短いタイムアウト）
+  // nullの場合は、currentUser$を待つ（入力内容が多い場合の認証状態復帰を待つため、タイムアウトを延長）
   return authService.currentUser$.pipe(
     filter(user => user !== null), // nullを除外
     take(1),
-    timeout(1000), // 1秒でタイムアウト（リロード時の問題は置いておく）
+    timeout(3000), // 3秒でタイムアウト（入力内容が多い場合でも認証状態の復帰を待てるように延長）
     map(user => {
       if (user && user.isActive) {
         // メール認証が必要なルート（組織作成画面など）では、メール認証済みかチェック

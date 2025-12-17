@@ -115,6 +115,7 @@ export class EmployeeEditComponent implements OnInit, OnDestroy {
       joinDate: [new Date(), [Validators.required]],
       birthDate: [null, [this.birthDateRequiredValidator]],
       status: ['active', [Validators.required]],
+      retirementDate: [null], // 退職（予定）日（任意項目）
       role: ['employee', [Validators.required]]
     });
 
@@ -442,6 +443,9 @@ export class EmployeeEditComponent implements OnInit, OnDestroy {
     const birthDate = this.employee.birthDate instanceof Date 
       ? this.employee.birthDate 
       : (this.employee.birthDate?.toDate ? this.employee.birthDate.toDate() : null);
+    const retirementDate = this.employee.retirementDate instanceof Date 
+      ? this.employee.retirementDate 
+      : (this.employee.retirementDate?.toDate ? this.employee.retirementDate.toDate() : null);
 
     this.basicInfoForm.patchValue({
       employeeNumber: this.employee.employeeNumber,
@@ -454,6 +458,7 @@ export class EmployeeEditComponent implements OnInit, OnDestroy {
       joinDate: joinDate,
       birthDate: birthDate,
       status: this.employee.status,
+      retirementDate: retirementDate,
       role: this.employee.role || 'employee'
     });
 
@@ -838,6 +843,7 @@ export class EmployeeEditComponent implements OnInit, OnDestroy {
         joinDate: basicInfo.joinDate,
         birthDate: basicInfo.birthDate,
         status: basicInfo.status,
+        retirementDate: basicInfo.retirementDate,
         role: basicInfo.role || 'employee',
         dependentInfo,
         insuranceInfo,

@@ -78,6 +78,11 @@
                 <span matListItemLine>{{ formatDate(employee.birthDate) }}</span>
               </mat-list-item>
               <mat-divider></mat-divider>
+              <mat-list-item *ngIf="employee.retirementDate">
+                <span matListItemTitle>退職（予定）日</span>
+                <span matListItemLine>{{ formatDate(employee.retirementDate) }}</span>
+              </mat-list-item>
+              <mat-divider *ngIf="employee.retirementDate"></mat-divider>
               <mat-list-item>
                 <span matListItemTitle>ステータス</span>
                 <span matListItemLine>

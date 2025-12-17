@@ -25,6 +25,8 @@ interface ImportedEmployee {
   lastName: string;
   firstNameKana: string;
   lastNameKana: string;
+  name?: string; // 表示用（氏名）
+  nameKana?: string; // 表示用（氏名カナ）
   email: string;
   departmentName: string;
   departmentId?: string;
@@ -38,10 +40,6 @@ interface ImportedEmployee {
   myNumber?: string;
   standardReward?: number;
   insuranceStartDate?: Date | null;
-  // 他社勤務情報
-  isOtherCompany?: boolean;
-  isPrimary?: boolean;
-  companyName?: string;
   // 住所情報
   postalCode?: string;
   prefecture?: string;
@@ -82,7 +80,7 @@ export class EmployeeImportComponent implements OnInit {
   departments: Department[] = [];
   organizationId: string | null = null;
   importedEmployees: ImportedEmployee[] = [];
-  displayedColumns: string[] = ['employeeNumber', 'name', 'nameKana', 'email', 'department', 'joinDate', 'status', 'errors'];
+  displayedColumns: string[] = ['employeeNumber', 'lastName', 'firstName', 'lastNameKana', 'firstNameKana', 'email', 'department', 'joinDate', 'status', 'errors'];
   dataSource = new MatTableDataSource<ImportedEmployee>([]);
   importErrors: string[] = [];
   isLoading = false;
@@ -260,15 +258,25 @@ export class EmployeeImportComponent implements OnInit {
   private parseEmployeeRow(row: any[], rowNumber: number): void {
     const errors: string[] = [];
 
-    // 最低限の列数チェック（必須項目8列）
-    if (row.length < 8) {
-      errors.push(`列数が不足しています（最低8列必要：必須項目1-8）`);
+    // 最低限の列数チェック（必須項目10列）
+    if (row.length < 10) {
+      errors.push(`列数が不足しています（最低10列必要：必須項目1-10）`);
+      const lastName = String(row[1] || '').trim();
+      const firstName = String(row[2] || '').trim();
+      const lastNameKana = String(row[3] || '').trim();
+      const firstNameKana = String(row[4] || '').trim();
+      const name = `${lastName} ${firstName}`.trim();
+      const nameKana = `${lastNameKana} ${firstNameKana}`.trim();
       this.importedEmployees.push({
         employeeNumber: row[0] || '',
-        // 氏名を分割（スペースで分割、なければカナから推測）
-        ...this.splitNameFromCSV(row[1] || '', row[2] || ''),
-        email: row[3] || '',
-        departmentName: row[4] || '',
+        firstName,
+        lastName,
+        firstNameKana,
+        lastNameKana,
+        name,
+        nameKana,
+        email: row[5] || '',
+        departmentName: row[6] || '',
         joinDate: null,
         birthDate: null,
         status: 'active',
@@ -277,28 +285,33 @@ export class EmployeeImportComponent implements OnInit {
       return;
     }
 
-    // 必須項目（1-8列）
+    // 必須項目（1-10列）
     const employeeNumber = String(row[0] || '').trim();
-    const name = String(row[1] || '').trim();
-    const nameKana = String(row[2] || '').trim();
-    const email = String(row[3] || '').trim();
-    const departmentName = String(row[4] || '').trim();
-    // 日付は数値（Excelシリアル値）の可能性があるため、直接row[5]とrow[6]を使用
-    const joinDateRaw = row[5];
-    const birthDateRaw = row[6];
-    const statusStr = String(row[7] || '').trim();
+    const lastName = String(row[1] || '').trim(); // 氏（姓）
+    const firstName = String(row[2] || '').trim(); // 名
+    const lastNameKana = String(row[3] || '').trim(); // 氏（カナ）
+    const firstNameKana = String(row[4] || '').trim(); // 名（カナ）
+    const email = String(row[5] || '').trim();
+    const departmentName = String(row[6] || '').trim();
+    // 日付は数値（Excelシリアル値）の可能性があるため、直接row[7]とrow[8]を使用
+    const joinDateRaw = row[7];
+    const birthDateRaw = row[8];
+    const statusStr = String(row[9] || '').trim();
 
     // 必須項目チェック
     if (!employeeNumber) errors.push('社員番号が空です');
-    if (!name) errors.push('氏名が空です');
-    if (!nameKana) errors.push('氏名カナが空です');
+    if (!lastName) errors.push('氏が空です');
+    if (!firstName) errors.push('名が空です');
+    if (!lastNameKana) errors.push('氏（カナ）が空です');
+    if (!firstNameKana) errors.push('名（カナ）が空です');
     if (!email) errors.push('メールアドレスが空です');
     if (!departmentName) errors.push('部署名が空です');
     if (joinDateRaw === undefined || joinDateRaw === null || joinDateRaw === '') errors.push('入社日が空です');
     if (birthDateRaw === undefined || birthDateRaw === null || birthDateRaw === '') errors.push('生年月日が空です');
 
     // 氏名カナのカタカナチェック
-    if (nameKana && !this.isKatakana(nameKana)) {
+    const fullNameKana = lastNameKana + firstNameKana;
+    if (fullNameKana && !this.isKatakana(fullNameKana)) {
       errors.push('氏名カナはカタカナで入力してください');
     }
 
@@ -348,8 +361,8 @@ export class EmployeeImportComponent implements OnInit {
       errors.push(`部署「${departmentName}」が見つかりません`);
     }
 
-    // 権限（9列目、必須項目）
-    const roleRaw = this.normalizeValue(row[8]);
+    // 権限（11列目、必須項目）
+    const roleRaw = this.normalizeValue(row[10]);
     let role: 'admin' | 'employee' = 'employee'; // デフォルト値
     if (!roleRaw) {
       errors.push('権限が空です');
@@ -365,23 +378,21 @@ export class EmployeeImportComponent implements OnInit {
     }
 
     // 任意項目（ヘッダーマップから列インデックスを取得）「-」や「ー」は空欄として扱う
-    const healthInsuranceNumberIndex = this.getColumnIndex('被保険者整理番号', 9);
-    const pensionNumberIndex = this.getColumnIndex('基礎年金番号', 10);
+    const healthInsuranceNumberIndex = this.getColumnIndex('被保険者整理番号', 11);
+    const pensionNumberIndex = this.getColumnIndex('基礎年金番号', 12);
     const healthInsuranceNumber = this.normalizeValue(row[healthInsuranceNumberIndex]);
     const pensionNumber = this.normalizeValue(row[pensionNumberIndex]);
-    const myNumber = this.normalizeValue(row[11]);
-    const standardRewardRaw = this.normalizeValue(row[12]);
+    const myNumber = this.normalizeValue(row[13]);
+    const standardRewardRaw = this.normalizeValue(row[14]);
     const standardReward = standardRewardRaw ? parseFloat(String(standardRewardRaw)) : undefined;
-    // 保険適用開始日は数値（Excelシリアル値）の可能性があるため、直接row[13]を使用（「-」や「ー」は除外）
-    const insuranceStartDateRaw = (row[13] !== undefined && row[13] !== null && row[13] !== '' && String(row[13]).trim() !== '-' && String(row[13]).trim() !== 'ー') ? row[13] : undefined;
-    const isOtherCompanyStr = this.normalizeValue(row[14]);
-    const isPrimaryStr = this.normalizeValue(row[15]);
-    const companyName = this.normalizeValue(row[16]);
-    const postalCode = this.normalizeValue(row[17]) || '';
-    const prefecture = this.normalizeValue(row[18]) || '';
-    const city = this.normalizeValue(row[19]) || '';
-    const street = this.normalizeValue(row[20]) || '';
-    const building = this.normalizeValue(row[21]);
+    // 保険適用開始日は数値（Excelシリアル値）の可能性があるため、直接row[15]を使用（「-」や「ー」は除外）
+    const insuranceStartDateRaw = (row[15] !== undefined && row[15] !== null && row[15] !== '' && String(row[15]).trim() !== '-' && String(row[15]).trim() !== 'ー') ? row[15] : undefined;
+    // 住所情報（保険適用開始日の次から）
+    const postalCode = this.normalizeValue(row[16]) || '';
+    const prefecture = this.normalizeValue(row[17]) || '';
+    const city = this.normalizeValue(row[18]) || '';
+    const street = this.normalizeValue(row[19]) || '';
+    const building = this.normalizeValue(row[20]);
 
     // 住所情報の必須チェック
     if (!postalCode) errors.push('郵便番号が空です');
@@ -398,34 +409,18 @@ export class EmployeeImportComponent implements OnInit {
       }
     }
 
-    // 他社勤務有無をパース（true: 'true', 'はい', '1', 'あり', '〇' / false: 'false', 'いいえ', '0', 'なし', '×'）
-    let isOtherCompany: boolean | undefined = undefined;
-    if (isOtherCompanyStr) {
-      const lowerStr = isOtherCompanyStr.toLowerCase();
-      const normalizedStr = isOtherCompanyStr.trim();
-      if (lowerStr === 'true' || normalizedStr === 'はい' || lowerStr === '1' || normalizedStr === 'あり' || normalizedStr === '〇' || normalizedStr === '○') {
-        isOtherCompany = true;
-      } else if (lowerStr === 'false' || normalizedStr === 'いいえ' || lowerStr === '0' || normalizedStr === 'なし' || normalizedStr === '×') {
-        isOtherCompany = false;
-      }
-    }
+    // 表示用の氏名と氏名カナを生成
+    const name = `${lastName} ${firstName}`.trim();
+    const nameKana = `${lastNameKana} ${firstNameKana}`.trim();
 
-    // 主たる勤務先をパース（true: 'true', 'はい', '1', 'あり', '〇' / false: 'false', 'いいえ', '0', 'なし', '×'）
-    let isPrimary: boolean | undefined = undefined;
-    if (isPrimaryStr) {
-      const lowerStr = isPrimaryStr.toLowerCase();
-      const normalizedStr = isPrimaryStr.trim();
-      if (lowerStr === 'true' || normalizedStr === 'はい' || lowerStr === '1' || normalizedStr === 'あり' || normalizedStr === '〇' || normalizedStr === '○') {
-        isPrimary = true;
-      } else if (lowerStr === 'false' || normalizedStr === 'いいえ' || lowerStr === '0' || normalizedStr === 'なし' || normalizedStr === '×') {
-        isPrimary = false;
-      }
-    }
-
-    const nameParts = this.splitNameFromCSV(name, nameKana);
     this.importedEmployees.push({
       employeeNumber,
-      ...nameParts,
+      firstName,
+      lastName,
+      firstNameKana,
+      lastNameKana,
+      name, // 表示用
+      nameKana, // 表示用
       email,
       departmentName,
       departmentId,
@@ -438,9 +433,6 @@ export class EmployeeImportComponent implements OnInit {
       myNumber,
       standardReward,
       insuranceStartDate,
-      isOtherCompany,
-      isPrimary,
-      companyName,
       postalCode,
       prefecture,
       city,
@@ -544,8 +536,10 @@ export class EmployeeImportComponent implements OnInit {
   private updateDisplayedColumns(): void {
     const allColumns = [
       'employeeNumber',
-      'name',
-      'nameKana',
+      'lastName',
+      'firstName',
+      'lastNameKana',
+      'firstNameKana',
       'email',
       'department',
       'joinDate',
@@ -557,9 +551,6 @@ export class EmployeeImportComponent implements OnInit {
       'myNumber',
       'standardReward',
       'insuranceStartDate',
-      'isOtherCompany',
-      'isPrimary',
-      'companyName',
       'postalCode',
       'prefecture',
       'city',
@@ -664,15 +655,8 @@ export class EmployeeImportComponent implements OnInit {
               }
             : undefined;
 
-        // 他社勤務情報（配列として作成）
-        const otherCompanyInfo: OtherCompanyInfo[] | undefined = 
-          emp.isOtherCompany !== undefined && emp.isOtherCompany
-            ? [{
-                companyId: crypto.randomUUID(), // UUIDを生成
-                companyName: emp.companyName || '',
-                isPrimary: emp.isPrimary !== undefined ? emp.isPrimary : true
-              }]
-            : undefined;
+        // 他社勤務情報（現在は使用しない）
+        const otherCompanyInfo: OtherCompanyInfo[] | undefined = undefined;
 
         // 住所情報（officialのみ使用）
         const address: { official: Address } = {

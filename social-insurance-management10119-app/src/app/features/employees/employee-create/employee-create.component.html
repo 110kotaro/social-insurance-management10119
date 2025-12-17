@@ -121,6 +121,14 @@
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="form-field">
+                <mat-label>退職（予定）日</mat-label>
+                <input matInput [matDatepicker]="pickerRetirementDate" formControlName="retirementDate">
+                <mat-datepicker-toggle matIconSuffix [for]="pickerRetirementDate"></mat-datepicker-toggle>
+                <mat-datepicker #pickerRetirementDate></mat-datepicker>
+                <mat-hint>任意項目です。申請時に使用されます。</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="form-field">
                 <mat-label>権限</mat-label>
                 <mat-select formControlName="role" required>
                   <mat-option value="employee">一般社員</mat-option>

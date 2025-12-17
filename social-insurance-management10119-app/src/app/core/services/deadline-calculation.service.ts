@@ -119,7 +119,7 @@ export class DeadlineCalculationService {
 
       // 期限を計算（資格取得日 + 5日）
       const deadline = new Date(acquisitionDateObj);
-      deadline.setDate(deadline.getDate() + 5);
+    deadline.setDate(deadline.getDate() + 5);
       const adjustedDeadline = this.adjustForBusinessDay(deadline);
 
       // data内に期限を保存
@@ -145,7 +145,7 @@ export class DeadlineCalculationService {
       const lossDate = person.lossDate;
       if (!lossDate) {
         continue;
-      }
+    }
 
       // 年号形式の日付をDateに変換
       let lossDateObj: Date | null = null;
@@ -194,16 +194,56 @@ export class DeadlineCalculationService {
   }
 
   /**
-   * 算定基礎届の法定期限を計算
-   * 7月10日が法定期限
+   * 算定基礎届の法定期限を計算（各被保険者ごとに期限を計算してdata内に保存）
+   * 7月10日が法定期限（適用年月の年の7月10日）
+   * @returns null（各被保険者ごとに期限を保存するため、申請全体の期限は不要）
    */
   private calculateRewardBaseDeadline(application: Application): Date | null {
-    // 申請データから対象年を取得（なければ現在年）
-    const targetYear = application.data?.['targetYear'] || new Date().getFullYear();
-    
-    const deadline = new Date(targetYear, 6, 10); // 7月10日（0-indexedなので6）
-    
-    return this.adjustForBusinessDay(deadline);
+    const rewardBasePersons = application.data?.['rewardBasePersons'];
+    if (!rewardBasePersons || !Array.isArray(rewardBasePersons)) {
+      return null;
+    }
+
+    // 各被保険者の期限を計算してdata内に保存
+    for (const person of rewardBasePersons) {
+      const applicableDate = person.applicableDate;
+      if (!applicableDate) {
+        continue;
+      }
+
+      // 適用年月から対象年を取得
+      let targetYear: number | null = null;
+      
+      if (applicableDate instanceof Date) {
+        targetYear = applicableDate.getFullYear();
+      } else if (applicableDate && typeof applicableDate === 'object' && applicableDate.era) {
+        // 年号形式 {era, year, month}
+        let year = parseInt(applicableDate.year);
+        if (applicableDate.era === 'reiwa') {
+          year = year + 2018; // 令和年 + 2018 = 西暦
+        } else if (applicableDate.era === 'heisei') {
+          year = year + 1988; // 平成年 + 1988 = 西暦
+        } else if (applicableDate.era === 'showa') {
+          year = year + 1925; // 昭和平年 + 1925 = 西暦
+        } else if (applicableDate.era === 'taisho') {
+          year = year + 1911; // 大正年 + 1911 = 西暦
+        }
+        targetYear = year;
+      }
+
+      if (!targetYear) {
+        continue;
+      }
+
+      // 期限を計算（対象年の7月10日）
+      const deadline = new Date(targetYear, 6, 10); // 7月10日（0-indexedなので6）
+      const adjustedDeadline = this.adjustForBusinessDay(deadline);
+
+      // data内に期限を保存
+      person.deadline = adjustedDeadline;
+    }
+
+    return null; // 各被保険者ごとに期限を保存するため、申請全体の期限は不要
   }
 
   /**
@@ -268,38 +308,38 @@ export class DeadlineCalculationService {
       // 1. 各被保険者のbonusPaymentDateを取得（優先）
       const bonusPaymentDate = person.bonusPaymentDate;
       if (bonusPaymentDate) {
-        if (bonusPaymentDate instanceof Date) {
-          paymentDate = bonusPaymentDate;
-        } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).toDate === 'function') {
-          paymentDate = (bonusPaymentDate as any).toDate();
-        } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).seconds === 'number') {
-          paymentDate = new Date((bonusPaymentDate as any).seconds * 1000);
+      if (bonusPaymentDate instanceof Date) {
+        paymentDate = bonusPaymentDate;
+      } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).toDate === 'function') {
+        paymentDate = (bonusPaymentDate as any).toDate();
+      } else if (bonusPaymentDate && typeof (bonusPaymentDate as any).seconds === 'number') {
+        paymentDate = new Date((bonusPaymentDate as any).seconds * 1000);
         } else if (bonusPaymentDate && typeof bonusPaymentDate === 'object' && bonusPaymentDate.era) {
           // 年号形式 {era, year, month, day}
           paymentDate = this.convertEraDateToDate(bonusPaymentDate);
-        } else {
-          paymentDate = new Date(bonusPaymentDate);
-        }
+      } else {
+        paymentDate = new Date(bonusPaymentDate);
       }
+    }
 
       // 2. 各被保険者の支払日がない場合、申請全体のcommonBonusPaymentDateを使用
       if (!paymentDate && commonPaymentDate) {
         paymentDate = commonPaymentDate;
-      }
+    }
 
-      if (!paymentDate) {
+    if (!paymentDate) {
         continue;
-      }
-
+    }
+    
       // 期限を計算（支払日 + 5日）
-      const deadline = new Date(paymentDate);
-      deadline.setDate(deadline.getDate() + 5);
+    const deadline = new Date(paymentDate);
+    deadline.setDate(deadline.getDate() + 5);
       const adjustedDeadline = this.adjustForBusinessDay(deadline);
 
       // data内に期限を保存
       person.deadline = adjustedDeadline;
     }
-
+    
     return null; // 各被保険者ごとに期限を保存するため、申請全体の期限は不要
   }
 

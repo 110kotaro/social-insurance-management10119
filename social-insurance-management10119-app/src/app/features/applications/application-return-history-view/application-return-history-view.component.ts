@@ -164,7 +164,8 @@ export class ApplicationReturnHistoryViewComponent {
         } else {
           personItems.push({ label: '取得年月日', value: this.formatDateValue(person.acquisitionDate), isEmpty: !person.acquisitionDate });
         }
-        personItems.push({ label: '被扶養者数', value: person.dependents?.toString() || '', isEmpty: person.dependents === null || person.dependents === undefined });
+        const hasDependentsLabel = person.hasDependents === 'yes' ? 'あり' : person.hasDependents === 'no' ? 'なし' : '';
+        personItems.push({ label: '被扶養者', value: hasDependentsLabel, isEmpty: !person.hasDependents });
         
         if (person.remuneration) {
           const rem = person.remuneration;
@@ -238,7 +239,6 @@ export class ApplicationReturnHistoryViewComponent {
         personItems.push({ label: '氏名', value: `${person.lastName || ''} ${person.firstName || ''}`.trim() || '', isEmpty: !person.lastName && !person.firstName });
         personItems.push({ label: '氏名（カナ）', value: `${person.lastNameKana || ''} ${person.firstNameKana || ''}`.trim() || '', isEmpty: !person.lastNameKana && !person.firstNameKana });
         personItems.push({ label: '生年月日', value: this.formatEraDate(person.birthDate), isEmpty: !person.birthDate });
-        personItems.push({ label: '種別', value: this.formatType(person.type), isEmpty: !person.type });
         personItems.push({ label: '喪失年月日', value: this.formatDateValue(person.lossDate), isEmpty: !person.lossDate });
         personItems.push({ label: '喪失理由', value: this.formatLossReason(person.lossReason), isEmpty: !person.lossReason });
         
@@ -249,8 +249,13 @@ export class ApplicationReturnHistoryViewComponent {
         }
         
         personItems.push({ label: '備考', value: this.formatRemarks(person.remarks), isEmpty: !person.remarks });
-        personItems.push({ label: '資格確認書回収', value: person.certificateCollection ? '回収済み' : '未回収' });
-        personItems.push({ label: '70歳以上被用者該当', value: person.over70NotApplicable ? '該当しない' : '該当する' });
+        
+        // 資格確認書回収（添付と返不能の枚数を表示）
+        const attachedCount = person.certificateCollection?.attached ?? 0;
+        const unrecoverableCount = person.certificateCollection?.unrecoverable ?? 0;
+        personItems.push({ label: '資格確認書回収', value: `添付：${attachedCount}枚、返不能：${unrecoverableCount}枚`, isEmpty: attachedCount === 0 && unrecoverableCount === 0 });
+        
+        personItems.push({ label: '70歳以上被用者不該当', value: person.over70NotApplicable ? 'チェックあり' : 'チェックなし' });
         
         if (person.over70NotApplicable && person.over70NotApplicableDate) {
           personItems.push({ label: '70歳以上被用者該当日', value: this.formatDateValue(person.over70NotApplicableDate) });
@@ -580,9 +585,13 @@ export class ApplicationReturnHistoryViewComponent {
       const bi = data['businessInfo'];
       biItems.push({ label: '事業所記号', value: bi.officeSymbol || '', isEmpty: !bi.officeSymbol });
       
-      // 住所に郵便番号を追加（フォームデータにpostalCodeがある場合）
+      // 住所に郵便番号を追加（重複を避ける）
       const postalCode = bi.postalCode || '';
-      const address = bi.address || bi.officeAddress || '';
+      let address = bi.address || bi.officeAddress || '';
+      // 住所に既に郵便番号が含まれている場合は除去
+      if (address.match(/^〒\d{3}-?\d{4}/)) {
+        address = address.replace(/^〒\d{3}-?\d{4}\s*/, '');
+      }
       const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
       biItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
       
@@ -600,17 +609,55 @@ export class ApplicationReturnHistoryViewComponent {
         const personItems: FormattedItem[] = [];
         
         personItems.push({ label: '被保険者整理番号', value: person.insuranceNumber || '', isEmpty: !person.insuranceNumber });
-        personItems.push({ label: '氏名', value: `${person.lastName || ''} ${person.firstName || ''}`.trim() || '', isEmpty: !person.lastName && !person.firstName });
+        personItems.push({ label: '氏名', value: person.name || '', isEmpty: !person.name });
         personItems.push({ label: '生年月日', value: this.formatEraDateForReward(person.birthDate), isEmpty: !person.birthDate });
-        personItems.push({ label: '適用年月日', value: this.formatDateValue(person.applicableDate), isEmpty: !person.applicableDate });
-        personItems.push({ label: '従前の標準報酬', value: person.previousStandardReward ? `${person.previousStandardReward.toLocaleString()}円` : '', isEmpty: !person.previousStandardReward });
-        personItems.push({ label: '従前の改定月', value: person.previousRevisionMonth || '', isEmpty: !person.previousRevisionMonth });
-        personItems.push({ label: '増減', value: person.salaryIncreaseDecrease || '', isEmpty: !person.salaryIncreaseDecrease });
+        
+        // 適用年月（年月のみ表示）
+        let applicableDateValue = '';
+        if (person.applicableDate && typeof person.applicableDate === 'object' && !(person.applicableDate instanceof Date) && !(person.applicableDate instanceof Timestamp)) {
+          applicableDateValue = this.formatEraDateYearMonth(person.applicableDate);
+        } else if (person.applicableDate) {
+          applicableDateValue = this.formatDateValue(person.applicableDate);
+        }
+        personItems.push({ label: '適用年月', value: applicableDateValue, isEmpty: !applicableDateValue });
+        
+        // 従前の標準報酬（健康保険と厚生年金を別々に表示）
+        if (person.previousStandardReward && typeof person.previousStandardReward === 'object') {
+          const healthInsurance = person.previousStandardReward.healthInsurance;
+          const pensionInsurance = person.previousStandardReward.pensionInsurance;
+          const healthInsuranceValue = healthInsurance ? `健康保険：${healthInsurance.toLocaleString()}円` : '';
+          const pensionInsuranceValue = pensionInsurance ? `厚生年金：${pensionInsurance.toLocaleString()}円` : '';
+          const rewardValue = [healthInsuranceValue, pensionInsuranceValue].filter(Boolean).join('、') || '';
+          personItems.push({ label: '従前の標準報酬', value: rewardValue, isEmpty: !rewardValue });
+        } else {
+          personItems.push({ label: '従前の標準報酬', value: '', isEmpty: true });
+        }
+        
+        // 従前の改定年月
+        let previousChangeDateValue = '';
+        if (person.previousChangeDate && typeof person.previousChangeDate === 'object' && !(person.previousChangeDate instanceof Date) && !(person.previousChangeDate instanceof Timestamp)) {
+          previousChangeDateValue = this.formatEraDateYearMonth(person.previousChangeDate);
+        }
+        personItems.push({ label: '従前の改定年月', value: previousChangeDateValue, isEmpty: !previousChangeDateValue });
+        
+        // 昇給/降給（月も表示）
+        let salaryChangeValue = '';
+        if (person.salaryChange && person.salaryChange.type) {
+          const changeType = person.salaryChange.type === 'raise' ? '昇給' : person.salaryChange.type === 'reduction' ? '降給' : '';
+          const changeMonth = this.convertEnglishMonthToNumber(person.salaryChange.month);
+          if (changeType && changeMonth) {
+            salaryChangeValue = `${changeType}（${changeMonth}月）`;
+          } else if (changeType) {
+            salaryChangeValue = changeType;
+          }
+        }
+        personItems.push({ label: '昇給/降給', value: salaryChangeValue, isEmpty: !salaryChangeValue });
         
         if (person.retroactivePayment && Array.isArray(person.retroactivePayment)) {
           person.retroactivePayment.forEach((rp: any, rpIndex: number) => {
+            const monthNum = this.convertEnglishMonthToNumber(rp.month);
             personItems.push({ 
-              label: `遡及支払額（${rp.month}月）`, 
+              label: `遡及支払額（${monthNum}月）`, 
               value: rp.amount ? `${rp.amount.toLocaleString()}円` : '', 
               isEmpty: !rp.amount 
             });
@@ -619,8 +666,9 @@ export class ApplicationReturnHistoryViewComponent {
         
         if (person.salaryMonths && Array.isArray(person.salaryMonths)) {
           person.salaryMonths.forEach((sm: any, smIndex: number) => {
+            const monthNum = this.convertEnglishMonthToNumber(sm.month);
             personItems.push({ 
-              label: `報酬月額（${sm.month}月）`, 
+              label: `報酬月額（${monthNum}月）`, 
               value: sm.total ? `${sm.total.toLocaleString()}円` : '', 
               isEmpty: !sm.total 
             });
@@ -630,8 +678,33 @@ export class ApplicationReturnHistoryViewComponent {
         personItems.push({ label: '合計', value: person.total ? `${person.total.toLocaleString()}円` : '', isEmpty: !person.total });
         personItems.push({ label: '平均', value: person.average ? `${person.average.toLocaleString()}円` : '', isEmpty: !person.average });
         personItems.push({ label: '調整平均', value: person.adjustedAverage ? `${person.adjustedAverage.toLocaleString()}円` : '', isEmpty: !person.adjustedAverage });
-        personItems.push({ label: '備考', value: this.formatRemarks(person.remarks), isEmpty: !person.remarks });
-        personItems.push({ label: '個人番号', value: person.personalNumber || '', isEmpty: !person.personalNumber });
+        
+        // 期限を表示
+        if (person.deadline) {
+          const deadline = person.deadline instanceof Date 
+            ? person.deadline 
+            : (person.deadline as any).toDate 
+              ? (person.deadline as any).toDate() 
+              : new Date(person.deadline);
+          personItems.push({ label: '期限', value: this.formatDateValue(deadline), isEmpty: false });
+        }
+        
+        // 備考（その他の場合は備考内容も表示）
+        let remarksValue = this.formatRemarks(person.remarks);
+        if (person.remarks === 'other' && person.remarksOther) {
+          remarksValue = `その他: ${person.remarksOther}`;
+        }
+        personItems.push({ label: '備考', value: remarksValue, isEmpty: !person.remarks });
+        
+        // 個人番号または基礎年金番号
+        if (person.identificationType === 'personal_number') {
+          personItems.push({ label: '個人番号', value: person.personalNumber || '', isEmpty: !person.personalNumber });
+        } else if (person.identificationType === 'basic_pension_number') {
+          personItems.push({ label: '基礎年金番号', value: person.basicPensionNumber || '', isEmpty: !person.basicPensionNumber });
+        } else if (person.personalNumber) {
+          // identificationTypeが設定されていない場合のフォールバック
+          personItems.push({ label: '個人番号', value: person.personalNumber || '', isEmpty: !person.personalNumber });
+        }
 
         sections.push({
           title: `被保険者情報 ${index + 1}`,
@@ -752,9 +825,21 @@ export class ApplicationReturnHistoryViewComponent {
     }
 
     if (data['commonBonusPaymentDate']) {
+      // 共通賞与支払年月日（年号形式のオブジェクトの場合はformatEraDateを使用）
+      let commonBonusPaymentDateValue = '';
+      const commonBonusPaymentDate = data['commonBonusPaymentDate'];
+      if (typeof commonBonusPaymentDate === 'object' && !(commonBonusPaymentDate instanceof Date) && !(commonBonusPaymentDate instanceof Timestamp)) {
+        // 年号形式のオブジェクトの場合
+        if (commonBonusPaymentDate.era && commonBonusPaymentDate.year && commonBonusPaymentDate.month && commonBonusPaymentDate.day) {
+          commonBonusPaymentDateValue = this.formatEraDate(commonBonusPaymentDate);
+        }
+      } else {
+        // Date形式の場合
+        commonBonusPaymentDateValue = this.formatDateValue(commonBonusPaymentDate);
+      }
       sections.push({
         title: '共通賞与支払年月日',
-        items: [{ label: '賞与支払年月日', value: this.formatDateValue(data['commonBonusPaymentDate']) }]
+        items: [{ label: '賞与支払年月日', value: commonBonusPaymentDateValue }]
       });
     }
 
@@ -763,9 +848,22 @@ export class ApplicationReturnHistoryViewComponent {
         const personItems: FormattedItem[] = [];
         
         personItems.push({ label: '被保険者整理番号', value: person.insuranceNumber || '', isEmpty: !person.insuranceNumber });
-        personItems.push({ label: '氏名', value: `${person.lastName || ''} ${person.firstName || ''}`.trim() || '', isEmpty: !person.lastName && !person.firstName });
+        personItems.push({ label: '氏名', value: person.name || '', isEmpty: !person.name });
         personItems.push({ label: '生年月日', value: this.formatEraDateForReward(person.birthDate), isEmpty: !person.birthDate });
-        personItems.push({ label: '賞与支払年月日', value: this.formatDateValue(person.bonusPaymentDate), isEmpty: !person.bonusPaymentDate });
+        // 賞与支払年月日（年号形式のオブジェクトの場合はformatEraDateを使用）
+        if (person.bonusPaymentDate) {
+          let bonusPaymentDateValue = '';
+          if (typeof person.bonusPaymentDate === 'object' && !(person.bonusPaymentDate instanceof Date) && !(person.bonusPaymentDate instanceof Timestamp)) {
+            // 年号形式のオブジェクトの場合
+            if (person.bonusPaymentDate.era && person.bonusPaymentDate.year && person.bonusPaymentDate.month && person.bonusPaymentDate.day) {
+              bonusPaymentDateValue = this.formatEraDate(person.bonusPaymentDate);
+            }
+          } else {
+            // Date形式の場合
+            bonusPaymentDateValue = this.formatDateValue(person.bonusPaymentDate);
+          }
+          personItems.push({ label: '賞与支払年月日', value: bonusPaymentDateValue, isEmpty: !bonusPaymentDateValue });
+        }
         
         // 期限を表示
         if (person.deadline) {
@@ -777,10 +875,26 @@ export class ApplicationReturnHistoryViewComponent {
           personItems.push({ label: '期限', value: this.formatDateValue(deadline), isEmpty: false });
         }
         
-        if (person.bonusAmount) {
-          personItems.push({ label: '賞与額（通貨）', value: person.bonusAmount.currency ? `${person.bonusAmount.currency.toLocaleString()}円` : '', isEmpty: !person.bonusAmount.currency });
-          personItems.push({ label: '賞与額（現物）', value: person.bonusAmount.inKind ? `${person.bonusAmount.inKind.toLocaleString()}円` : '', isEmpty: !person.bonusAmount.inKind });
-          personItems.push({ label: '賞与額（合計）', value: person.bonusAmount.total ? `${person.bonusAmount.total.toLocaleString()}円` : '', isEmpty: !person.bonusAmount.total });
+        // 賞与額の表示（paymentAmountを優先）
+        if (person.paymentAmount && (person.paymentAmount.currency || person.paymentAmount.inKind)) {
+          const currency = person.paymentAmount.currency || 0;
+          const inKind = person.paymentAmount.inKind || 0;
+          const total = currency + inKind;
+          
+          personItems.push({ label: '賞与額（通貨）', value: currency ? `${currency.toLocaleString()}円` : '', isEmpty: !currency });
+          personItems.push({ label: '賞与額（現物）', value: inKind ? `${inKind.toLocaleString()}円` : '', isEmpty: !inKind });
+          personItems.push({ label: '賞与額（合計）', value: total ? `${total.toLocaleString()}円` : '', isEmpty: total === 0 });
+        } else if (person.bonusAmount) {
+          // bonusAmountが数値の場合
+          if (typeof person.bonusAmount === 'number') {
+            personItems.push({ label: '賞与額（合計）', value: `${person.bonusAmount.toLocaleString()}円`, isEmpty: false });
+          } 
+          // bonusAmountがオブジェクトの場合（既存データ）
+          else if (typeof person.bonusAmount === 'object') {
+            personItems.push({ label: '賞与額（通貨）', value: person.bonusAmount.currency ? `${person.bonusAmount.currency.toLocaleString()}円` : '', isEmpty: !person.bonusAmount.currency });
+            personItems.push({ label: '賞与額（現物）', value: person.bonusAmount.inKind ? `${person.bonusAmount.inKind.toLocaleString()}円` : '', isEmpty: !person.bonusAmount.inKind });
+            personItems.push({ label: '賞与額（合計）', value: person.bonusAmount.total ? `${person.bonusAmount.total.toLocaleString()}円` : '', isEmpty: !person.bonusAmount.total });
+          }
         }
         
         personItems.push({ label: '備考', value: this.formatRemarks(person.remarks), isEmpty: !person.remarks });
@@ -897,6 +1011,53 @@ export class ApplicationReturnHistoryViewComponent {
   }
 
   /**
+   * 年号形式の年月のみをフォーマット（適用年月用）
+   */
+  private formatEraDateYearMonth(dateObj: any): string {
+    if (!dateObj || typeof dateObj !== 'object') return '';
+    
+    const eraLabels: Record<string, string> = {
+      'meiji': '明治',
+      'taisho': '大正',
+      'showa': '昭和',
+      'heisei': '平成',
+      'reiwa': '令和'
+    };
+    
+    const era = eraLabels[dateObj.era] || dateObj.era || '';
+    const year = dateObj.year || '';
+    const month = dateObj.month || '';
+    
+    if (!era || !year || !month) return '';
+    
+    return `${era}${year}年${month}月`;
+  }
+
+  /**
+   * 英語月名を数値に変換
+   */
+  private convertEnglishMonthToNumber(monthStr: string): string {
+    if (!monthStr) return '';
+    
+    const monthMap: Record<string, string> = {
+      'april': '4',
+      'may': '5',
+      'june': '6',
+      'july': '7',
+      'august': '8',
+      'september': '9',
+      'october': '10',
+      'november': '11',
+      'december': '12',
+      'january': '1',
+      'february': '2',
+      'march': '3'
+    };
+    
+    return monthMap[monthStr.toLowerCase()] || monthStr;
+  }
+
+  /**
    * 種別をフォーマット
    */
   private formatType(type: string): string {
@@ -941,19 +1102,57 @@ export class ApplicationReturnHistoryViewComponent {
    */
   private formatRemarks(remarks: any): string {
     if (!remarks) return '';
-    if (typeof remarks === 'string') return remarks;
-    if (typeof remarks === 'object' && remarks.value) {
-      if (remarks.value === 'other') {
-        return `その他: ${remarks.otherText || ''}`;
-      }
-      const labels: Record<string, string> = {
+    if (typeof remarks === 'string') {
+      // 算定基礎届用のラベルマップ
+      const rewardBaseLabels: Record<string, string> = {
+        'over70': '70歳以上被用者算定',
+        'multiple_workplace': '二以上勤務',
+        'scheduled_change': '月額変更予定',
+        'mid_join': '途中入社',
+        'leave': '病休・育休・休職等',
+        'part_time': '短時間労働者(特定適用事業所等)',
+        'part_time_worker': 'パート',
+        'annual_average': '年間平均',
+        'other': 'その他'
+      };
+      // 資格取得届用のラベルマップ
+      const acquisitionLabels: Record<string, string> = {
         'over70_employee': '70歳以上被用者該当',
         'multiple_workplace': '二以上事業所勤務者の取得',
         'part_time_worker': '短時間労働者の取得（特定適用事業所等）',
         'rehired_after_retirement': '退職後の継続再雇用者の取得',
         'other': 'その他'
       };
-      return labels[remarks.value] || remarks.value;
+      // 算定基礎届用を優先、なければ資格取得届用、どちらでもなければそのまま
+      return rewardBaseLabels[remarks] || acquisitionLabels[remarks] || remarks;
+    }
+    if (typeof remarks === 'object' && remarks.value) {
+      if (remarks.value === 'other') {
+        return `その他: ${remarks.otherText || remarks.remarksOther || ''}`;
+      }
+      const rewardBaseLabels: Record<string, string> = {
+        'over70': '70歳以上被用者算定',
+        'multiple_workplace': '二以上勤務',
+        'scheduled_change': '月額変更予定',
+        'mid_join': '途中入社',
+        'leave': '病休・育休・休職等',
+        'part_time': '短時間労働者(特定適用事業所等)',
+        'part_time_worker': 'パート',
+        'annual_average': '年間平均',
+        'other': 'その他'
+      };
+      const acquisitionLabels: Record<string, string> = {
+        'over70_employee': '70歳以上被用者該当',
+        'multiple_workplace': '二以上事業所勤務者の取得',
+        'part_time_worker': '短時間労働者の取得（特定適用事業所等）',
+        'rehired_after_retirement': '退職後の継続再雇用者の取得',
+        'other': 'その他'
+      };
+      const label = rewardBaseLabels[remarks.value] || acquisitionLabels[remarks.value] || remarks.value;
+      if (remarks.value === 'other' && (remarks.remarksOther || remarks.otherText)) {
+        return `${label}: ${remarks.remarksOther || remarks.otherText}`;
+      }
+      return label;
     }
     return String(remarks);
   }
