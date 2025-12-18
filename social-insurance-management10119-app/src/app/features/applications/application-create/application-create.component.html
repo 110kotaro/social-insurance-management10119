@@ -1115,7 +1115,7 @@
                       <mat-label>配偶者の変更前住所</mat-label>
                       <textarea matInput formControlName="spouseOldAddress" rows="2"></textarea>
                     </mat-form-field>
-                    <div class="form-section-title">配偶者の変更年月日</div>
+                    <div class="form-section-title">配偶者の住所変更年月日</div>
                     <div formGroupName="spouseChangeDate" class="date-input-group">
                       <mat-form-field appearance="outline" class="form-field-small">
                         <mat-label>年号</mat-label>
@@ -1571,29 +1571,41 @@
                   <mat-card-title>配偶者である被扶養者情報</mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
-                  <!-- 異動種別 -->
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>異動種別</mat-label>
-                    <mat-select formControlName="changeType" required 
-                                [disableOptionCentering]="true"
-                                (selectionChange)="onSpouseChangeTypeSelectionChange($event.value)"
-                                #spouseChangeTypeSelect>
-                      <mat-option *ngFor="let type of changeTypeOptions" [value]="type.value">
-                        {{ type.label }}
-                      </mat-option>
-                    </mat-select>
-                  </mat-form-field>
+                  <!-- 被扶養者でない配偶者を有する -->
+                  <mat-checkbox formControlName="hasNonDependentSpouse">
+                    被扶養者でない配偶者を有する
+                  </mat-checkbox>
 
-                  <!-- 異動種別「異動無し」の場合：配偶者の収入のみ入力可能 -->
-                  <div *ngIf="isSpouseChangeTypeNoChange()">
+                  <!-- 被扶養者でない配偶者を有する場合：配偶者の収入のみ入力可能 -->
+                  <div *ngIf="isSpouseHasNonDependent()" style="margin-top: 16px;">
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>配偶者の収入（年収）</mat-label>
                       <input matInput type="number" formControlName="spouseIncome" required>
                     </mat-form-field>
                   </div>
 
-                  <!-- 異動種別が「異動無し」以外かつ「変更」以外の場合の入力フォーム -->
-                  <div *ngIf="!isSpouseChangeTypeNoChange() && !isSpouseChangeTypeChange()">
+                  <!-- 被扶養者でない配偶者を有しない場合：異動種別選択と詳細入力 -->
+                  <div *ngIf="!isSpouseHasNonDependent()">
+                    <!-- 異動種別 -->
+                    <mat-form-field appearance="outline" class="full-width" style="margin-top: 16px;">
+                      <mat-label>異動種別</mat-label>
+                      <mat-select formControlName="changeType" required 
+                                  [disableOptionCentering]="true"
+                                  (selectionChange)="onSpouseChangeTypeSelectionChange($event.value)"
+                                  #spouseChangeTypeSelect>
+                        <mat-option *ngFor="let type of changeTypeOptions" [value]="type.value">
+                          {{ type.label }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+
+                    <!-- 異動種別「異動無し」の場合：メッセージのみ表示 -->
+                    <div *ngIf="isSpouseChangeTypeNoChange()" class="no-change-message">
+                      <p style="color: #666; margin-top: 16px;">異動無しのため、詳細入力は不要です。</p>
+                    </div>
+
+                    <!-- 異動種別が「異動無し」以外かつ「変更」以外の場合の入力フォーム -->
+                    <div *ngIf="!isSpouseChangeTypeNoChange() && !isSpouseChangeTypeChange()">
                     <!-- 氏名 -->
                     <div class="form-row">
                       <mat-form-field appearance="outline" class="form-field">
@@ -2300,6 +2312,7 @@
                         </mat-form-field>
                       </div>
                     </div>
+                  </div>
                 </mat-card-content>
               </mat-card>
 
@@ -3223,21 +3236,41 @@
                   <mat-card-title>配偶者である被扶養者情報</mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
-                  <!-- 異動がない場合のフラグ -->
-                  <mat-checkbox formControlName="noChange">
-                    異動がない場合（配偶者の収入のみ記入）
+                  <!-- 被扶養者でない配偶者を有する -->
+                  <mat-checkbox formControlName="hasNonDependentSpouse">
+                    被扶養者でない配偶者を有する
                   </mat-checkbox>
 
-                  <!-- 異動がない場合の配偶者の収入 -->
-                  <div *ngIf="dependentChangeFormInternal.get('spouseDependent.noChange')?.value">
+                  <!-- 被扶養者でない配偶者を有する場合：配偶者の収入のみ入力可能 -->
+                  <div *ngIf="isSpouseHasNonDependent()" style="margin-top: 16px;">
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>配偶者の収入（年収）</mat-label>
                       <input matInput type="number" formControlName="spouseIncome" required>
                     </mat-form-field>
                   </div>
 
-                  <!-- 異動がある場合の入力フォーム -->
-                  <div *ngIf="!dependentChangeFormInternal.get('spouseDependent.noChange')?.value">
+                  <!-- 被扶養者でない配偶者を有しない場合：異動種別選択と詳細入力 -->
+                  <div *ngIf="!isSpouseHasNonDependent()">
+                    <!-- 異動種別 -->
+                    <mat-form-field appearance="outline" class="full-width" style="margin-top: 16px;">
+                      <mat-label>異動種別</mat-label>
+                      <mat-select formControlName="changeType" required 
+                                  [disableOptionCentering]="true"
+                                  (selectionChange)="onSpouseChangeTypeSelectionChange($event.value)"
+                                  #spouseChangeTypeSelectInternal>
+                        <mat-option *ngFor="let type of changeTypeOptions" [value]="type.value">
+                          {{ type.label }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+
+                    <!-- 異動種別「異動無し」の場合：メッセージのみ表示 -->
+                    <div *ngIf="isSpouseChangeTypeNoChange()" class="no-change-message">
+                      <p style="color: #666; margin-top: 16px;">異動無しのため、詳細入力は不要です。</p>
+                    </div>
+
+                    <!-- 異動種別が「異動無し」以外かつ「変更」以外の場合の入力フォーム -->
+                    <div *ngIf="!isSpouseChangeTypeNoChange() && !isSpouseChangeTypeChange()">
                     <!-- 氏名 -->
                     <div class="form-row">
                       <mat-form-field appearance="outline" class="form-field">
@@ -3375,19 +3408,6 @@
                       </mat-form-field>
                     </div>
 
-                    <!-- 異動種別 -->
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>異動種別</mat-label>
-                      <mat-select formControlName="changeType" required 
-                                  [disableOptionCentering]="true"
-                                  (selectionChange)="onSpouseChangeTypeSelectionChange($event.value)"
-                                  #spouseChangeTypeSelectInternal>
-                        <mat-option *ngFor="let type of changeTypeOptions" [value]="type.value">
-                          {{ type.label }}
-                        </mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
                     <!-- 異動種別「該当」の場合 -->
                     <div *ngIf="dependentChangeFormInternal.get('spouseDependent.changeType')?.value === 'applicable'">
                       <div class="form-section-title">被扶養者になった日</div>
@@ -3513,136 +3533,6 @@
                       </mat-form-field>
                     </div>
 
-                    <!-- 異動種別「変更」の場合 -->
-                    <div *ngIf="dependentChangeFormInternal.get('spouseDependent.changeType')?.value === 'change'">
-                      <h4>変更前の情報</h4>
-                      <!-- 変更前の情報は上記の該当・非該当のフィールドを使用 -->
-                      <!-- 変更後の情報を下に追加 -->
-                      <h4>変更後の情報</h4>
-                      <div formGroupName="changeAfter">
-                        <!-- 変更後：被扶養者になった日 -->
-                        <div class="form-section-title">被扶養者になった日</div>
-                        <div formGroupName="dependentStartDate" class="date-input-group">
-                          <mat-form-field appearance="outline" class="form-field-small">
-                            <mat-label>年号</mat-label>
-                            <mat-select formControlName="era">
-                              <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
-                            </mat-select>
-                          </mat-form-field>
-                          <mat-form-field appearance="outline" class="form-field-small">
-                            <mat-label>年</mat-label>
-                            <input matInput type="number" formControlName="year">
-                          </mat-form-field>
-                          <mat-form-field appearance="outline" class="form-field-small">
-                            <mat-label>月</mat-label>
-                            <input matInput type="number" formControlName="month" min="1" max="12">
-                          </mat-form-field>
-                          <mat-form-field appearance="outline" class="form-field-small">
-                            <mat-label>日</mat-label>
-                            <input matInput type="number" formControlName="day" min="1" max="31">
-                          </mat-form-field>
-                        </div>
-
-                        <mat-form-field appearance="outline" class="full-width">
-                          <mat-label>被扶養者になった理由</mat-label>
-                          <mat-select formControlName="dependentStartReason">
-                            <mat-option *ngFor="let reason of dependentStartReasonOptions" [value]="reason.value">
-                              {{ reason.label }}
-                            </mat-option>
-                          </mat-select>
-                        </mat-form-field>
-
-                        <mat-form-field *ngIf="dependentChangeFormInternal.get('spouseDependent.changeAfter.dependentStartReason')?.value === 'other'" 
-                                        appearance="outline" class="full-width">
-                          <mat-label>被扶養者になった理由（その他）</mat-label>
-                          <textarea matInput formControlName="dependentStartReasonOther" rows="2"></textarea>
-                        </mat-form-field>
-
-                        <mat-form-field appearance="outline" class="full-width">
-                          <mat-label>職業</mat-label>
-                          <mat-select formControlName="occupation">
-                            <mat-option *ngFor="let occ of occupationOptions" [value]="occ.value">
-                              {{ occ.label }}
-                            </mat-option>
-                          </mat-select>
-                        </mat-form-field>
-
-                        <mat-form-field *ngIf="dependentChangeFormInternal.get('spouseDependent.changeAfter.occupation')?.value === 'other'" 
-                                        appearance="outline" class="full-width">
-                          <mat-label>職業（その他）</mat-label>
-                          <textarea matInput formControlName="occupationOther" rows="2"></textarea>
-                        </mat-form-field>
-
-                        <mat-form-field appearance="outline" class="full-width">
-                          <mat-label>収入（年収）</mat-label>
-                          <input matInput type="number" formControlName="income">
-                        </mat-form-field>
-
-                        <!-- 変更後：被扶養者でなくなった日 -->
-                        <div class="form-section-title">被扶養者でなくなった日</div>
-                        <div formGroupName="dependentEndDate" class="date-input-group">
-                          <mat-form-field appearance="outline" class="form-field-small">
-                            <mat-label>年号</mat-label>
-                            <mat-select formControlName="era">
-                              <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
-                            </mat-select>
-                          </mat-form-field>
-                          <mat-form-field appearance="outline" class="form-field-small">
-                            <mat-label>年</mat-label>
-                            <input matInput type="number" formControlName="year">
-                          </mat-form-field>
-                          <mat-form-field appearance="outline" class="form-field-small">
-                            <mat-label>月</mat-label>
-                            <input matInput type="number" formControlName="month" min="1" max="12">
-                          </mat-form-field>
-                          <mat-form-field appearance="outline" class="form-field-small">
-                            <mat-label>日</mat-label>
-                            <input matInput type="number" formControlName="day" min="1" max="31">
-                          </mat-form-field>
-                        </div>
-
-                        <mat-form-field appearance="outline" class="full-width">
-                          <mat-label>理由</mat-label>
-                          <mat-select formControlName="dependentEndReason">
-                            <mat-option *ngFor="let reason of dependentEndReasonOptions" [value]="reason.value">
-                              {{ reason.label }}
-                            </mat-option>
-                          </mat-select>
-                        </mat-form-field>
-
-                        <mat-form-field *ngIf="dependentChangeFormInternal.get('spouseDependent.changeAfter.dependentEndReason')?.value === 'other'" 
-                                        appearance="outline" class="full-width">
-                          <mat-label>理由（その他）</mat-label>
-                          <textarea matInput formControlName="dependentEndReasonOther" rows="2"></textarea>
-                        </mat-form-field>
-
-                        <!-- 変更後：死亡の場合の日付 -->
-                        <div *ngIf="dependentChangeFormInternal.get('spouseDependent.changeAfter.dependentEndReason')?.value === 'death'">
-                          <div class="form-section-title">死亡した日</div>
-                          <div formGroupName="deathDate" class="date-input-group">
-                            <mat-form-field appearance="outline" class="form-field-small">
-                              <mat-label>年号</mat-label>
-                              <mat-select formControlName="era">
-                                <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
-                              </mat-select>
-                            </mat-form-field>
-                            <mat-form-field appearance="outline" class="form-field-small">
-                              <mat-label>年</mat-label>
-                              <input matInput type="number" formControlName="year">
-                            </mat-form-field>
-                            <mat-form-field appearance="outline" class="form-field-small">
-                              <mat-label>月</mat-label>
-                              <input matInput type="number" formControlName="month" min="1" max="12">
-                            </mat-form-field>
-                            <mat-form-field appearance="outline" class="form-field-small">
-                              <mat-label>日</mat-label>
-                              <input matInput type="number" formControlName="day" min="1" max="31">
-                            </mat-form-field>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
                     <!-- 備考 -->
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>備考</mat-label>
@@ -3660,7 +3550,7 @@
                     </mat-form-field>
 
                     <!-- 海外特例要件「該当」の場合 -->
-                    <div *ngIf="dependentChangeFormInternal.get('spouseDependent.overseasException')?.value === 'applicable'">
+                    <div *ngIf="isSpouseOverseasExceptionApplicable()">
                       <div class="form-section-title">海外特例要件に該当した日</div>
                       <div formGroupName="overseasExceptionStartDate" class="date-input-group">
                         <mat-form-field appearance="outline" class="form-field-small">
@@ -3700,7 +3590,7 @@
                     </div>
 
                     <!-- 海外特例要件「非該当」の場合 -->
-                    <div *ngIf="dependentChangeFormInternal.get('spouseDependent.overseasException')?.value === 'not_applicable'">
+                    <div *ngIf="isSpouseOverseasExceptionNotApplicable()">
                       <div class="form-section-title">海外特例要件に非該当となった日</div>
                       <div formGroupName="overseasExceptionEndDate" class="date-input-group">
                         <mat-form-field appearance="outline" class="form-field-small">
@@ -3733,7 +3623,7 @@
                       </mat-form-field>
 
                       <!-- 国内転入の場合の日付 -->
-                      <div *ngIf="dependentChangeFormInternal.get('spouseDependent.overseasExceptionEndReason')?.value === 'domestic_transfer'">
+                      <div *ngIf="isSpouseOverseasExceptionEndReasonDomesticTransfer()">
                         <div class="form-section-title">国内転入日</div>
                         <div formGroupName="domesticTransferDate" class="date-input-group">
                           <mat-form-field appearance="outline" class="form-field-small">
@@ -3769,6 +3659,325 @@
                       資格確認書発行要否
                     </mat-checkbox>
                   </div>
+
+                  <!-- 異動種別「変更」の場合：各項目ごとに変更前・変更後を縦並び表示 -->
+                  <div formGroupName="changeAfter" [hidden]="!isSpouseChangeTypeChange()">
+                      <!-- 氏名：変更前・変更後 -->
+                      <div class="form-section-title">氏名</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ getSpouseChangeBeforeInfo()?.name || '' }}</p>
+                      </div>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>変更後：氏</mat-label>
+                          <input matInput formControlName="lastName">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>変更後：名</mat-label>
+                          <input matInput formControlName="firstName">
+                        </mat-form-field>
+                      </div>
+
+                      <!-- 氏名（カナ）：変更前・変更後 -->
+                      <div class="form-section-title">氏名（カナ）</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ getSpouseChangeBeforeInfo()?.nameKana || '' }}</p>
+                      </div>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>変更後：氏（カナ）</mat-label>
+                          <input matInput formControlName="lastNameKana">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>変更後：名（カナ）</mat-label>
+                          <input matInput formControlName="firstNameKana">
+                        </mat-form-field>
+                      </div>
+
+                      <!-- 生年月日：変更前・変更後 -->
+                      <div class="form-section-title">生年月日</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ formatEraDate(getSpouseChangeBeforeInfo()?.birthDate) || '' }}</p>
+                      </div>
+                      <div formGroupName="birthDate" class="date-input-group">
+                        <mat-form-field appearance="outline" class="form-field-small">
+                          <mat-label>変更後：年号</mat-label>
+                          <mat-select formControlName="era">
+                            <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-small">
+                          <mat-label>変更後：年</mat-label>
+                          <input matInput type="number" formControlName="year">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-small">
+                          <mat-label>変更後：月</mat-label>
+                          <input matInput type="number" formControlName="month" min="1" max="12">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-small">
+                          <mat-label>変更後：日</mat-label>
+                          <input matInput type="number" formControlName="day" min="1" max="31">
+                        </mat-form-field>
+                      </div>
+
+                      <!-- 続柄：変更前・変更後 -->
+                      <div class="form-section-title">続柄</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ formatSpouseRelationship(getSpouseChangeBeforeInfo()?.relationship) || '' }}</p>
+                      </div>
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>変更後：続柄</mat-label>
+                        <mat-select formControlName="relationship">
+                          <mat-option *ngFor="let rel of relationshipOptions" [value]="rel.value">
+                            {{ rel.label }}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+
+                      <!-- 個人番号または基礎年金番号：変更前のみ（編集不可） -->
+                      <div class="form-section-title">個人番号または基礎年金番号</div>
+                      <div class="change-before-info">
+                        <p *ngIf="getSpouseChangeBeforeInfo()?.identificationType === 'personal_number'">
+                          <strong>変更前：</strong>{{ getSpouseChangeBeforeInfo()?.personalNumber || '' }}
+                        </p>
+                        <p *ngIf="getSpouseChangeBeforeInfo()?.identificationType === 'basic_pension_number'">
+                          <strong>変更前：</strong>{{ getSpouseChangeBeforeInfo()?.basicPensionNumber || '' }}
+                        </p>
+                      </div>
+
+                      <!-- 外国人通称名：変更前のみ（該当する場合のみ） -->
+                      <div *ngIf="getSpouseChangeBeforeInfo()?.isForeigner" class="form-section-title">外国人通称名</div>
+                      <div *ngIf="getSpouseChangeBeforeInfo()?.isForeigner" class="change-before-info">
+                        <p><strong>変更前：</strong>{{ getSpouseChangeBeforeInfo()?.foreignName || '' }}</p>
+                      </div>
+                      <div *ngIf="getSpouseChangeBeforeInfo()?.isForeigner" class="form-section-title">外国人通称名（カナ）</div>
+                      <div *ngIf="getSpouseChangeBeforeInfo()?.isForeigner" class="change-before-info">
+                        <p><strong>変更前：</strong>{{ getSpouseChangeBeforeInfo()?.foreignNameKana || '' }}</p>
+                      </div>
+
+                      <!-- 住所：変更前・変更後 -->
+                      <div class="form-section-title">住所</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ formatAddress(getSpouseChangeBeforeInfo()?.address) || '' }}</p>
+                        <p *ngIf="getSpouseChangeBeforeInfo()?.address?.livingTogether">
+                          <strong>同居／別居：</strong>{{ getSpouseChangeBeforeInfo()?.address?.livingTogether === 'living_together' ? '同居' : '別居' }}
+                        </p>
+                      </div>
+                      <div formGroupName="address">
+                        <div class="form-row">
+                          <mat-form-field appearance="outline" class="form-field">
+                            <mat-label>変更後：郵便番号</mat-label>
+                            <input matInput formControlName="postalCode" placeholder="例: 123-4567">
+                          </mat-form-field>
+                        </div>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>変更後：都道府県</mat-label>
+                          <input matInput formControlName="prefecture">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>変更後：市区町村</mat-label>
+                          <input matInput formControlName="city">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>変更後：町名・番地</mat-label>
+                          <input matInput formControlName="street">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>変更後：建物名・部屋番号</mat-label>
+                          <input matInput formControlName="building">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>変更後：住所（カナ）</mat-label>
+                          <input matInput formControlName="addressKana">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>変更後：同居・別居</mat-label>
+                          <mat-select formControlName="livingTogether">
+                            <mat-option value="living_together">同居</mat-option>
+                            <mat-option value="separate">別居</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                      </div>
+
+                      <!-- 電話番号：変更前・変更後 -->
+                      <div class="form-section-title">電話番号</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ formatPhoneNumber(getSpouseChangeBeforeInfo()?.phoneNumber) || '' }}</p>
+                      </div>
+                      <div formGroupName="phoneNumber">
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>変更後：電話番号</mat-label>
+                          <input matInput formControlName="phone">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field">
+                          <mat-label>変更後：種別</mat-label>
+                          <mat-select formControlName="type">
+                            <mat-option *ngFor="let type of phoneTypeOptions" [value]="type.value">
+                              {{ type.label }}
+                            </mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                      </div>
+
+                      <!-- 職業：変更前・変更後 -->
+                      <div class="form-section-title">職業</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ formatOccupation(getSpouseChangeBeforeInfo()?.occupation) || '' }}</p>
+                      </div>
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>変更後：職業</mat-label>
+                        <mat-select formControlName="occupation">
+                          <mat-option *ngFor="let occ of occupationOptions" [value]="occ.value">
+                            {{ occ.label }}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field *ngIf="dependentChangeFormInternal.get('spouseDependent.changeAfter.occupation')?.value === 'other'" 
+                                      appearance="outline" class="full-width">
+                        <mat-label>変更後：職業（その他）</mat-label>
+                        <textarea matInput formControlName="occupationOther" rows="2"></textarea>
+                      </mat-form-field>
+
+                      <!-- 収入（年収）：変更前・変更後 -->
+                      <div class="form-section-title">収入（年収）</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ getSpouseChangeBeforeInfo()?.income !== null && getSpouseChangeBeforeInfo()?.income !== undefined ? (getSpouseChangeBeforeInfo()?.income || 0) + '円' : '' }}</p>
+                      </div>
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>変更後：収入（年収）</mat-label>
+                        <input matInput type="number" formControlName="income">
+                      </mat-form-field>
+
+                      <!-- 備考：変更前・変更後 -->
+                      <div class="form-section-title">備考</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ getSpouseChangeBeforeInfo()?.remarks || '' }}</p>
+                      </div>
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>変更後：備考</mat-label>
+                        <textarea matInput formControlName="remarks" rows="3"></textarea>
+                      </mat-form-field>
+
+                      <!-- 海外特例要件：変更前・変更後 -->
+                      <div class="form-section-title">海外特例要件</div>
+                      <div class="change-before-info">
+                        <p><strong>変更前：</strong>{{ getSpouseChangeBeforeInfo()?.overseasException === 'applicable' ? '該当' : getSpouseChangeBeforeInfo()?.overseasException === 'not_applicable' ? '非該当' : '' }}</p>
+                      </div>
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>変更後：海外特例要件</mat-label>
+                        <mat-select formControlName="overseasException">
+                          <mat-option value="">選択してください</mat-option>
+                          <mat-option value="applicable">該当</mat-option>
+                          <mat-option value="not_applicable">非該当</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+
+                      <!-- 変更後：海外特例要件「該当」の場合 -->
+                      <div *ngIf="getDependentChangeSpouseFormGroup()?.get('changeAfter.overseasException')?.value === 'applicable'">
+                        <div class="form-section-title">変更後：海外特例要件に該当した日</div>
+                        <div formGroupName="overseasExceptionStartDate" class="date-input-group">
+                          <mat-form-field appearance="outline" class="form-field-small">
+                            <mat-label>変更後：年号</mat-label>
+                            <mat-select formControlName="era">
+                              <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                            </mat-select>
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="form-field-small">
+                            <mat-label>変更後：年</mat-label>
+                            <input matInput type="number" formControlName="year">
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="form-field-small">
+                            <mat-label>変更後：月</mat-label>
+                            <input matInput type="number" formControlName="month" min="1" max="12">
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="form-field-small">
+                            <mat-label>変更後：日</mat-label>
+                            <input matInput type="number" formControlName="day" min="1" max="31">
+                          </mat-form-field>
+                        </div>
+
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>変更後：理由</mat-label>
+                          <mat-select formControlName="overseasExceptionStartReason">
+                            <mat-option *ngFor="let reason of overseasExceptionReasonOptions" [value]="reason.value">
+                              {{ reason.label }}
+                            </mat-option>
+                          </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field *ngIf="getDependentChangeSpouseFormGroup()?.get('changeAfter.overseasExceptionStartReason')?.value === 'other'" 
+                                        appearance="outline" class="full-width">
+                          <mat-label>変更後：理由（その他）</mat-label>
+                          <textarea matInput formControlName="overseasExceptionStartReasonOther" rows="2"></textarea>
+                        </mat-form-field>
+                      </div>
+
+                      <!-- 変更後：海外特例要件「非該当」の場合 -->
+                      <div *ngIf="getDependentChangeSpouseFormGroup()?.get('changeAfter.overseasException')?.value === 'not_applicable'">
+                        <div class="form-section-title">変更後：海外特例要件に非該当となった日</div>
+                        <div formGroupName="overseasExceptionEndDate" class="date-input-group">
+                          <mat-form-field appearance="outline" class="form-field-small">
+                            <mat-label>変更後：年号</mat-label>
+                            <mat-select formControlName="era">
+                              <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                            </mat-select>
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="form-field-small">
+                            <mat-label>変更後：年</mat-label>
+                            <input matInput type="number" formControlName="year">
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="form-field-small">
+                            <mat-label>変更後：月</mat-label>
+                            <input matInput type="number" formControlName="month" min="1" max="12">
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="form-field-small">
+                            <mat-label>変更後：日</mat-label>
+                            <input matInput type="number" formControlName="day" min="1" max="31">
+                          </mat-form-field>
+                        </div>
+
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>変更後：理由</mat-label>
+                          <mat-select formControlName="overseasExceptionEndReason">
+                            <mat-option *ngFor="let reason of overseasExceptionEndReasonOptions" [value]="reason.value">
+                              {{ reason.label }}
+                            </mat-option>
+                          </mat-select>
+                        </mat-form-field>
+
+                        <!-- 変更後：国内転入の場合の日付 -->
+                        <div *ngIf="getDependentChangeSpouseFormGroup()?.get('changeAfter.overseasExceptionEndReason')?.value === 'domestic_transfer'">
+                          <div class="form-section-title">変更後：国内転入日</div>
+                          <div formGroupName="domesticTransferDate" class="date-input-group">
+                            <mat-form-field appearance="outline" class="form-field-small">
+                              <mat-label>変更後：年号</mat-label>
+                              <mat-select formControlName="era">
+                                <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                              </mat-select>
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" class="form-field-small">
+                              <mat-label>変更後：年</mat-label>
+                              <input matInput type="number" formControlName="year">
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" class="form-field-small">
+                              <mat-label>変更後：月</mat-label>
+                              <input matInput type="number" formControlName="month" min="1" max="12">
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" class="form-field-small">
+                              <mat-label>変更後：日</mat-label>
+                              <input matInput type="number" formControlName="day" min="1" max="31">
+                            </mat-form-field>
+                          </div>
+                        </div>
+
+                        <mat-form-field *ngIf="getDependentChangeSpouseFormGroup()?.get('changeAfter.overseasExceptionEndReason')?.value === 'other'" 
+                                        appearance="outline" class="full-width">
+                          <mat-label>変更後：理由（その他）</mat-label>
+                          <textarea matInput formControlName="overseasExceptionEndReasonOther" rows="2"></textarea>
+                        </mat-form-field>
+                      </div>
+                    </div>
+                  </div>
                 </mat-card-content>
               </mat-card>
 
@@ -3797,8 +4006,468 @@
                           </button>
                         </mat-card-header>
                         <mat-card-content>
-                          <!-- 氏名 -->
-                          <div class="form-row">
+                          <!-- 異動種別 -->
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>異動種別</mat-label>
+                            <mat-select formControlName="changeType" required 
+                                        [disableOptionCentering]="true"
+                                        (selectionChange)="onOtherDependentChangeTypeSelectionChange(i, $event.value)">
+                              <mat-option *ngFor="let type of changeTypeOptions" [value]="type.value">
+                                {{ type.label }}
+                              </mat-option>
+                            </mat-select>
+                          </mat-form-field>
+
+                          <!-- 異動種別「異動無し」の場合：詳細入力フィールドを非表示 -->
+                          <div *ngIf="getOtherDependentFormGroup(i).get('changeType')?.value === 'no_change'" class="no-change-message">
+                            <p style="color: #666; margin-top: 16px;">異動無しのため、詳細入力は不要です。</p>
+                          </div>
+
+                          <!-- 異動種別「該当」の場合 -->
+                          <div *ngIf="getOtherDependentFormGroup(i).get('changeType')?.value === 'applicable'">
+                            <div class="form-section-title">被扶養者になった日</div>
+                            <div formGroupName="dependentStartDate" class="date-input-group">
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>年号</mat-label>
+                                <mat-select formControlName="era" required>
+                                  <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                                </mat-select>
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>年</mat-label>
+                                <input matInput type="number" formControlName="year" required>
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>月</mat-label>
+                                <input matInput type="number" formControlName="month" required min="1" max="12">
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>日</mat-label>
+                                <input matInput type="number" formControlName="day" required min="1" max="31">
+                              </mat-form-field>
+                            </div>
+
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>職業</mat-label>
+                              <mat-select formControlName="occupation" required>
+                                <mat-option *ngFor="let occ of otherDependentOccupationOptions" [value]="occ.value">
+                                  {{ occ.label }}
+                                </mat-option>
+                              </mat-select>
+                            </mat-form-field>
+
+                            <!-- 高・大学生の場合の学年 -->
+                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('occupation')?.value === 'student_high_school' || getOtherDependentFormGroup(i).get('occupation')?.value === 'student_university'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>学年</mat-label>
+                              <input matInput formControlName="studentYear" required placeholder="例：1年生">
+                            </mat-form-field>
+
+                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('occupation')?.value === 'other'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>職業（その他）</mat-label>
+                              <textarea matInput formControlName="occupationOther" rows="2" required></textarea>
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>収入（年収）</mat-label>
+                              <input matInput type="number" formControlName="income" required>
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>被扶養者になった理由</mat-label>
+                              <mat-select formControlName="dependentStartReason">
+                                <mat-option *ngFor="let reason of otherDependentStartReasonOptions" [value]="reason.value">
+                                  {{ reason.label }}
+                                </mat-option>
+                              </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('dependentStartReason')?.value === 'other'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>被扶養者になった理由（その他）</mat-label>
+                              <textarea matInput formControlName="dependentStartReasonOther" rows="2"></textarea>
+                            </mat-form-field>
+                          </div>
+
+                          <!-- 異動種別「非該当」の場合 -->
+                          <div *ngIf="getOtherDependentFormGroup(i).get('changeType')?.value === 'not_applicable'">
+                            <div class="form-section-title">被扶養者でなくなった日</div>
+                            <div formGroupName="dependentEndDate" class="date-input-group">
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>年号</mat-label>
+                                <mat-select formControlName="era" required>
+                                  <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                                </mat-select>
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>年</mat-label>
+                                <input matInput type="number" formControlName="year" required>
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>月</mat-label>
+                                <input matInput type="number" formControlName="month" required min="1" max="12">
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>日</mat-label>
+                                <input matInput type="number" formControlName="day" required min="1" max="31">
+                              </mat-form-field>
+                            </div>
+
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>理由</mat-label>
+                              <mat-select formControlName="dependentEndReason" required>
+                                <mat-option *ngFor="let reason of dependentEndReasonOptions" [value]="reason.value">
+                                  {{ reason.label }}
+                                </mat-option>
+                              </mat-select>
+                            </mat-form-field>
+
+                            <!-- 死亡の場合の日付 -->
+                            <div *ngIf="getOtherDependentFormGroup(i).get('dependentEndReason')?.value === 'death'">
+                              <div class="form-section-title">死亡した日</div>
+                              <div formGroupName="deathDate" class="date-input-group">
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>年号</mat-label>
+                                  <mat-select formControlName="era" required>
+                                    <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                                  </mat-select>
+                                </mat-form-field>
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>年</mat-label>
+                                  <input matInput type="number" formControlName="year" required>
+                                </mat-form-field>
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>月</mat-label>
+                                  <input matInput type="number" formControlName="month" required min="1" max="12">
+                                </mat-form-field>
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>日</mat-label>
+                                  <input matInput type="number" formControlName="day" required min="1" max="31">
+                                </mat-form-field>
+                              </div>
+                            </div>
+
+                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('dependentEndReason')?.value === 'other'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>理由（その他）</mat-label>
+                              <textarea matInput formControlName="dependentEndReasonOther" rows="2" required></textarea>
+                            </mat-form-field>
+                          </div>
+
+                          <!-- 異動種別「変更」の場合：各項目ごとに変更前・変更後を縦並び表示 -->
+                          <div formGroupName="changeAfter" [hidden]="getOtherDependentFormGroup(i).get('changeType')?.value !== 'change'">
+                            <!-- 氏：変更前・変更後 -->
+                            <div class="form-section-title">氏</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.lastName || '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：氏</mat-label>
+                              <input matInput formControlName="lastName">
+                            </mat-form-field>
+
+                            <!-- 名：変更前・変更後 -->
+                            <div class="form-section-title">名</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.firstName || '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：名</mat-label>
+                              <input matInput formControlName="firstName">
+                            </mat-form-field>
+
+                            <!-- 氏（カナ）：変更前・変更後 -->
+                            <div class="form-section-title">氏（カナ）</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.lastNameKana || '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：氏（カナ）</mat-label>
+                              <input matInput formControlName="lastNameKana">
+                            </mat-form-field>
+
+                            <!-- 名（カナ）：変更前・変更後 -->
+                            <div class="form-section-title">名（カナ）</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.firstNameKana || '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：名（カナ）</mat-label>
+                              <input matInput formControlName="firstNameKana">
+                            </mat-form-field>
+
+                            <!-- 生年月日：変更前・変更後 -->
+                            <div class="form-section-title">生年月日</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ formatEraDate(getOtherDependentChangeBeforeInfo(i)?.birthDate) || '' }}</p>
+                            </div>
+                            <div formGroupName="birthDate" class="date-input-group">
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>変更後：年号</mat-label>
+                                <mat-select formControlName="era">
+                                  <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                                </mat-select>
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>変更後：年</mat-label>
+                                <input matInput type="number" formControlName="year">
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>変更後：月</mat-label>
+                                <input matInput type="number" formControlName="month" min="1" max="12">
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="form-field-small">
+                                <mat-label>変更後：日</mat-label>
+                                <input matInput type="number" formControlName="day" min="1" max="31">
+                              </mat-form-field>
+                            </div>
+
+                            <!-- 性別：変更前・変更後 -->
+                            <div class="form-section-title">性別</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.gender === 'male' ? '男' : getOtherDependentChangeBeforeInfo(i)?.gender === 'female' ? '女' : '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：性別</mat-label>
+                              <mat-select formControlName="gender">
+                                <mat-option value="male">男</mat-option>
+                                <mat-option value="female">女</mat-option>
+                              </mat-select>
+                            </mat-form-field>
+
+                            <!-- 続柄：変更前・変更後 -->
+                            <div class="form-section-title">続柄</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ formatOtherDependentRelationship(getOtherDependentChangeBeforeInfo(i)?.relationship) || '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：続柄</mat-label>
+                              <mat-select formControlName="relationship">
+                                <mat-option *ngFor="let rel of otherDependentRelationshipOptions" [value]="rel.value">
+                                  {{ rel.label }}
+                                </mat-option>
+                              </mat-select>
+                            </mat-form-field>
+                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('changeAfter.relationship')?.value === 'other'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>変更後：続柄（その他）</mat-label>
+                              <textarea matInput formControlName="relationshipOther" rows="2"></textarea>
+                            </mat-form-field>
+
+                            <!-- 個人番号：変更前のみ（編集不可） -->
+                            <div class="form-section-title">個人番号</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.personalNumber || '' }}</p>
+                            </div>
+
+                            <!-- 住所：変更前・変更後 -->
+                            <div class="form-section-title">住所</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ formatAddress(getOtherDependentChangeBeforeInfo(i)?.address) || '' }}</p>
+                              <p *ngIf="getOtherDependentChangeBeforeInfo(i)?.address?.livingTogether">
+                                <strong>同居／別居：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.address?.livingTogether === 'living_together' ? '同居' : '別居' }}
+                              </p>
+                            </div>
+                            <div formGroupName="address">
+                              <div class="form-row">
+                                <mat-form-field appearance="outline" class="form-field">
+                                  <mat-label>変更後：郵便番号</mat-label>
+                                  <input matInput formControlName="postalCode" placeholder="例: 123-4567">
+                                </mat-form-field>
+                              </div>
+                              <mat-form-field appearance="outline" class="full-width">
+                                <mat-label>変更後：都道府県</mat-label>
+                                <input matInput formControlName="prefecture">
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="full-width">
+                                <mat-label>変更後：市区町村</mat-label>
+                                <input matInput formControlName="city">
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="full-width">
+                                <mat-label>変更後：町名・番地</mat-label>
+                                <input matInput formControlName="street">
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="full-width">
+                                <mat-label>変更後：建物名・部屋番号</mat-label>
+                                <input matInput formControlName="building">
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="full-width">
+                                <mat-label>変更後：住所（カナ）</mat-label>
+                                <input matInput formControlName="addressKana">
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="full-width">
+                                <mat-label>変更後：同居・別居</mat-label>
+                                <mat-select formControlName="livingTogether">
+                                  <mat-option value="living_together">同居</mat-option>
+                                  <mat-option value="separate">別居</mat-option>
+                                </mat-select>
+                              </mat-form-field>
+                            </div>
+
+                            <!-- 海外特例要件：変更前・変更後 -->
+                            <div class="form-section-title">海外特例要件</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.overseasException === 'applicable' ? '該当' : getOtherDependentChangeBeforeInfo(i)?.overseasException === 'not_applicable' ? '非該当' : '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：海外特例要件</mat-label>
+                              <mat-select formControlName="overseasException">
+                                <mat-option value="">選択してください</mat-option>
+                                <mat-option value="applicable">該当</mat-option>
+                                <mat-option value="not_applicable">非該当</mat-option>
+                              </mat-select>
+                            </mat-form-field>
+
+                            <!-- 変更後：海外特例要件「該当」の場合 -->
+                            <div *ngIf="getOtherDependentFormGroup(i).get('changeAfter.overseasException')?.value === 'applicable'">
+                              <div class="form-section-title">変更後：海外特例要件に該当した日</div>
+                              <div formGroupName="overseasExceptionStartDate" class="date-input-group">
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>変更後：年号</mat-label>
+                                  <mat-select formControlName="era">
+                                    <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                                  </mat-select>
+                                </mat-form-field>
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>変更後：年</mat-label>
+                                  <input matInput type="number" formControlName="year">
+                                </mat-form-field>
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>変更後：月</mat-label>
+                                  <input matInput type="number" formControlName="month" min="1" max="12">
+                                </mat-form-field>
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>変更後：日</mat-label>
+                                  <input matInput type="number" formControlName="day" min="1" max="31">
+                                </mat-form-field>
+                              </div>
+
+                              <mat-form-field appearance="outline" class="full-width">
+                                <mat-label>変更後：理由</mat-label>
+                                <mat-select formControlName="overseasExceptionStartReason">
+                                  <mat-option *ngFor="let reason of overseasExceptionReasonOptions" [value]="reason.value">
+                                    {{ reason.label }}
+                                  </mat-option>
+                                </mat-select>
+                              </mat-form-field>
+
+                              <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('changeAfter.overseasExceptionStartReason')?.value === 'other'" 
+                                              appearance="outline" class="full-width">
+                                <mat-label>変更後：理由（その他）</mat-label>
+                                <textarea matInput formControlName="overseasExceptionStartReasonOther" rows="2"></textarea>
+                              </mat-form-field>
+                            </div>
+
+                            <!-- 変更後：海外特例要件「非該当」の場合 -->
+                            <div *ngIf="getOtherDependentFormGroup(i).get('changeAfter.overseasException')?.value === 'not_applicable'">
+                              <div class="form-section-title">変更後：海外特例要件に非該当となった日</div>
+                              <div formGroupName="overseasExceptionEndDate" class="date-input-group">
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>変更後：年号</mat-label>
+                                  <mat-select formControlName="era">
+                                    <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                                  </mat-select>
+                                </mat-form-field>
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>変更後：年</mat-label>
+                                  <input matInput type="number" formControlName="year">
+                                </mat-form-field>
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>変更後：月</mat-label>
+                                  <input matInput type="number" formControlName="month" min="1" max="12">
+                                </mat-form-field>
+                                <mat-form-field appearance="outline" class="form-field-small">
+                                  <mat-label>変更後：日</mat-label>
+                                  <input matInput type="number" formControlName="day" min="1" max="31">
+                                </mat-form-field>
+                              </div>
+
+                              <mat-form-field appearance="outline" class="full-width">
+                                <mat-label>変更後：理由</mat-label>
+                                <mat-select formControlName="overseasExceptionEndReason">
+                                  <mat-option *ngFor="let reason of overseasExceptionEndReasonOptions" [value]="reason.value">
+                                    {{ reason.label }}
+                                  </mat-option>
+                                </mat-select>
+                              </mat-form-field>
+
+                              <!-- 変更後：国内転入の場合の日付 -->
+                              <div *ngIf="getOtherDependentFormGroup(i).get('changeAfter.overseasExceptionEndReason')?.value === 'domestic_transfer'">
+                                <div class="form-section-title">変更後：国内転入日</div>
+                                <div formGroupName="domesticTransferDate" class="date-input-group">
+                                  <mat-form-field appearance="outline" class="form-field-small">
+                                    <mat-label>変更後：年号</mat-label>
+                                    <mat-select formControlName="era">
+                                      <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
+                                    </mat-select>
+                                  </mat-form-field>
+                                  <mat-form-field appearance="outline" class="form-field-small">
+                                    <mat-label>変更後：年</mat-label>
+                                    <input matInput type="number" formControlName="year">
+                                  </mat-form-field>
+                                  <mat-form-field appearance="outline" class="form-field-small">
+                                    <mat-label>変更後：月</mat-label>
+                                    <input matInput type="number" formControlName="month" min="1" max="12">
+                                  </mat-form-field>
+                                  <mat-form-field appearance="outline" class="form-field-small">
+                                    <mat-label>変更後：日</mat-label>
+                                    <input matInput type="number" formControlName="day" min="1" max="31">
+                                  </mat-form-field>
+                                </div>
+                              </div>
+
+                              <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('changeAfter.overseasExceptionEndReason')?.value === 'other'" 
+                                              appearance="outline" class="full-width">
+                                <mat-label>変更後：理由（その他）</mat-label>
+                                <textarea matInput formControlName="overseasExceptionEndReasonOther" rows="2"></textarea>
+                              </mat-form-field>
+                            </div>
+
+                            <!-- 職業：変更前・変更後 -->
+                            <div class="form-section-title">職業</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ formatOtherDependentOccupation(getOtherDependentChangeBeforeInfo(i)?.occupation) || '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：職業</mat-label>
+                              <mat-select formControlName="occupation">
+                                <mat-option *ngFor="let occ of otherDependentOccupationOptions" [value]="occ.value">
+                                  {{ occ.label }}
+                                </mat-option>
+                              </mat-select>
+                            </mat-form-field>
+                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('changeAfter.occupation')?.value === 'other'" 
+                                            appearance="outline" class="full-width">
+                              <mat-label>変更後：職業（その他）</mat-label>
+                              <textarea matInput formControlName="occupationOther" rows="2"></textarea>
+                            </mat-form-field>
+
+                            <!-- 収入（年収）：変更前・変更後 -->
+                            <div class="form-section-title">収入（年収）</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.income !== null && getOtherDependentChangeBeforeInfo(i)?.income !== undefined ? (getOtherDependentChangeBeforeInfo(i)?.income || 0) + '円' : '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：収入（年収）</mat-label>
+                              <input matInput type="number" formControlName="income">
+                            </mat-form-field>
+
+                            <!-- 備考：変更前・変更後 -->
+                            <div class="form-section-title">備考</div>
+                            <div class="change-before-info">
+                              <p><strong>変更前：</strong>{{ getOtherDependentChangeBeforeInfo(i)?.remarks || '' }}</p>
+                            </div>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>変更後：備考</mat-label>
+                              <textarea matInput formControlName="remarks" rows="3"></textarea>
+                            </mat-form-field>
+                          </div>
+
+                          <!-- 異動種別が「異動無し」以外かつ「変更」以外の場合の入力フォーム -->
+                          <div *ngIf="getOtherDependentFormGroup(i).get('changeType')?.value !== 'no_change' && getOtherDependentFormGroup(i).get('changeType')?.value !== 'change'">
+                            <!-- 氏名 -->
+                            <div class="form-row">
                             <mat-form-field appearance="outline" class="form-field">
                               <mat-label>氏</mat-label>
                               <input matInput formControlName="lastName" required>
@@ -4027,295 +4696,16 @@
                             </mat-form-field>
                           </div>
 
-                          <!-- 異動種別 -->
-                          <mat-form-field appearance="outline" class="full-width">
-                            <mat-label>異動種別</mat-label>
-                            <mat-select formControlName="changeType" required 
-                                        [disableOptionCentering]="true"
-                                        (selectionChange)="onOtherDependentChangeTypeSelectionChange(i, $event.value)">
-                              <mat-option *ngFor="let type of changeTypeOptions" [value]="type.value">
-                                {{ type.label }}
-                              </mat-option>
-                            </mat-select>
-                          </mat-form-field>
-
-                          <!-- 異動種別「異動無し」の場合：詳細入力フィールドを非表示 -->
-                          <div *ngIf="getOtherDependentFormGroup(i).get('changeType')?.value === 'no_change'" class="no-change-message">
-                            <p style="color: #666; margin-top: 16px;">異動無しのため、詳細入力は不要です。</p>
-                          </div>
-
-                          <!-- 異動種別「該当」の場合 -->
-                          <div *ngIf="getOtherDependentFormGroup(i).get('changeType')?.value === 'applicable'">
-                            <div class="form-section-title">被扶養者になった日</div>
-                            <div formGroupName="dependentStartDate" class="date-input-group">
-                              <mat-form-field appearance="outline" class="form-field-small">
-                                <mat-label>年号</mat-label>
-                                <mat-select formControlName="era" required>
-                                  <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
-                                </mat-select>
-                              </mat-form-field>
-                              <mat-form-field appearance="outline" class="form-field-small">
-                                <mat-label>年</mat-label>
-                                <input matInput type="number" formControlName="year" required>
-                              </mat-form-field>
-                              <mat-form-field appearance="outline" class="form-field-small">
-                                <mat-label>月</mat-label>
-                                <input matInput type="number" formControlName="month" required min="1" max="12">
-                              </mat-form-field>
-                              <mat-form-field appearance="outline" class="form-field-small">
-                                <mat-label>日</mat-label>
-                                <input matInput type="number" formControlName="day" required min="1" max="31">
-                              </mat-form-field>
-                            </div>
-
+                            <!-- 備考 -->
                             <mat-form-field appearance="outline" class="full-width">
-                              <mat-label>職業</mat-label>
-                              <mat-select formControlName="occupation" required>
-                                <mat-option *ngFor="let occ of otherDependentOccupationOptions" [value]="occ.value">
-                                  {{ occ.label }}
-                                </mat-option>
-                              </mat-select>
+                              <mat-label>備考</mat-label>
+                              <textarea matInput formControlName="remarks" rows="3"></textarea>
                             </mat-form-field>
 
-                            <!-- 高・大学生の場合の学年 -->
-                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('occupation')?.value === 'student_high_school' || getOtherDependentFormGroup(i).get('occupation')?.value === 'student_university'" 
-                                            appearance="outline" class="full-width">
-                              <mat-label>学年</mat-label>
-                              <input matInput formControlName="studentYear" required placeholder="例：1年生">
-                            </mat-form-field>
-
-                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('occupation')?.value === 'other'" 
-                                            appearance="outline" class="full-width">
-                              <mat-label>職業（その他）</mat-label>
-                              <textarea matInput formControlName="occupationOther" rows="2" required></textarea>
-                            </mat-form-field>
-
-                            <mat-form-field appearance="outline" class="full-width">
-                              <mat-label>収入（年収）</mat-label>
-                              <input matInput type="number" formControlName="income" required>
-                            </mat-form-field>
-
-                            <mat-form-field appearance="outline" class="full-width">
-                              <mat-label>被扶養者になった理由</mat-label>
-                              <mat-select formControlName="dependentStartReason">
-                                <mat-option *ngFor="let reason of otherDependentStartReasonOptions" [value]="reason.value">
-                                  {{ reason.label }}
-                                </mat-option>
-                              </mat-select>
-                            </mat-form-field>
-
-                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('dependentStartReason')?.value === 'other'" 
-                                            appearance="outline" class="full-width">
-                              <mat-label>被扶養者になった理由（その他）</mat-label>
-                              <textarea matInput formControlName="dependentStartReasonOther" rows="2"></textarea>
-                            </mat-form-field>
-                          </div>
-
-                          <!-- 異動種別「非該当」の場合 -->
-                          <div *ngIf="getOtherDependentFormGroup(i).get('changeType')?.value === 'not_applicable'">
-                            <div class="form-section-title">被扶養者でなくなった日</div>
-                            <div formGroupName="dependentEndDate" class="date-input-group">
-                              <mat-form-field appearance="outline" class="form-field-small">
-                                <mat-label>年号</mat-label>
-                                <mat-select formControlName="era" required>
-                                  <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
-                                </mat-select>
-                              </mat-form-field>
-                              <mat-form-field appearance="outline" class="form-field-small">
-                                <mat-label>年</mat-label>
-                                <input matInput type="number" formControlName="year" required>
-                              </mat-form-field>
-                              <mat-form-field appearance="outline" class="form-field-small">
-                                <mat-label>月</mat-label>
-                                <input matInput type="number" formControlName="month" required min="1" max="12">
-                              </mat-form-field>
-                              <mat-form-field appearance="outline" class="form-field-small">
-                                <mat-label>日</mat-label>
-                                <input matInput type="number" formControlName="day" required min="1" max="31">
-                              </mat-form-field>
-                            </div>
-
-                            <mat-form-field appearance="outline" class="full-width">
-                              <mat-label>理由</mat-label>
-                              <mat-select formControlName="dependentEndReason" required>
-                                <mat-option value="death">死亡</mat-option>
-                                <mat-option value="employment">就職</mat-option>
-                                <mat-option value="income_increase">収入増加</mat-option>
-                                <mat-option value="over75">75歳到達</mat-option>
-                                <mat-option value="disability">障害認定</mat-option>
-                                <mat-option value="other">その他</mat-option>
-                              </mat-select>
-                            </mat-form-field>
-
-                            <!-- 死亡の場合の日付 -->
-                            <div *ngIf="getOtherDependentFormGroup(i).get('dependentEndReason')?.value === 'death'">
-                              <div class="form-section-title">死亡した日</div>
-                              <div formGroupName="deathDate" class="date-input-group">
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>年号</mat-label>
-                                  <mat-select formControlName="era" required>
-                                    <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
-                                  </mat-select>
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>年</mat-label>
-                                  <input matInput type="number" formControlName="year" required>
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>月</mat-label>
-                                  <input matInput type="number" formControlName="month" required min="1" max="12">
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>日</mat-label>
-                                  <input matInput type="number" formControlName="day" required min="1" max="31">
-                                </mat-form-field>
-                              </div>
-                            </div>
-
-                            <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('dependentEndReason')?.value === 'other'" 
-                                            appearance="outline" class="full-width">
-                              <mat-label>理由（その他）</mat-label>
-                              <textarea matInput formControlName="dependentEndReasonOther" rows="2" required></textarea>
-                            </mat-form-field>
-                          </div>
-
-                          <!-- 異動種別「変更」の場合 -->
-                          <div *ngIf="getOtherDependentFormGroup(i).get('changeType')?.value === 'change'">
-                            <h4>変更前の情報</h4>
-                            <!-- 変更前の情報は上記の該当・非該当のフィールドを使用 -->
-                            <!-- 変更後の情報を下に追加 -->
-                            <h4>変更後の情報</h4>
-                            <div formGroupName="changeAfter">
-                              <!-- 変更後：被扶養者になった日 -->
-                              <div class="form-section-title">被扶養者になった日</div>
-                              <div formGroupName="dependentStartDate" class="date-input-group">
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>年号</mat-label>
-                                  <mat-select formControlName="era">
-                                    <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
-                                  </mat-select>
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>年</mat-label>
-                                  <input matInput type="number" formControlName="year">
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>月</mat-label>
-                                  <input matInput type="number" formControlName="month" min="1" max="12">
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>日</mat-label>
-                                  <input matInput type="number" formControlName="day" min="1" max="31">
-                                </mat-form-field>
-                              </div>
-
-                              <mat-form-field appearance="outline" class="full-width">
-                                <mat-label>職業</mat-label>
-                                <mat-select formControlName="occupation">
-                                  <mat-option *ngFor="let occ of otherDependentOccupationOptions" [value]="occ.value">
-                                    {{ occ.label }}
-                                  </mat-option>
-                                </mat-select>
-                              </mat-form-field>
-
-                              <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('changeAfter.occupation')?.value === 'student_high_school' || getOtherDependentFormGroup(i).get('changeAfter.occupation')?.value === 'student_university'" 
-                                              appearance="outline" class="full-width">
-                                <mat-label>学年</mat-label>
-                                <input matInput formControlName="studentYear" placeholder="例：1年生">
-                              </mat-form-field>
-
-                              <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('changeAfter.occupation')?.value === 'other'" 
-                                              appearance="outline" class="full-width">
-                                <mat-label>職業（その他）</mat-label>
-                                <textarea matInput formControlName="occupationOther" rows="2"></textarea>
-                              </mat-form-field>
-
-                              <mat-form-field appearance="outline" class="full-width">
-                                <mat-label>収入（年収）</mat-label>
-                                <input matInput type="number" formControlName="income">
-                              </mat-form-field>
-
-                              <mat-form-field appearance="outline" class="full-width">
-                                <mat-label>被扶養者になった理由</mat-label>
-                                <mat-select formControlName="dependentStartReason">
-                                  <mat-option *ngFor="let reason of otherDependentStartReasonOptions" [value]="reason.value">
-                                    {{ reason.label }}
-                                  </mat-option>
-                                </mat-select>
-                              </mat-form-field>
-
-                              <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('changeAfter.dependentStartReason')?.value === 'other'" 
-                                              appearance="outline" class="full-width">
-                                <mat-label>被扶養者になった理由（その他）</mat-label>
-                                <textarea matInput formControlName="dependentStartReasonOther" rows="2"></textarea>
-                              </mat-form-field>
-
-                              <!-- 変更後：被扶養者でなくなった日 -->
-                              <div class="form-section-title">被扶養者でなくなった日</div>
-                              <div formGroupName="dependentEndDate" class="date-input-group">
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>年号</mat-label>
-                                  <mat-select formControlName="era">
-                                    <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
-                                  </mat-select>
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>年</mat-label>
-                                  <input matInput type="number" formControlName="year">
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>月</mat-label>
-                                  <input matInput type="number" formControlName="month" min="1" max="12">
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="form-field-small">
-                                  <mat-label>日</mat-label>
-                                  <input matInput type="number" formControlName="day" min="1" max="31">
-                                </mat-form-field>
-                              </div>
-
-                              <mat-form-field appearance="outline" class="full-width">
-                                <mat-label>理由</mat-label>
-                                <mat-select formControlName="dependentEndReason">
-                                  <mat-option value="death">死亡</mat-option>
-                                  <mat-option value="employment">就職</mat-option>
-                                  <mat-option value="income_increase">収入増加</mat-option>
-                                  <mat-option value="over75">75歳到達</mat-option>
-                                  <mat-option value="disability">障害認定</mat-option>
-                                  <mat-option value="other">その他</mat-option>
-                                </mat-select>
-                              </mat-form-field>
-
-                              <mat-form-field *ngIf="getOtherDependentFormGroup(i).get('changeAfter.dependentEndReason')?.value === 'other'" 
-                                              appearance="outline" class="full-width">
-                                <mat-label>理由（その他）</mat-label>
-                                <textarea matInput formControlName="dependentEndReasonOther" rows="2"></textarea>
-                              </mat-form-field>
-
-                              <!-- 変更後：死亡の場合の日付 -->
-                              <div *ngIf="getOtherDependentFormGroup(i).get('changeAfter.dependentEndReason')?.value === 'death'">
-                                <div class="form-section-title">死亡した日</div>
-                                <div formGroupName="deathDate" class="date-input-group">
-                                  <mat-form-field appearance="outline" class="form-field-small">
-                                    <mat-label>年号</mat-label>
-                                    <mat-select formControlName="era">
-                                      <mat-option *ngFor="let era of eraOptions" [value]="era.value">{{ era.label }}</mat-option>
-                                    </mat-select>
-                                  </mat-form-field>
-                                  <mat-form-field appearance="outline" class="form-field-small">
-                                    <mat-label>年</mat-label>
-                                    <input matInput type="number" formControlName="year">
-                                  </mat-form-field>
-                                  <mat-form-field appearance="outline" class="form-field-small">
-                                    <mat-label>月</mat-label>
-                                    <input matInput type="number" formControlName="month" min="1" max="12">
-                                  </mat-form-field>
-                                  <mat-form-field appearance="outline" class="form-field-small">
-                                    <mat-label>日</mat-label>
-                                    <input matInput type="number" formControlName="day" min="1" max="31">
-                                  </mat-form-field>
-                                </div>
-                              </div>
-                            </div>
+                            <!-- 資格確認書発行要否 -->
+                            <mat-checkbox formControlName="certificateRequired">
+                              資格確認書発行要否
+                            </mat-checkbox>
                           </div>
                         </mat-card-content>
                       </mat-card>
@@ -5388,7 +5778,7 @@
                       <mat-label>配偶者の変更前住所</mat-label>
                       <textarea matInput formControlName="spouseOldAddress" rows="2"></textarea>
                     </mat-form-field>
-                    <div class="form-section-title">配偶者の変更年月日</div>
+                    <div class="form-section-title">配偶者の住所変更年月日</div>
                     <div formGroupName="spouseChangeDate" class="date-input-group">
                       <mat-form-field appearance="outline" class="form-field-small">
                         <mat-label>年号</mat-label>

@@ -1598,7 +1598,9 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         })
       }),
       spouseDependent: this.fb.group({
+        hasNonDependentSpouse: [false], // 被扶養者でない配偶者を有する
         noChange: [false], // 異動がない場合のフラグ
+        spouseIncome: [null], // 被扶養者でない配偶者の収入、または異動種別「異動無し」の場合の配偶者の収入
         name: [''],
         nameKana: [''],
         birthDate: this.fb.group({
@@ -1627,7 +1629,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           phone: [''],
           type: [''] // 自宅、携帯、勤務先、その他
         }),
-        changeType: [''], // 異動種別（該当、非該当、変更）
+        changeType: [''], // 異動種別（異動無し、該当、非該当、変更）
         // 異動種別「該当」の場合
         dependentStartDate: this.fb.group({
           era: ['reiwa'],
@@ -1734,8 +1736,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           month: [''],
           day: ['']
         }),
-        certificateRequired: [false],
-        spouseIncome: [null] // 配偶者の収入（異動がない場合）
+        certificateRequired: [false]
       }),
       otherDependents: this.fb.array([]),
       declaration: this.fb.group({
@@ -1748,6 +1749,40 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     
     // 変更前情報の監視を設定
     this.setupChangeBeforeInfoWatchers();
+
+    // 配偶者の異動種別変更を監視してバリデーションを動的に設定（外部申請）
+    const spouseGroup = this.dependentChangeForm.get('spouseDependent');
+    if (spouseGroup) {
+      // hasNonDependentSpouseの変更を監視
+      const hasNonDependentSpouseControl = spouseGroup.get('hasNonDependentSpouse');
+      if (hasNonDependentSpouseControl) {
+        hasNonDependentSpouseControl.valueChanges.subscribe((hasNonDependentSpouse: boolean) => {
+          this.updateSpouseDependentValidationForNonDependentExternal(hasNonDependentSpouse);
+        });
+        
+        // 初期値がある場合も処理
+        const initialHasNonDependentSpouse = hasNonDependentSpouseControl.value;
+        this.updateSpouseDependentValidationForNonDependentExternal(initialHasNonDependentSpouse);
+      }
+      
+      const changeTypeControl = spouseGroup.get('changeType');
+      if (changeTypeControl) {
+        changeTypeControl.valueChanges.subscribe((changeType: string | null) => {
+          // hasNonDependentSpouseがfalseの場合のみ異動種別のバリデーションを更新
+          const hasNonDependentSpouse = spouseGroup.get('hasNonDependentSpouse')?.value;
+          if (!hasNonDependentSpouse) {
+            this.updateSpouseDependentValidationExternal(changeType || '');
+          }
+        });
+        
+        // 初期値がある場合も処理
+        const initialChangeType = changeTypeControl.value;
+        const hasNonDependentSpouse = spouseGroup.get('hasNonDependentSpouse')?.value;
+        if (!hasNonDependentSpouse && initialChangeType) {
+          this.updateSpouseDependentValidationExternal(initialChangeType);
+        }
+      }
+    }
   }
 
   /**
@@ -1788,7 +1823,9 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         })
       }),
       spouseDependent: this.fb.group({
-        noChange: [false],
+        hasNonDependentSpouse: [false], // 被扶養者でない配偶者を有する
+        changeType: [''], // 異動種別（異動無し、該当、非該当、変更）
+        spouseIncome: [null], // 被扶養者でない配偶者の収入、または異動種別「異動無し」の場合の配偶者の収入
         name: [''],
         nameKana: [''],
         birthDate: this.fb.group({
@@ -1817,7 +1854,6 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           phone: [''],
           type: ['']
         }),
-        changeType: [''],
         dependentStartDate: this.fb.group({
           era: ['reiwa'],
           year: [''],
@@ -1855,9 +1891,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
             month: [''],
             day: ['']
           }),
-          gender: [''],
           relationship: [''],
-          relationshipOther: [''],
           address: this.fb.group({
             postalCode: [''],
             prefecture: [''],
@@ -1867,10 +1901,36 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
             addressKana: [''],
             livingTogether: ['']
           }),
+          phoneNumber: this.fb.group({
+            phone: [''],
+            type: ['']
+          }),
           occupation: [''],
           occupationOther: [''],
           income: [null],
           remarks: [''],
+          dependentStartDate: this.fb.group({
+            era: ['reiwa'],
+            year: [''],
+            month: [''],
+            day: ['']
+          }),
+          dependentStartReason: [''],
+          dependentStartReasonOther: [''],
+          dependentEndDate: this.fb.group({
+            era: ['reiwa'],
+            year: [''],
+            month: [''],
+            day: ['']
+          }),
+          dependentEndReason: [''],
+          dependentEndReasonOther: [''],
+          deathDate: this.fb.group({
+            era: ['reiwa'],
+            year: [''],
+            month: [''],
+            day: ['']
+          }),
           overseasException: [''],
           overseasExceptionStartDate: this.fb.group({
             era: ['reiwa'],
@@ -1918,8 +1978,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           month: [''],
           day: ['']
         }),
-        certificateRequired: [false],
-        spouseIncome: [null]
+        certificateRequired: [false]
       }),
       otherDependents: this.fb.array([]),
       declaration: this.fb.group({
@@ -1936,6 +1995,384 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     // 内部申請の場合、ログインユーザーの情報を自動転記（employeesが読み込まれている場合のみ）
     if (this.employees.length > 0) {
       this.autoFillCurrentUserInfoForDependentChangeInternal();
+    }
+
+    // 配偶者の異動種別変更を監視してバリデーションを動的に設定
+    const spouseGroup = this.dependentChangeFormInternal.get('spouseDependent');
+    if (spouseGroup) {
+      // hasNonDependentSpouseの変更を監視
+      const hasNonDependentSpouseControl = spouseGroup.get('hasNonDependentSpouse');
+      if (hasNonDependentSpouseControl) {
+        hasNonDependentSpouseControl.valueChanges.subscribe((hasNonDependentSpouse: boolean) => {
+          this.updateSpouseDependentValidationForNonDependent(hasNonDependentSpouse);
+        });
+        
+        // 初期値がある場合も処理
+        const initialHasNonDependentSpouse = hasNonDependentSpouseControl.value;
+        this.updateSpouseDependentValidationForNonDependent(initialHasNonDependentSpouse);
+      }
+      
+      const changeTypeControl = spouseGroup.get('changeType');
+      if (changeTypeControl) {
+        changeTypeControl.valueChanges.subscribe((changeType: string | null) => {
+          // hasNonDependentSpouseがfalseの場合のみ異動種別のバリデーションを更新
+          const hasNonDependentSpouse = spouseGroup.get('hasNonDependentSpouse')?.value;
+          if (!hasNonDependentSpouse) {
+            this.updateSpouseDependentValidation(changeType || '');
+          }
+        });
+        
+        // 初期値がある場合も処理
+        const initialChangeType = changeTypeControl.value;
+        const hasNonDependentSpouse = spouseGroup.get('hasNonDependentSpouse')?.value;
+        if (!hasNonDependentSpouse && initialChangeType) {
+          this.updateSpouseDependentValidation(initialChangeType);
+        }
+      }
+    }
+  }
+
+  /**
+   * 被扶養者でない配偶者を有する場合のバリデーション設定（内部申請）
+   */
+  private updateSpouseDependentValidationForNonDependent(hasNonDependentSpouse: boolean): void {
+    if (!this.dependentChangeFormInternal) {
+      return;
+    }
+
+    const spouseGroup = this.dependentChangeFormInternal.get('spouseDependent');
+    if (!spouseGroup) {
+      return;
+    }
+
+    const spouseIncomeControl = spouseGroup.get('spouseIncome');
+    const changeTypeControl = spouseGroup.get('changeType');
+
+    if (hasNonDependentSpouse) {
+      // 被扶養者でない配偶者を有する場合：spouseIncomeを必須にし、異動種別の必須を解除
+      if (spouseIncomeControl) {
+        spouseIncomeControl.setValidators([Validators.required]);
+        spouseIncomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (changeTypeControl) {
+        changeTypeControl.clearValidators();
+        changeTypeControl.updateValueAndValidity({ emitEvent: false });
+      }
+    } else {
+      // チェックが外れた場合：spouseIncomeの必須を解除し、異動種別のバリデーションを復元
+      if (spouseIncomeControl) {
+        spouseIncomeControl.clearValidators();
+        spouseIncomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (changeTypeControl) {
+        changeTypeControl.setValidators([Validators.required]);
+        changeTypeControl.updateValueAndValidity({ emitEvent: false });
+        // 現在の異動種別に応じてバリデーションを設定
+        const currentChangeType = changeTypeControl.value;
+        if (currentChangeType) {
+          this.updateSpouseDependentValidation(currentChangeType);
+        }
+      }
+    }
+  }
+
+  /**
+   * 被扶養者でない配偶者を有する場合のバリデーション設定（外部申請）
+   */
+  private updateSpouseDependentValidationForNonDependentExternal(hasNonDependentSpouse: boolean): void {
+    if (!this.dependentChangeForm) {
+      return;
+    }
+
+    const spouseGroup = this.dependentChangeForm.get('spouseDependent');
+    if (!spouseGroup) {
+      return;
+    }
+
+    const spouseIncomeControl = spouseGroup.get('spouseIncome');
+    const changeTypeControl = spouseGroup.get('changeType');
+
+    if (hasNonDependentSpouse) {
+      // 被扶養者でない配偶者を有する場合：spouseIncomeを必須にし、異動種別の必須を解除
+      if (spouseIncomeControl) {
+        spouseIncomeControl.setValidators([Validators.required]);
+        spouseIncomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (changeTypeControl) {
+        changeTypeControl.clearValidators();
+        changeTypeControl.updateValueAndValidity({ emitEvent: false });
+      }
+    } else {
+      // チェックが外れた場合：spouseIncomeの必須を解除し、異動種別のバリデーションを復元
+      if (spouseIncomeControl) {
+        spouseIncomeControl.clearValidators();
+        spouseIncomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (changeTypeControl) {
+        changeTypeControl.setValidators([Validators.required]);
+        changeTypeControl.updateValueAndValidity({ emitEvent: false });
+        // 現在の異動種別に応じてバリデーションを設定
+        const currentChangeType = changeTypeControl.value;
+        if (currentChangeType) {
+          this.updateSpouseDependentValidationExternal(currentChangeType);
+        }
+      }
+    }
+  }
+
+  /**
+   * 配偶者の異動種別に応じてバリデーションを動的に設定
+   */
+  private updateSpouseDependentValidation(changeType: string): void {
+    if (!this.dependentChangeFormInternal) {
+      return;
+    }
+
+    const spouseGroup = this.dependentChangeFormInternal.get('spouseDependent');
+    if (!spouseGroup) {
+      return;
+    }
+
+    const spouseIncomeControl = spouseGroup.get('spouseIncome');
+    const nameControl = spouseGroup.get('name');
+    const nameKanaControl = spouseGroup.get('nameKana');
+    const birthDateGroup = spouseGroup.get('birthDate');
+    const relationshipControl = spouseGroup.get('relationship');
+    const identificationTypeControl = spouseGroup.get('identificationType');
+    const personalNumberControl = spouseGroup.get('personalNumber');
+    const basicPensionNumberControl = spouseGroup.get('basicPensionNumber');
+    const addressGroup = spouseGroup.get('address');
+    const phoneNumberGroup = spouseGroup.get('phoneNumber');
+    const dependentStartDateGroup = spouseGroup.get('dependentStartDate');
+    const dependentStartReasonControl = spouseGroup.get('dependentStartReason');
+    const occupationControl = spouseGroup.get('occupation');
+    const incomeControl = spouseGroup.get('income');
+    const dependentEndDateGroup = spouseGroup.get('dependentEndDate');
+    const dependentEndReasonControl = spouseGroup.get('dependentEndReason');
+    const deathDateGroup = spouseGroup.get('deathDate');
+
+    if (changeType === 'no_change') {
+      // 異動無しの場合：すべてのフィールドの必須を解除（年収も不要）
+      if (spouseIncomeControl) {
+        spouseIncomeControl.clearValidators();
+        spouseIncomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      // その他のフィールドの必須を解除
+      if (nameControl) {
+        nameControl.clearValidators();
+        nameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (nameKanaControl) {
+        nameKanaControl.clearValidators();
+        nameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (birthDateGroup) {
+        birthDateGroup.get('era')?.clearValidators();
+        birthDateGroup.get('year')?.clearValidators();
+        birthDateGroup.get('month')?.clearValidators();
+        birthDateGroup.get('day')?.clearValidators();
+        birthDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipControl) {
+        relationshipControl.clearValidators();
+        relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (identificationTypeControl) {
+        identificationTypeControl.clearValidators();
+        identificationTypeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (personalNumberControl) {
+        personalNumberControl.clearValidators();
+        personalNumberControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (basicPensionNumberControl) {
+        basicPensionNumberControl.clearValidators();
+        basicPensionNumberControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (addressGroup) {
+        addressGroup.get('postalCode')?.clearValidators();
+        addressGroup.get('prefecture')?.clearValidators();
+        addressGroup.get('city')?.clearValidators();
+        addressGroup.get('street')?.clearValidators();
+        addressGroup.get('building')?.clearValidators();
+        addressGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (phoneNumberGroup) {
+        phoneNumberGroup.get('phone')?.clearValidators();
+        phoneNumberGroup.get('type')?.clearValidators();
+        phoneNumberGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartDateGroup) {
+        dependentStartDateGroup.get('era')?.clearValidators();
+        dependentStartDateGroup.get('year')?.clearValidators();
+        dependentStartDateGroup.get('month')?.clearValidators();
+        dependentStartDateGroup.get('day')?.clearValidators();
+        dependentStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartReasonControl) {
+        dependentStartReasonControl.clearValidators();
+        dependentStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (occupationControl) {
+        occupationControl.clearValidators();
+        occupationControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (incomeControl) {
+        incomeControl.clearValidators();
+        incomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndDateGroup) {
+        dependentEndDateGroup.get('era')?.clearValidators();
+        dependentEndDateGroup.get('year')?.clearValidators();
+        dependentEndDateGroup.get('month')?.clearValidators();
+        dependentEndDateGroup.get('day')?.clearValidators();
+        dependentEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndReasonControl) {
+        dependentEndReasonControl.clearValidators();
+        dependentEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (deathDateGroup) {
+        deathDateGroup.get('era')?.clearValidators();
+        deathDateGroup.get('year')?.clearValidators();
+        deathDateGroup.get('month')?.clearValidators();
+        deathDateGroup.get('day')?.clearValidators();
+        deathDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+    } else {
+      // 異動無し以外の場合：spouseIncomeの必須を解除
+      if (spouseIncomeControl) {
+        spouseIncomeControl.clearValidators();
+        spouseIncomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+    }
+  }
+
+  /**
+   * 外部申請の配偶者の異動種別に応じてバリデーションを動的に設定
+   */
+  private updateSpouseDependentValidationExternal(changeType: string): void {
+    if (!this.dependentChangeForm) {
+      return;
+    }
+
+    const spouseGroup = this.dependentChangeForm.get('spouseDependent');
+    if (!spouseGroup) {
+      return;
+    }
+
+    const spouseIncomeControl = spouseGroup.get('spouseIncome');
+    const nameControl = spouseGroup.get('name');
+    const nameKanaControl = spouseGroup.get('nameKana');
+    const birthDateGroup = spouseGroup.get('birthDate');
+    const relationshipControl = spouseGroup.get('relationship');
+    const identificationTypeControl = spouseGroup.get('identificationType');
+    const personalNumberControl = spouseGroup.get('personalNumber');
+    const basicPensionNumberControl = spouseGroup.get('basicPensionNumber');
+    const addressGroup = spouseGroup.get('address');
+    const phoneNumberGroup = spouseGroup.get('phoneNumber');
+    const dependentStartDateGroup = spouseGroup.get('dependentStartDate');
+    const dependentStartReasonControl = spouseGroup.get('dependentStartReason');
+    const occupationControl = spouseGroup.get('occupation');
+    const incomeControl = spouseGroup.get('income');
+    const dependentEndDateGroup = spouseGroup.get('dependentEndDate');
+    const dependentEndReasonControl = spouseGroup.get('dependentEndReason');
+    const deathDateGroup = spouseGroup.get('deathDate');
+
+    if (changeType === 'no_change') {
+      // 異動無しの場合：すべてのフィールドの必須を解除（年収も不要）
+      if (spouseIncomeControl) {
+        spouseIncomeControl.clearValidators();
+        spouseIncomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      // その他のフィールドの必須を解除
+      if (nameControl) {
+        nameControl.clearValidators();
+        nameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (nameKanaControl) {
+        nameKanaControl.clearValidators();
+        nameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (birthDateGroup) {
+        birthDateGroup.get('era')?.clearValidators();
+        birthDateGroup.get('year')?.clearValidators();
+        birthDateGroup.get('month')?.clearValidators();
+        birthDateGroup.get('day')?.clearValidators();
+        birthDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipControl) {
+        relationshipControl.clearValidators();
+        relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (identificationTypeControl) {
+        identificationTypeControl.clearValidators();
+        identificationTypeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (personalNumberControl) {
+        personalNumberControl.clearValidators();
+        personalNumberControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (basicPensionNumberControl) {
+        basicPensionNumberControl.clearValidators();
+        basicPensionNumberControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (addressGroup) {
+        addressGroup.get('postalCode')?.clearValidators();
+        addressGroup.get('prefecture')?.clearValidators();
+        addressGroup.get('city')?.clearValidators();
+        addressGroup.get('street')?.clearValidators();
+        addressGroup.get('building')?.clearValidators();
+        addressGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (phoneNumberGroup) {
+        phoneNumberGroup.get('phone')?.clearValidators();
+        phoneNumberGroup.get('type')?.clearValidators();
+        phoneNumberGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartDateGroup) {
+        dependentStartDateGroup.get('era')?.clearValidators();
+        dependentStartDateGroup.get('year')?.clearValidators();
+        dependentStartDateGroup.get('month')?.clearValidators();
+        dependentStartDateGroup.get('day')?.clearValidators();
+        dependentStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartReasonControl) {
+        dependentStartReasonControl.clearValidators();
+        dependentStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (occupationControl) {
+        occupationControl.clearValidators();
+        occupationControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (incomeControl) {
+        incomeControl.clearValidators();
+        incomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndDateGroup) {
+        dependentEndDateGroup.get('era')?.clearValidators();
+        dependentEndDateGroup.get('year')?.clearValidators();
+        dependentEndDateGroup.get('month')?.clearValidators();
+        dependentEndDateGroup.get('day')?.clearValidators();
+        dependentEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndReasonControl) {
+        dependentEndReasonControl.clearValidators();
+        dependentEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (deathDateGroup) {
+        deathDateGroup.get('era')?.clearValidators();
+        deathDateGroup.get('year')?.clearValidators();
+        deathDateGroup.get('month')?.clearValidators();
+        deathDateGroup.get('day')?.clearValidators();
+        deathDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+    } else {
+      // 異動無し以外の場合：spouseIncomeの必須を解除
+      if (spouseIncomeControl) {
+        spouseIncomeControl.clearValidators();
+        spouseIncomeControl.updateValueAndValidity({ emitEvent: false });
+      }
     }
   }
 
@@ -2178,6 +2615,71 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         insuredPersonGroup.patchValue({
           oldAddress: oldAddressParts
         });
+      }
+    }
+
+    // 被扶養配偶者の情報を自動転記
+    if (employee.dependentInfo && employee.dependentInfo.length > 0) {
+      const spouse = employee.dependentInfo.find(dep => dep.relationship === '配偶者');
+      if (spouse) {
+        // 配偶者の氏名を設定（lastName/firstNameまたはnameから取得）
+        const spouseLastName = spouse.lastName || (spouse.name ? spouse.name.split(' ')[0] : '');
+        const spouseFirstName = spouse.firstName || (spouse.name && spouse.name.split(' ').length > 1 ? spouse.name.split(' ')[1] : '');
+        const spouseLastNameKana = spouse.lastNameKana || (spouse.nameKana ? spouse.nameKana.split(' ')[0] : '');
+        const spouseFirstNameKana = spouse.firstNameKana || (spouse.nameKana && spouse.nameKana.split(' ').length > 1 ? spouse.nameKana.split(' ')[1] : '');
+
+        insuredPersonGroup.patchValue({
+          livingWithSpouse: spouse.livingTogether !== undefined ? spouse.livingTogether : true,
+          spouseLastName: spouseLastName,
+          spouseFirstName: spouseFirstName,
+          spouseLastNameKana: spouseLastNameKana,
+          spouseFirstNameKana: spouseFirstNameKana
+        });
+
+        // 配偶者の生年月日を設定
+        if (spouse.birthDate) {
+          const spouseBirthDate = spouse.birthDate instanceof Date 
+            ? spouse.birthDate 
+            : (spouse.birthDate instanceof Timestamp ? spouse.birthDate.toDate() : new Date(spouse.birthDate));
+          const spouseBirthDateInfo = this.convertToEraDate(spouseBirthDate);
+          insuredPersonGroup.get('spouseBirthDate')?.patchValue(spouseBirthDateInfo);
+        }
+
+        // 配偶者の個人番号または基礎年金番号
+        if (spouse.dependentId) {
+          // dependentIdが個人番号形式（12桁）か基礎年金番号形式（10桁）かを判定
+          const idStr = String(spouse.dependentId).replace(/-/g, '');
+          if (idStr.length === 12) {
+            // 個人番号
+            insuredPersonGroup.patchValue({
+              spouseIdentificationType: 'personal_number',
+              spousePersonalNumber: spouse.dependentId
+            });
+          } else if (idStr.length === 10) {
+            // 基礎年金番号
+            insuredPersonGroup.patchValue({
+              spouseIdentificationType: 'basic_pension_number',
+              spouseBasicPensionNumber: spouse.dependentId
+            });
+          }
+        }
+
+        // 配偶者の変更前住所を設定（被保険者と同じ住所と仮定）
+        if (employee.address) {
+          const address = employee.address.official;
+          if (address) {
+            const spouseOldAddressParts = [
+              address.prefecture || '',
+              address.city || '',
+              address.street || '',
+              address.building || ''
+            ].filter(part => part).join(' ');
+            
+            insuredPersonGroup.patchValue({
+              spouseOldAddress: spouseOldAddressParts
+            });
+          }
+        }
       }
     }
 
@@ -2645,6 +3147,30 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         occupation: [''],
         occupationOther: [''],
         income: [null],
+        studentYear: [''],
+        phoneNumber: [''],
+        dependentStartDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
+        dependentStartReason: [''],
+        dependentStartReasonOther: [''],
+        dependentEndDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
+        dependentEndReason: [''],
+        dependentEndReasonOther: [''],
+        deathDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
         remarks: [''],
         overseasException: [''],
         overseasExceptionStartDate: this.fb.group({
@@ -2680,18 +3206,14 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     const changeTypeControl = dependentGroup.get('changeType');
     if (changeTypeControl) {
       changeTypeControl.valueChanges.subscribe((changeType: string | null) => {
-        // genderフィールドのバリデーションを動的に設定
-        const genderControl = dependentGroup.get('gender');
-        if (genderControl) {
-          if (changeType === 'change') {
-            // 「変更」の場合は必須バリデーションを無効化
-            genderControl.clearValidators();
-            genderControl.updateValueAndValidity({ emitEvent: false });
-          } else {
-            // 「変更」以外の場合は必須バリデーションを有効化
-            genderControl.setValidators([Validators.required]);
-            genderControl.updateValueAndValidity({ emitEvent: false });
-          }
+        // 内部申請の場合のみバリデーションを動的に設定
+        if (this.dependentChangeFormInternal) {
+          this.updateOtherDependentValidation(newIndex, changeType || '');
+        }
+        
+        // 外部申請の場合もバリデーションを動的に設定
+        if (this.dependentChangeForm) {
+          this.updateOtherDependentValidationExternal(newIndex, changeType || '');
         }
         
         if (changeType === 'change') {
@@ -2702,6 +3224,17 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           this.otherDependentsChangeBeforeInfo.delete(newIndex);
         }
       });
+      
+      // 初期値がある場合も処理
+      const initialChangeType = changeTypeControl.value;
+      if (initialChangeType) {
+        if (this.dependentChangeFormInternal) {
+          this.updateOtherDependentValidation(newIndex, initialChangeType);
+        }
+        if (this.dependentChangeForm) {
+          this.updateOtherDependentValidationExternal(newIndex, initialChangeType);
+        }
+      }
     }
   }
 
@@ -3686,6 +4219,13 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * 被扶養者異動届：被扶養者でない配偶者を有するかどうか
+   */
+  isSpouseHasNonDependent(): boolean {
+    return this.getDependentChangeSpouseFormGroup()?.get('hasNonDependentSpouse')?.value === true;
+  }
+
+  /**
    * 被扶養者異動届：配偶者の異動種別が「異動無し」かどうか
    */
   isSpouseChangeTypeNoChange(): boolean {
@@ -3840,6 +4380,11 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
    * 配偶者の異動種別選択時の処理（ドロップダウンを確実に閉じるため）
    */
   onSpouseChangeTypeSelectionChange(value: string): void {
+    // 内部申請の場合のみバリデーションを動的に設定
+    if (this.dependentChangeFormInternal) {
+      this.updateSpouseDependentValidation(value);
+    }
+
     // 「変更」を選択した場合、DOMの再構築が発生するため、setTimeoutで遅延実行
     if (value === 'change') {
       // DOMの再構築を待ってから変更検知を実行し、mat-selectのドロップダウンを強制的に閉じる
@@ -3873,18 +4418,14 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     const dependentGroup = this.getOtherDependentFormGroup(index);
     if (!dependentGroup) return;
     
-    // genderフィールドのバリデーションを動的に設定
-    const genderControl = dependentGroup.get('gender');
-    if (genderControl) {
-      if (value === 'change') {
-        // 「変更」の場合は必須バリデーションを無効化
-        genderControl.clearValidators();
-        genderControl.updateValueAndValidity({ emitEvent: false });
-      } else {
-        // 「変更」以外の場合は必須バリデーションを有効化
-        genderControl.setValidators([Validators.required]);
-        genderControl.updateValueAndValidity({ emitEvent: false });
-      }
+    // 内部申請の場合のみバリデーションを動的に設定
+    if (this.dependentChangeFormInternal) {
+      this.updateOtherDependentValidation(index, value);
+    }
+    
+    // 外部申請の場合もバリデーションを動的に設定
+    if (this.dependentChangeForm) {
+      this.updateOtherDependentValidationExternal(index, value);
     }
     
     // 「変更」を選択した場合、DOMの再構築が発生するため、setTimeoutで遅延実行
@@ -3908,6 +4449,428 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     } else {
       // その他の場合は即座に変更検知を実行
       this.cdr.detectChanges();
+    }
+  }
+
+  /**
+   * その他の被扶養者の異動種別に応じてバリデーションを動的に設定（内部申請用）
+   */
+  private updateOtherDependentValidation(index: number, changeType: string): void {
+    if (!this.dependentChangeFormInternal) {
+      return;
+    }
+
+    const dependentGroup = this.getOtherDependentFormGroup(index);
+    if (!dependentGroup) {
+      return;
+    }
+
+    const lastNameControl = dependentGroup.get('lastName');
+    const firstNameControl = dependentGroup.get('firstName');
+    const lastNameKanaControl = dependentGroup.get('lastNameKana');
+    const firstNameKanaControl = dependentGroup.get('firstNameKana');
+    const birthDateGroup = dependentGroup.get('birthDate');
+    const genderControl = dependentGroup.get('gender');
+    const relationshipControl = dependentGroup.get('relationship');
+    const relationshipOtherControl = dependentGroup.get('relationshipOther');
+    const personalNumberControl = dependentGroup.get('personalNumber');
+    const addressGroup = dependentGroup.get('address');
+    const dependentStartDateGroup = dependentGroup.get('dependentStartDate');
+    const dependentStartReasonControl = dependentGroup.get('dependentStartReason');
+    const dependentStartReasonOtherControl = dependentGroup.get('dependentStartReasonOther');
+    const occupationControl = dependentGroup.get('occupation');
+    const occupationOtherControl = dependentGroup.get('occupationOther');
+    const studentYearControl = dependentGroup.get('studentYear');
+    const incomeControl = dependentGroup.get('income');
+    const dependentEndDateGroup = dependentGroup.get('dependentEndDate');
+    const dependentEndReasonControl = dependentGroup.get('dependentEndReason');
+    const dependentEndReasonOtherControl = dependentGroup.get('dependentEndReasonOther');
+    const deathDateGroup = dependentGroup.get('deathDate');
+    const remarksControl = dependentGroup.get('remarks');
+
+    if (changeType === 'no_change') {
+      // 異動無しの場合：すべてのフィールドの必須を解除
+      if (lastNameControl) {
+        lastNameControl.clearValidators();
+        lastNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameControl) {
+        firstNameControl.clearValidators();
+        firstNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (lastNameKanaControl) {
+        lastNameKanaControl.clearValidators();
+        lastNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameKanaControl) {
+        firstNameKanaControl.clearValidators();
+        firstNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (birthDateGroup) {
+        birthDateGroup.get('era')?.clearValidators();
+        birthDateGroup.get('year')?.clearValidators();
+        birthDateGroup.get('month')?.clearValidators();
+        birthDateGroup.get('day')?.clearValidators();
+        birthDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (genderControl) {
+        genderControl.clearValidators();
+        genderControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipControl) {
+        relationshipControl.clearValidators();
+        relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipOtherControl) {
+        relationshipOtherControl.clearValidators();
+        relationshipOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (personalNumberControl) {
+        personalNumberControl.clearValidators();
+        personalNumberControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (addressGroup) {
+        addressGroup.get('postalCode')?.clearValidators();
+        addressGroup.get('prefecture')?.clearValidators();
+        addressGroup.get('city')?.clearValidators();
+        addressGroup.get('street')?.clearValidators();
+        addressGroup.get('building')?.clearValidators();
+        addressGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartDateGroup) {
+        dependentStartDateGroup.get('era')?.clearValidators();
+        dependentStartDateGroup.get('year')?.clearValidators();
+        dependentStartDateGroup.get('month')?.clearValidators();
+        dependentStartDateGroup.get('day')?.clearValidators();
+        dependentStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartReasonControl) {
+        dependentStartReasonControl.clearValidators();
+        dependentStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartReasonOtherControl) {
+        dependentStartReasonOtherControl.clearValidators();
+        dependentStartReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (occupationControl) {
+        occupationControl.clearValidators();
+        occupationControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (occupationOtherControl) {
+        occupationOtherControl.clearValidators();
+        occupationOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (studentYearControl) {
+        studentYearControl.clearValidators();
+        studentYearControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (incomeControl) {
+        incomeControl.clearValidators();
+        incomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndDateGroup) {
+        dependentEndDateGroup.get('era')?.clearValidators();
+        dependentEndDateGroup.get('year')?.clearValidators();
+        dependentEndDateGroup.get('month')?.clearValidators();
+        dependentEndDateGroup.get('day')?.clearValidators();
+        dependentEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndReasonControl) {
+        dependentEndReasonControl.clearValidators();
+        dependentEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndReasonOtherControl) {
+        dependentEndReasonOtherControl.clearValidators();
+        dependentEndReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (deathDateGroup) {
+        deathDateGroup.get('era')?.clearValidators();
+        deathDateGroup.get('year')?.clearValidators();
+        deathDateGroup.get('month')?.clearValidators();
+        deathDateGroup.get('day')?.clearValidators();
+        deathDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (remarksControl) {
+        remarksControl.clearValidators();
+        remarksControl.updateValueAndValidity({ emitEvent: false });
+      }
+    } else if (changeType === 'change') {
+      // 「変更」の場合：基本フィールドの必須を解除
+      if (lastNameControl) {
+        lastNameControl.clearValidators();
+        lastNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameControl) {
+        firstNameControl.clearValidators();
+        firstNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (lastNameKanaControl) {
+        lastNameKanaControl.clearValidators();
+        lastNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameKanaControl) {
+        firstNameKanaControl.clearValidators();
+        firstNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (birthDateGroup) {
+        birthDateGroup.get('era')?.clearValidators();
+        birthDateGroup.get('year')?.clearValidators();
+        birthDateGroup.get('month')?.clearValidators();
+        birthDateGroup.get('day')?.clearValidators();
+        birthDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (genderControl) {
+        genderControl.clearValidators();
+        genderControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipControl) {
+        relationshipControl.clearValidators();
+        relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
+    } else {
+      // 「該当」「非該当」の場合：基本フィールドの必須を設定
+      if (lastNameControl) {
+        lastNameControl.setValidators([Validators.required]);
+        lastNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameControl) {
+        firstNameControl.setValidators([Validators.required]);
+        firstNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (lastNameKanaControl) {
+        lastNameKanaControl.setValidators([Validators.required]);
+        lastNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameKanaControl) {
+        firstNameKanaControl.setValidators([Validators.required]);
+        firstNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (birthDateGroup) {
+        birthDateGroup.get('era')?.setValidators([Validators.required]);
+        birthDateGroup.get('year')?.setValidators([Validators.required]);
+        birthDateGroup.get('month')?.setValidators([Validators.required]);
+        birthDateGroup.get('day')?.setValidators([Validators.required]);
+        birthDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (genderControl) {
+        genderControl.setValidators([Validators.required]);
+        genderControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipControl) {
+        relationshipControl.setValidators([Validators.required]);
+        relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
+    }
+  }
+
+  /**
+   * その他の被扶養者の異動種別に応じてバリデーションを動的に設定（外部申請用）
+   */
+  private updateOtherDependentValidationExternal(index: number, changeType: string): void {
+    if (!this.dependentChangeForm) {
+      return;
+    }
+
+    const dependentGroup = this.getOtherDependentFormGroup(index);
+    if (!dependentGroup) {
+      return;
+    }
+
+    const lastNameControl = dependentGroup.get('lastName');
+    const firstNameControl = dependentGroup.get('firstName');
+    const lastNameKanaControl = dependentGroup.get('lastNameKana');
+    const firstNameKanaControl = dependentGroup.get('firstNameKana');
+    const birthDateGroup = dependentGroup.get('birthDate');
+    const genderControl = dependentGroup.get('gender');
+    const relationshipControl = dependentGroup.get('relationship');
+    const relationshipOtherControl = dependentGroup.get('relationshipOther');
+    const personalNumberControl = dependentGroup.get('personalNumber');
+    const addressGroup = dependentGroup.get('address');
+    const dependentStartDateGroup = dependentGroup.get('dependentStartDate');
+    const dependentStartReasonControl = dependentGroup.get('dependentStartReason');
+    const dependentStartReasonOtherControl = dependentGroup.get('dependentStartReasonOther');
+    const occupationControl = dependentGroup.get('occupation');
+    const occupationOtherControl = dependentGroup.get('occupationOther');
+    const studentYearControl = dependentGroup.get('studentYear');
+    const incomeControl = dependentGroup.get('income');
+    const dependentEndDateGroup = dependentGroup.get('dependentEndDate');
+    const dependentEndReasonControl = dependentGroup.get('dependentEndReason');
+    const dependentEndReasonOtherControl = dependentGroup.get('dependentEndReasonOther');
+    const deathDateGroup = dependentGroup.get('deathDate');
+    const remarksControl = dependentGroup.get('remarks');
+
+    if (changeType === 'no_change') {
+      // 異動無しの場合：すべてのフィールドの必須を解除
+      if (lastNameControl) {
+        lastNameControl.clearValidators();
+        lastNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameControl) {
+        firstNameControl.clearValidators();
+        firstNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (lastNameKanaControl) {
+        lastNameKanaControl.clearValidators();
+        lastNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameKanaControl) {
+        firstNameKanaControl.clearValidators();
+        firstNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (birthDateGroup) {
+        birthDateGroup.get('era')?.clearValidators();
+        birthDateGroup.get('year')?.clearValidators();
+        birthDateGroup.get('month')?.clearValidators();
+        birthDateGroup.get('day')?.clearValidators();
+        birthDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (genderControl) {
+        genderControl.clearValidators();
+        genderControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipControl) {
+        relationshipControl.clearValidators();
+        relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipOtherControl) {
+        relationshipOtherControl.clearValidators();
+        relationshipOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (personalNumberControl) {
+        personalNumberControl.clearValidators();
+        personalNumberControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (addressGroup) {
+        addressGroup.get('postalCode')?.clearValidators();
+        addressGroup.get('prefecture')?.clearValidators();
+        addressGroup.get('city')?.clearValidators();
+        addressGroup.get('street')?.clearValidators();
+        addressGroup.get('building')?.clearValidators();
+        addressGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartDateGroup) {
+        dependentStartDateGroup.get('era')?.clearValidators();
+        dependentStartDateGroup.get('year')?.clearValidators();
+        dependentStartDateGroup.get('month')?.clearValidators();
+        dependentStartDateGroup.get('day')?.clearValidators();
+        dependentStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartReasonControl) {
+        dependentStartReasonControl.clearValidators();
+        dependentStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentStartReasonOtherControl) {
+        dependentStartReasonOtherControl.clearValidators();
+        dependentStartReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (occupationControl) {
+        occupationControl.clearValidators();
+        occupationControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (occupationOtherControl) {
+        occupationOtherControl.clearValidators();
+        occupationOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (studentYearControl) {
+        studentYearControl.clearValidators();
+        studentYearControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (incomeControl) {
+        incomeControl.clearValidators();
+        incomeControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndDateGroup) {
+        dependentEndDateGroup.get('era')?.clearValidators();
+        dependentEndDateGroup.get('year')?.clearValidators();
+        dependentEndDateGroup.get('month')?.clearValidators();
+        dependentEndDateGroup.get('day')?.clearValidators();
+        dependentEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndReasonControl) {
+        dependentEndReasonControl.clearValidators();
+        dependentEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (dependentEndReasonOtherControl) {
+        dependentEndReasonOtherControl.clearValidators();
+        dependentEndReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (deathDateGroup) {
+        deathDateGroup.get('era')?.clearValidators();
+        deathDateGroup.get('year')?.clearValidators();
+        deathDateGroup.get('month')?.clearValidators();
+        deathDateGroup.get('day')?.clearValidators();
+        deathDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (remarksControl) {
+        remarksControl.clearValidators();
+        remarksControl.updateValueAndValidity({ emitEvent: false });
+      }
+    } else if (changeType === 'change') {
+      // 「変更」の場合：基本フィールドの必須を解除
+      if (lastNameControl) {
+        lastNameControl.clearValidators();
+        lastNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameControl) {
+        firstNameControl.clearValidators();
+        firstNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (lastNameKanaControl) {
+        lastNameKanaControl.clearValidators();
+        lastNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameKanaControl) {
+        firstNameKanaControl.clearValidators();
+        firstNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (birthDateGroup) {
+        birthDateGroup.get('era')?.clearValidators();
+        birthDateGroup.get('year')?.clearValidators();
+        birthDateGroup.get('month')?.clearValidators();
+        birthDateGroup.get('day')?.clearValidators();
+        birthDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (genderControl) {
+        genderControl.clearValidators();
+        genderControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipControl) {
+        relationshipControl.clearValidators();
+        relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
+    } else {
+      // 「該当」「非該当」の場合：基本フィールドの必須を設定
+      if (lastNameControl) {
+        lastNameControl.setValidators([Validators.required]);
+        lastNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameControl) {
+        firstNameControl.setValidators([Validators.required]);
+        firstNameControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (lastNameKanaControl) {
+        lastNameKanaControl.setValidators([Validators.required]);
+        lastNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (firstNameKanaControl) {
+        firstNameKanaControl.setValidators([Validators.required]);
+        firstNameKanaControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (birthDateGroup) {
+        birthDateGroup.get('era')?.setValidators([Validators.required]);
+        birthDateGroup.get('year')?.setValidators([Validators.required]);
+        birthDateGroup.get('month')?.setValidators([Validators.required]);
+        birthDateGroup.get('day')?.setValidators([Validators.required]);
+        birthDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (genderControl) {
+        genderControl.setValidators([Validators.required]);
+        genderControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (relationshipControl) {
+        relationshipControl.setValidators([Validators.required]);
+        relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
     }
   }
 
@@ -6280,6 +7243,11 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       const newAddress = newAddressParts.length > 0 ? newAddressParts.join(' ') : (ip.newAddress || '');
       ipItems.push({ label: '変更後住所', value: newAddress, isEmpty: !newAddress });
 
+      // 配偶者との同居/別居
+      if (ip.livingWithSpouse !== undefined && ip.livingWithSpouse !== null) {
+        ipItems.push({ label: '配偶者との同居/別居', value: ip.livingWithSpouse ? '同居' : '別居', isEmpty: false });
+      }
+
       sections.push({
         title: '被保険者情報',
         items: ipItems
@@ -6320,6 +7288,11 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         const spouseNewAddress = spouseNewAddressParts.length > 0 ? spouseNewAddressParts.join(' ') : '';
         if (spouseNewAddress) {
           siItems.push({ label: '配偶者の変更後住所', value: spouseNewAddress, isEmpty: !spouseNewAddress });
+        }
+
+        // 配偶者の住所変更年月日（別居時のみ表示）
+        if (ip.livingWithSpouse === false && ip.spouseChangeDate) {
+          siItems.push({ label: '配偶者の住所変更年月日', value: this.formatEraDate(ip.spouseChangeDate), isEmpty: !ip.spouseChangeDate });
         }
 
         // 配偶者の備考

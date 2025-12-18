@@ -1073,6 +1073,11 @@ export class ApplicationReturnHistoryViewComponent {
       const newAddress = newAddressParts.length > 0 ? newAddressParts.join(' ') : (ip.newAddress || '');
       ipItems.push({ label: '変更後住所', value: newAddress, isEmpty: !newAddress });
 
+      // 配偶者との同居/別居
+      if (ip.livingWithSpouse !== undefined && ip.livingWithSpouse !== null) {
+        ipItems.push({ label: '配偶者との同居/別居', value: ip.livingWithSpouse ? '同居' : '別居', isEmpty: false });
+      }
+
       sections.push({
         title: '被保険者情報',
         items: ipItems
@@ -1113,6 +1118,11 @@ export class ApplicationReturnHistoryViewComponent {
         const spouseNewAddress = spouseNewAddressParts.length > 0 ? spouseNewAddressParts.join(' ') : '';
         if (spouseNewAddress) {
           siItems.push({ label: '配偶者の変更後住所', value: spouseNewAddress, isEmpty: !spouseNewAddress });
+        }
+
+        // 配偶者の住所変更年月日（別居時のみ表示）
+        if (ip.livingWithSpouse === false && ip.spouseChangeDate) {
+          siItems.push({ label: '配偶者の住所変更年月日', value: this.formatEraDate(ip.spouseChangeDate), isEmpty: !ip.spouseChangeDate });
         }
 
         // 配偶者の備考
@@ -1194,7 +1204,15 @@ export class ApplicationReturnHistoryViewComponent {
       ipItems.push({ label: '被保険者整理番号', value: ip.insuranceNumber || '', isEmpty: !ip.insuranceNumber });
       ipItems.push({ label: '変更前氏名', value: `${ip.oldLastName || ''} ${ip.oldFirstName || ''}`.trim() || '', isEmpty: !ip.oldLastName && !ip.oldFirstName });
       ipItems.push({ label: '変更後氏名', value: `${ip.newLastName || ''} ${ip.newFirstName || ''}`.trim() || '', isEmpty: !ip.newLastName && !ip.newFirstName });
+      ipItems.push({ label: '変更後氏名（カナ）', value: `${ip.newLastNameKana || ''} ${ip.newFirstNameKana || ''}`.trim() || '', isEmpty: !ip.newLastNameKana && !ip.newFirstNameKana });
       ipItems.push({ label: '生年月日', value: this.formatEraDate(ip.birthDate), isEmpty: !ip.birthDate });
+      
+      // 個人番号または基礎年金番号
+      if (ip.identificationType === 'personal_number') {
+        ipItems.push({ label: '個人番号', value: ip.personalNumber || '', isEmpty: !ip.personalNumber });
+      } else if (ip.identificationType === 'basic_pension_number') {
+        ipItems.push({ label: '基礎年金番号', value: ip.basicPensionNumber || '', isEmpty: !ip.basicPensionNumber });
+      }
 
       sections.push({
         title: '被保険者情報',

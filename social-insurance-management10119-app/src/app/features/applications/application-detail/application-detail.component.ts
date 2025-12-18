@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -70,7 +70,7 @@ export interface FormattedItem {
   templateUrl: './application-detail.component.html',
   styleUrl: './application-detail.component.css'
 })
-export class ApplicationDetailComponent implements OnInit {
+export class ApplicationDetailComponent implements OnInit, OnDestroy {
   private applicationService = inject(ApplicationService);
   private employeeService = inject(EmployeeService);
   private organizationService = inject(OrganizationService);
@@ -93,28 +93,46 @@ export class ApplicationDetailComponent implements OnInit {
   currentUserId: string | null = null;
   relatedApplications: Map<string, Application> = new Map(); // 関連申請のキャッシュ
   relatedApplicationEmployees: Map<string, Employee> = new Map(); // 関連申請の社員情報キャッシュ
+  private routeParamSubscription: any = null; // ルートパラメータの購読を保持
 
   ngOnInit(): void {
-    const applicationId = this.route.snapshot.paramMap.get('id');
-    if (!applicationId) {
-      this.router.navigate(['/applications']);
-      return;
+    // パラメータ変更を監視（同じコンポーネントへの遷移でも再読み込みされるように）
+    this.routeParamSubscription = this.route.paramMap.subscribe(params => {
+      const applicationId = params.get('id');
+      
+      if (!applicationId) {
+        this.router.navigate(['/applications']);
+        return;
+      }
+
+      const currentUser = this.authService.getCurrentUser();
+      // 管理者かどうかを判定（roleベース）
+      const isAdminRole = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+      // モードとロールの両方を考慮
+      this.isAdmin = isAdminRole && this.modeService.getIsAdminMode();
+      this.currentUserId = currentUser?.uid || null;
+
+      this.loadApplication(applicationId);
+    });
+  }
+
+  ngOnDestroy(): void {
+    // 購読を解除してメモリリークを防ぐ
+    if (this.routeParamSubscription) {
+      this.routeParamSubscription.unsubscribe();
     }
-
-    const currentUser = this.authService.getCurrentUser();
-    // 管理者かどうかを判定（roleベース）
-    const isAdminRole = currentUser?.role === 'admin' || currentUser?.role === 'owner';
-    // モードとロールの両方を考慮
-    this.isAdmin = isAdminRole && this.modeService.getIsAdminMode();
-    this.currentUserId = currentUser?.uid || null;
-
-    this.loadApplication(applicationId);
   }
 
   /**
    * 申請情報を読み込む
    */
   private async loadApplication(applicationId: string): Promise<void> {
+    // ローディング状態をリセット
+    this.isLoading = true;
+    // 関連申請のキャッシュをクリア（新しい申請を読み込むため）
+    this.relatedApplications.clear();
+    this.relatedApplicationEmployees.clear();
+    
     try {
       this.application = await this.applicationService.getApplication(applicationId);
       
@@ -126,7 +144,7 @@ export class ApplicationDetailComponent implements OnInit {
 
       // 社員情報を読み込む（employeeIdがある場合のみ）
       if (this.application.employeeId) {
-      this.employee = await this.employeeService.getEmployee(this.application.employeeId);
+        this.employee = await this.employeeService.getEmployee(this.application.employeeId);
       }
       
       // 組織情報を読み込む
@@ -1472,6 +1490,11 @@ export class ApplicationDetailComponent implements OnInit {
       const newAddress = newAddressParts.length > 0 ? newAddressParts.join(' ') : (ip.newAddress || '');
       ipItems.push({ label: '変更後住所', value: newAddress, isEmpty: !newAddress });
 
+      // 配偶者との同居/別居
+      if (ip.livingWithSpouse !== undefined && ip.livingWithSpouse !== null) {
+        ipItems.push({ label: '配偶者との同居/別居', value: ip.livingWithSpouse ? '同居' : '別居', isEmpty: false });
+      }
+
       sections.push({
         title: '被保険者情報',
         items: ipItems
@@ -1512,6 +1535,11 @@ export class ApplicationDetailComponent implements OnInit {
         const spouseNewAddress = spouseNewAddressParts.length > 0 ? spouseNewAddressParts.join(' ') : '';
         if (spouseNewAddress) {
           siItems.push({ label: '配偶者の変更後住所', value: spouseNewAddress, isEmpty: !spouseNewAddress });
+        }
+
+        // 配偶者の住所変更年月日（別居時のみ表示）
+        if (ip.livingWithSpouse === false && ip.spouseChangeDate) {
+          siItems.push({ label: '配偶者の住所変更年月日', value: this.formatEraDate(ip.spouseChangeDate), isEmpty: !ip.spouseChangeDate });
         }
 
         // 配偶者の備考
@@ -3370,6 +3398,10 @@ export class ApplicationDetailComponent implements OnInit {
       appIds.push(...this.application.relatedExternalApplicationIds);
     }
 
+    if (appIds.length === 0) {
+      return;
+    }
+
     for (const appId of appIds) {
       try {
         const app = await this.applicationService.getApplication(appId);
@@ -3377,13 +3409,13 @@ export class ApplicationDetailComponent implements OnInit {
           this.relatedApplications.set(appId, app);
           // 社員情報も読み込む（employeeIdがある場合のみ）
           if (app.employeeId) {
-          try {
-            const emp = await this.employeeService.getEmployee(app.employeeId);
-            if (emp) {
-              this.relatedApplicationEmployees.set(appId, emp);
-            }
-          } catch (error) {
-            console.error(`関連申請 ${appId} の社員情報の読み込みに失敗しました:`, error);
+            try {
+              const emp = await this.employeeService.getEmployee(app.employeeId);
+              if (emp) {
+                this.relatedApplicationEmployees.set(appId, emp);
+              }
+            } catch (error) {
+              console.error(`関連申請 ${appId} の社員情報の読み込みに失敗しました:`, error);
             }
           }
         }
@@ -3418,7 +3450,15 @@ export class ApplicationDetailComponent implements OnInit {
    * 関連申請の詳細を表示
    */
   viewRelatedApplication(appId: string): void {
-    this.router.navigate(['/applications', appId]);
+    if (!appId) {
+      this.snackBar.open('申請IDが指定されていません', '閉じる', { duration: 3000 });
+      return;
+    }
+    
+    this.router.navigate(['/applications', appId]).catch(error => {
+      console.error('申請詳細への遷移に失敗しました:', error);
+      this.snackBar.open('申請詳細の表示に失敗しました', '閉じる', { duration: 3000 });
+    });
   }
 
   /**
