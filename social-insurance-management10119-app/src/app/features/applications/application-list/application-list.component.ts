@@ -414,16 +414,16 @@ export class ApplicationListComponent implements OnInit, OnDestroy {
           targetEmployees.push(`${employee.lastName} ${employee.firstName}`);
         }
       }
-      // employeeIdがない場合は氏名を使用
-      else if (person.lastName || person.firstName) {
-        const name = `${person.lastName || ''} ${person.firstName || ''}`.trim();
+      // 氏名変更届の場合：変更前氏名を優先的に使用（承認前なので変更前の氏名を表示）
+      else if (person.oldLastName || person.oldFirstName) {
+        const name = `${person.oldLastName || ''} ${person.oldFirstName || ''}`.trim();
         if (name) {
           targetEmployees.push(name);
         }
       }
-      // 変更後氏名がある場合（氏名変更届）
-      else if (person.newLastName || person.newFirstName) {
-        const name = `${person.newLastName || ''} ${person.newFirstName || ''}`.trim();
+      // 住所変更届など、通常の氏名フィールドがある場合
+      else if (person.lastName || person.firstName) {
+        const name = `${person.lastName || ''} ${person.firstName || ''}`.trim();
         if (name) {
           targetEmployees.push(name);
         }

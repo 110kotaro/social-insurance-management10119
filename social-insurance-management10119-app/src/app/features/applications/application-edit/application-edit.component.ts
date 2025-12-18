@@ -106,6 +106,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   isAdminMode = false;
   isLoading = false;
   employees: Employee[] = []; // 社員一覧
+  selectedEmployeeForDependentChange: Employee | null = null; // 被扶養者異動届で選択された社員
 
   // 申請種別ごとのフォームフラグ（外部申請）
   isInsuranceAcquisitionForm = false; // 被保険者資格取得届
@@ -558,11 +559,76 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         otherDependentsArray.clear();
         data['otherDependents'].forEach((dependent: any) => {
           this.addOtherDependent();
-          otherDependentsArray.at(otherDependentsArray.length - 1)?.patchValue(dependent);
+          const dependentFormGroup = otherDependentsArray.at(otherDependentsArray.length - 1) as FormGroup;
+          // 住所が文字列形式の場合、個別フィールドに変換
+          if (dependent.address && typeof dependent.address === 'string') {
+            dependent = {
+              ...dependent,
+              address: {
+                postalCode: '',
+                prefecture: '',
+                city: '',
+                street: '',
+                building: '',
+                addressKana: '',
+                livingTogether: ''
+              }
+            };
+          } else if (dependent.address && typeof dependent.address === 'object' && dependent.address.address) {
+            // 旧形式のオブジェクト（addressフィールドに文字列が入っている）の場合
+            const oldAddress = dependent.address.address;
+            const oldLivingTogether = dependent.address.livingTogether || '';
+            dependent = {
+              ...dependent,
+              address: {
+                postalCode: '',
+                prefecture: '',
+                city: '',
+                street: '',
+                building: '',
+                addressKana: '',
+                livingTogether: oldLivingTogether
+              }
+            };
+          }
+          dependentFormGroup.patchValue(dependent);
         });
       }
       const dataWithoutArray = { ...data };
       delete dataWithoutArray['otherDependents'];
+      // 配偶者の住所が文字列形式の場合、個別フィールドに変換
+      if (dataWithoutArray['spouseDependent']?.address) {
+        if (typeof dataWithoutArray['spouseDependent'].address === 'string') {
+          dataWithoutArray['spouseDependent'] = {
+            ...dataWithoutArray['spouseDependent'],
+            address: {
+              postalCode: '',
+              prefecture: '',
+              city: '',
+              street: '',
+              building: '',
+              addressKana: '',
+              livingTogether: ''
+            }
+          };
+        } else if (typeof dataWithoutArray['spouseDependent'].address === 'object' && dataWithoutArray['spouseDependent'].address.address) {
+          // 旧形式のオブジェクト（addressフィールドに文字列が入っている）の場合
+          const oldAddress = dataWithoutArray['spouseDependent'].address.address;
+          const oldLivingTogether = dataWithoutArray['spouseDependent'].address.livingTogether || '';
+          dataWithoutArray['spouseDependent'] = {
+            ...dataWithoutArray['spouseDependent'],
+            address: {
+              postalCode: '',
+              prefecture: '',
+              city: '',
+              street: '',
+              building: '',
+              addressKana: '',
+              livingTogether: oldLivingTogether
+            }
+          };
+        }
+      }
       this.dependentChangeForm.patchValue(dataWithoutArray);
       
       // 被保険者情報のemployeeIdを設定（既存データから逆引き）
@@ -705,11 +771,76 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         otherDependentsArray.clear();
         data['otherDependents'].forEach((dependent: any) => {
           this.addOtherDependent();
-          otherDependentsArray.at(otherDependentsArray.length - 1)?.patchValue(dependent);
+          const dependentFormGroup = otherDependentsArray.at(otherDependentsArray.length - 1) as FormGroup;
+          // 住所が文字列形式の場合、個別フィールドに変換
+          if (dependent.address && typeof dependent.address === 'string') {
+            dependent = {
+              ...dependent,
+              address: {
+                postalCode: '',
+                prefecture: '',
+                city: '',
+                street: '',
+                building: '',
+                addressKana: '',
+                livingTogether: ''
+              }
+            };
+          } else if (dependent.address && typeof dependent.address === 'object' && dependent.address.address) {
+            // 旧形式のオブジェクト（addressフィールドに文字列が入っている）の場合
+            const oldAddress = dependent.address.address;
+            const oldLivingTogether = dependent.address.livingTogether || '';
+            dependent = {
+              ...dependent,
+              address: {
+                postalCode: '',
+                prefecture: '',
+                city: '',
+                street: '',
+                building: '',
+                addressKana: '',
+                livingTogether: oldLivingTogether
+              }
+            };
+          }
+          dependentFormGroup.patchValue(dependent);
         });
       }
       const dataWithoutArray = { ...data };
       delete dataWithoutArray['otherDependents'];
+      // 配偶者の住所が文字列形式の場合、個別フィールドに変換
+      if (dataWithoutArray['spouseDependent']?.address) {
+        if (typeof dataWithoutArray['spouseDependent'].address === 'string') {
+          dataWithoutArray['spouseDependent'] = {
+            ...dataWithoutArray['spouseDependent'],
+            address: {
+              postalCode: '',
+              prefecture: '',
+              city: '',
+              street: '',
+              building: '',
+              addressKana: '',
+              livingTogether: ''
+            }
+          };
+        } else if (typeof dataWithoutArray['spouseDependent'].address === 'object' && dataWithoutArray['spouseDependent'].address.address) {
+          // 旧形式のオブジェクト（addressフィールドに文字列が入っている）の場合
+          const oldAddress = dataWithoutArray['spouseDependent'].address.address;
+          const oldLivingTogether = dataWithoutArray['spouseDependent'].address.livingTogether || '';
+          dataWithoutArray['spouseDependent'] = {
+            ...dataWithoutArray['spouseDependent'],
+            address: {
+              postalCode: '',
+              prefecture: '',
+              city: '',
+              street: '',
+              building: '',
+              addressKana: '',
+              livingTogether: oldLivingTogether
+            }
+          };
+        }
+      }
       this.dependentChangeFormInternal.patchValue(dataWithoutArray);
     } else if (this.isAddressChangeForm && this.addressChangeForm) {
       // 住所変更届（外部申請）の場合、被保険者情報から社員IDを先に取得
@@ -1876,6 +2007,9 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       return;
     }
 
+    // 選択された社員を保存（住所転記用）
+    this.selectedEmployeeForDependentChange = employee;
+
     // 現在アクティブなフォームからinsuredPersonを取得
     let currentForm: FormGroup | null = null;
     if (this.isDependentChangeFormInternal && this.dependentChangeFormInternal) {
@@ -2055,7 +2189,12 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         foreignName: [''],
         foreignNameKana: [''],
         address: this.fb.group({
-          address: [''],
+          postalCode: [''],
+          prefecture: [''],
+          city: [''],
+          street: [''],
+          building: [''],
+          addressKana: [''],
           livingTogether: [''] // 同居、別居
         }),
         phoneNumber: this.fb.group({
@@ -2093,26 +2232,52 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         remarks: [''],
         // 異動種別「変更」の場合の変更後情報
         changeAfter: this.fb.group({
-          dependentStartDate: this.fb.group({
+          lastName: [''],
+          firstName: [''],
+          lastNameKana: [''],
+          firstNameKana: [''],
+          birthDate: this.fb.group({
             era: ['reiwa'],
             year: [''],
             month: [''],
             day: ['']
           }),
-          dependentStartReason: [''],
-          dependentStartReasonOther: [''],
+          relationship: [''],
+          address: this.fb.group({
+            postalCode: [''],
+            prefecture: [''],
+            city: [''],
+            street: [''],
+            building: [''],
+            addressKana: [''],
+            livingTogether: ['']
+          }),
+          phoneNumber: this.fb.group({
+            phone: [''],
+            type: ['']
+          }),
           occupation: [''],
           occupationOther: [''],
           income: [null],
-          dependentEndDate: this.fb.group({
+          remarks: [''],
+          overseasException: [''],
+          overseasExceptionStartDate: this.fb.group({
             era: ['reiwa'],
             year: [''],
             month: [''],
             day: ['']
           }),
-          dependentEndReason: [''],
-          dependentEndReasonOther: [''],
-          deathDate: this.fb.group({
+          overseasExceptionStartReason: [''],
+          overseasExceptionStartReasonOther: [''],
+          overseasExceptionEndDate: this.fb.group({
+            era: ['reiwa'],
+            year: [''],
+            month: [''],
+            day: ['']
+          }),
+          overseasExceptionEndReason: [''],
+          overseasExceptionEndReasonOther: [''],
+          domesticTransferDate: this.fb.group({
             era: ['reiwa'],
             year: [''],
             month: [''],
@@ -2210,7 +2375,12 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         foreignName: [''],
         foreignNameKana: [''],
         address: this.fb.group({
-          address: [''],
+          postalCode: [''],
+          prefecture: [''],
+          city: [''],
+          street: [''],
+          building: [''],
+          addressKana: [''],
           livingTogether: ['']
         }),
         phoneNumber: this.fb.group({
@@ -2245,31 +2415,33 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         }),
         remarks: [''],
         changeAfter: this.fb.group({
-          dependentStartDate: this.fb.group({
+          lastName: [''],
+          firstName: [''],
+          lastNameKana: [''],
+          firstNameKana: [''],
+          birthDate: this.fb.group({
             era: ['reiwa'],
             year: [''],
             month: [''],
             day: ['']
           }),
-          dependentStartReason: [''],
-          dependentStartReasonOther: [''],
+          relationship: [''],
+          address: this.fb.group({
+            postalCode: [''],
+            prefecture: [''],
+            city: [''],
+            street: [''],
+            building: [''],
+            addressKana: [''],
+            livingTogether: ['']
+          }),
+          phoneNumber: this.fb.group({
+            phone: [''],
+            type: ['']
+          }),
           occupation: [''],
           occupationOther: [''],
-          income: [null],
-          dependentEndDate: this.fb.group({
-            era: ['reiwa'],
-            year: [''],
-            month: [''],
-            day: ['']
-          }),
-          dependentEndReason: [''],
-          dependentEndReasonOther: [''],
-          deathDate: this.fb.group({
-            era: ['reiwa'],
-            year: [''],
-            month: [''],
-            day: ['']
-          })
+          income: [null]
         }),
         overseasException: [''],
         overseasExceptionStartDate: this.fb.group({
@@ -2728,7 +2900,12 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       relationshipOther: [''],
       personalNumber: [''],
       address: this.fb.group({
-        address: [''],
+        postalCode: [''],
+        prefecture: [''],
+        city: [''],
+        street: [''],
+        building: [''],
+        addressKana: [''],
         livingTogether: ['']
       }),
       overseasException: [''],
@@ -2786,27 +2963,50 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       remarks: [''],
       // 異動種別「変更」の場合の変更後情報
       changeAfter: this.fb.group({
-        dependentStartDate: this.fb.group({
+        lastName: [''],
+        firstName: [''],
+        lastNameKana: [''],
+        firstNameKana: [''],
+        birthDate: this.fb.group({
           era: ['reiwa'],
           year: [''],
           month: [''],
           day: ['']
+        }),
+        gender: [''],
+        relationship: [''],
+        relationshipOther: [''],
+        address: this.fb.group({
+          postalCode: [''],
+          prefecture: [''],
+          city: [''],
+          street: [''],
+          building: [''],
+          addressKana: [''],
+          livingTogether: ['']
         }),
         occupation: [''],
         occupationOther: [''],
-        studentYear: [''],
         income: [null],
-        dependentStartReason: [''],
-        dependentStartReasonOther: [''],
-        dependentEndDate: this.fb.group({
+        remarks: [''],
+        overseasException: [''],
+        overseasExceptionStartDate: this.fb.group({
           era: ['reiwa'],
           year: [''],
           month: [''],
           day: ['']
         }),
-        dependentEndReason: [''],
-        dependentEndReasonOther: [''],
-        deathDate: this.fb.group({
+        overseasExceptionStartReason: [''],
+        overseasExceptionStartReasonOther: [''],
+        overseasExceptionEndDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
+        overseasExceptionEndReason: [''],
+        overseasExceptionEndReasonOther: [''],
+        domesticTransferDate: this.fb.group({
           era: ['reiwa'],
           year: [''],
           month: [''],
@@ -2817,6 +3017,36 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     });
 
     this.otherDependentsFormArray.push(dependentGroup);
+    
+    // changeTypeの変更を監視して、genderフィールドのバリデーションを動的に設定
+    const changeTypeControl = dependentGroup.get('changeType');
+    if (changeTypeControl) {
+      changeTypeControl.valueChanges.subscribe((changeType: string | null) => {
+        // genderフィールドのバリデーションを動的に設定
+        const genderControl = dependentGroup.get('gender');
+        if (genderControl) {
+          if (changeType === 'change') {
+            // 「変更」の場合は必須バリデーションを無効化
+            genderControl.clearValidators();
+            genderControl.updateValueAndValidity({ emitEvent: false });
+          } else {
+            // 「変更」以外の場合は必須バリデーションを有効化
+            genderControl.setValidators([Validators.required]);
+            genderControl.updateValueAndValidity({ emitEvent: false });
+          }
+        }
+      });
+      
+      // 初期値が'change'の場合も処理
+      const initialChangeType = changeTypeControl.value;
+      if (initialChangeType === 'change') {
+        const genderControl = dependentGroup.get('gender');
+        if (genderControl) {
+          genderControl.clearValidators();
+          genderControl.updateValueAndValidity({ emitEvent: false });
+        }
+      }
+    }
   }
 
   /**
@@ -2850,22 +3080,43 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   /**
+   * その他の被扶養者の変更後フォームグループを取得
+   */
+  getOtherDependentChangeAfterFormGroup(index: number): FormGroup | null {
+    const dependentFormGroup = this.getOtherDependentFormGroup(index);
+    if (!dependentFormGroup) {
+      return null;
+    }
+    const changeAfter = dependentFormGroup.get('changeAfter');
+    return changeAfter ? (changeAfter as FormGroup) : null;
+  }
+
+  /**
    * 社員情報の被扶養者情報から被扶養者申請の被扶養者情報を追加
    */
   private addDependentsFromEmployee(dependentInfo: DependentInfo[]): void {
     // 現在アクティブなフォームからotherDependentsFormArrayを取得
+    let currentForm: FormGroup | null = null;
     if (this.isDependentChangeFormInternal && this.dependentChangeFormInternal) {
       this.otherDependentsFormArray = this.dependentChangeFormInternal.get('otherDependents') as FormArray;
+      currentForm = this.dependentChangeFormInternal;
     } else if (this.isDependentChangeForm && this.dependentChangeForm) {
       this.otherDependentsFormArray = this.dependentChangeForm.get('otherDependents') as FormArray;
+      currentForm = this.dependentChangeForm;
     }
 
-    if (!this.otherDependentsFormArray) {
+    if (!currentForm || !this.otherDependentsFormArray) {
       return;
     }
 
     // 既存の被扶養者をクリア（オプション：既存データを保持したい場合は削除）
     // this.otherDependentsFormArray.clear();
+
+    // 被保険者の住所を取得（同居の場合の転記用）
+    const insuredPersonAddress = currentForm.get('insuredPerson.address')?.value;
+    
+    // spouseDependentフォームグループを取得
+    const spouseDependentGroup = currentForm.get('spouseDependent') as FormGroup;
 
     for (const dep of dependentInfo) {
       // DependentInfoからlastName/firstNameを取得（既に分割されている場合はそれを使用、そうでなければnameから分割）
@@ -2880,6 +3131,80 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         : (dep.birthDate instanceof Timestamp ? dep.birthDate.toDate() : new Date(dep.birthDate));
       const birthDateInfo = this.convertToEraDate(birthDate);
 
+      // 配偶者の場合はspouseDependentに配置、それ以外はotherDependentsに追加
+      if (this.isSpouseRelationship(dep.relationship)) {
+        // 配偶者の場合、spouseDependentフォームグループに値を設定
+        if (spouseDependentGroup) {
+          const livingTogetherValue = dep.livingTogether ? 'living_together' : 'separate';
+          const fullName = dep.name || `${lastName} ${firstName}`;
+          const fullNameKana = dep.nameKana || `${lastNameKana} ${firstNameKana}`;
+          
+          // 住所の初期値を設定（同居の場合は被保険者の住所を転記）
+          const initialAddress: any = {
+            postalCode: '',
+            prefecture: '',
+            city: '',
+            street: '',
+            building: '',
+            addressKana: '',
+            livingTogether: livingTogetherValue
+          };
+          
+          // 同居の場合、被保険者の住所を転記
+          if (livingTogetherValue === 'living_together' && insuredPersonAddress) {
+            initialAddress.postalCode = insuredPersonAddress.postalCode || '';
+            initialAddress.prefecture = insuredPersonAddress.prefecture || '';
+            initialAddress.city = insuredPersonAddress.city || '';
+            initialAddress.street = insuredPersonAddress.street || '';
+            initialAddress.building = insuredPersonAddress.building || '';
+            // 住所（カナ）を社員情報から取得して転記
+            if (this.selectedEmployeeForDependentChange?.address?.official?.kana) {
+              initialAddress.addressKana = this.selectedEmployeeForDependentChange.address.official.kana;
+            }
+          }
+          
+          spouseDependentGroup.patchValue({
+            name: fullName,
+            nameKana: fullNameKana,
+            relationship: dep.relationship || '',
+            income: dep.income || null,
+            address: initialAddress
+          });
+          spouseDependentGroup.get('birthDate')?.patchValue({
+            era: birthDateInfo.era || 'reiwa',
+            year: birthDateInfo.year || '',
+            month: birthDateInfo.month || '',
+            day: birthDateInfo.day || ''
+          });
+        }
+        continue; // 配偶者の場合はotherDependentsに追加しない
+      }
+
+      const livingTogetherValue = dep.livingTogether ? 'living_together' : 'separate';
+      // 住所の初期値を設定（同居の場合は被保険者の住所を転記）
+      const initialAddressData: any = {
+        postalCode: '',
+        prefecture: '',
+        city: '',
+        street: '',
+        building: '',
+        addressKana: '',
+        livingTogether: livingTogetherValue
+      };
+      
+      // 同居の場合、被保険者の住所を転記
+      if (livingTogetherValue === 'living_together' && insuredPersonAddress) {
+        initialAddressData.postalCode = insuredPersonAddress.postalCode || '';
+        initialAddressData.prefecture = insuredPersonAddress.prefecture || '';
+        initialAddressData.city = insuredPersonAddress.city || '';
+        initialAddressData.street = insuredPersonAddress.street || '';
+        initialAddressData.building = insuredPersonAddress.building || '';
+        // 住所（カナ）を社員情報から取得して転記
+        if (this.selectedEmployeeForDependentChange?.address?.official?.kana) {
+          initialAddressData.addressKana = this.selectedEmployeeForDependentChange.address.official.kana;
+        }
+      }
+
       const dependentGroup = this.fb.group({
         lastName: [lastName, [Validators.required]],
         firstName: [firstName, [Validators.required]],
@@ -2891,7 +3216,9 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
           month: [birthDateInfo.month || ''],
           day: [birthDateInfo.day || '']
         }),
+        gender: [''],
         relationship: [dep.relationship || '', [Validators.required]],
+        relationshipOther: [''],
         changeType: ['applicable', [Validators.required]], // デフォルトは「適用」
         changeDate: [''],
         startReason: [''],
@@ -2900,13 +3227,153 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         endReasonOther: [''],
         income: [dep.income || null],
         address: this.fb.group({
-          livingTogether: [dep.livingTogether ? 'living_together' : 'separate']
+          postalCode: [initialAddressData.postalCode],
+          prefecture: [initialAddressData.prefecture],
+          city: [initialAddressData.city],
+          street: [initialAddressData.street],
+          building: [initialAddressData.building],
+          addressKana: [initialAddressData.addressKana],
+          livingTogether: [initialAddressData.livingTogether]
         }),
         personalNumber: [''],
-        basicPensionNumber: [dep.dependentId || '']
+        basicPensionNumber: [dep.dependentId || ''],
+        overseasException: [''],
+        overseasExceptionStartDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
+        overseasExceptionStartReason: [''],
+        overseasExceptionStartReasonOther: [''],
+        overseasExceptionEndDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
+        overseasExceptionEndReason: [''],
+        overseasExceptionEndReasonOther: [''],
+        domesticTransferDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
+        // 異動種別「該当」の場合
+        dependentStartDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
+        occupation: [''],
+        occupationOther: [''],
+        studentYear: [''],
+        dependentStartReason: [''],
+        dependentStartReasonOther: [''],
+        // 異動種別「非該当」の場合
+        dependentEndDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
+        dependentEndReason: [''],
+        dependentEndReasonOther: [''],
+        deathDate: this.fb.group({
+          era: ['reiwa'],
+          year: [''],
+          month: [''],
+          day: ['']
+        }),
+        remarks: [''],
+        // 異動種別「変更」の場合の変更後情報
+        changeAfter: this.fb.group({
+          lastName: [''],
+          firstName: [''],
+          lastNameKana: [''],
+          firstNameKana: [''],
+          birthDate: this.fb.group({
+            era: ['reiwa'],
+            year: [''],
+            month: [''],
+            day: ['']
+          }),
+          gender: [''],
+          relationship: [''],
+          relationshipOther: [''],
+          address: this.fb.group({
+            postalCode: [''],
+            prefecture: [''],
+            city: [''],
+            street: [''],
+            building: [''],
+            addressKana: [''],
+            livingTogether: ['']
+          }),
+          occupation: [''],
+          occupationOther: [''],
+          income: [null],
+          remarks: [''],
+          overseasException: [''],
+          overseasExceptionStartDate: this.fb.group({
+            era: ['reiwa'],
+            year: [''],
+            month: [''],
+            day: ['']
+          }),
+          overseasExceptionStartReason: [''],
+          overseasExceptionStartReasonOther: [''],
+          overseasExceptionEndDate: this.fb.group({
+            era: ['reiwa'],
+            year: [''],
+            month: [''],
+            day: ['']
+          }),
+          overseasExceptionEndReason: [''],
+          overseasExceptionEndReasonOther: [''],
+          domesticTransferDate: this.fb.group({
+            era: ['reiwa'],
+            year: [''],
+            month: [''],
+            day: ['']
+          })
+        }),
+        certificateRequired: [false]
       });
 
       this.otherDependentsFormArray.push(dependentGroup);
+      
+      // changeTypeの変更を監視して、genderフィールドのバリデーションを動的に設定
+      const changeTypeControl = dependentGroup.get('changeType');
+      if (changeTypeControl) {
+        changeTypeControl.valueChanges.subscribe((changeType: string | null) => {
+          // genderフィールドのバリデーションを動的に設定
+          const genderControl = dependentGroup.get('gender');
+          if (genderControl) {
+            if (changeType === 'change') {
+              // 「変更」の場合は必須バリデーションを無効化
+              genderControl.clearValidators();
+              genderControl.updateValueAndValidity({ emitEvent: false });
+            } else {
+              // 「変更」以外の場合は必須バリデーションを有効化
+              genderControl.setValidators([Validators.required]);
+              genderControl.updateValueAndValidity({ emitEvent: false });
+            }
+          }
+        });
+        
+        // 初期値が'change'の場合も処理
+        const initialChangeType = changeTypeControl.value;
+        if (initialChangeType === 'change') {
+          const genderControl = dependentGroup.get('gender');
+          if (genderControl) {
+            genderControl.clearValidators();
+            genderControl.updateValueAndValidity({ emitEvent: false });
+          }
+        }
+      }
     }
   }
 
@@ -3779,6 +4246,69 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
    */
   isSpouseNoChange(): boolean {
     return this.getDependentChangeSpouseFormGroup()?.get('noChange')?.value === true;
+  }
+
+  /**
+   * 被扶養者異動届：配偶者の異動種別が「異動無し」かどうか
+   */
+  isSpouseChangeTypeNoChange(): boolean {
+    return this.getDependentChangeSpouseFormGroup()?.get('changeType')?.value === 'no_change';
+  }
+
+  /**
+   * 被扶養者異動届：配偶者の変更前情報を取得（編集時用）
+   */
+  getSpouseChangeBeforeInfo(): any {
+    // 編集時は既存データから変更前情報を取得
+    const spouseFormGroup = this.getDependentChangeSpouseFormGroup();
+    if (!spouseFormGroup) return null;
+    
+    // 既存データから変更前情報を取得（実装は後で詳細化）
+    return {
+      name: spouseFormGroup.get('name')?.value || '',
+      nameKana: spouseFormGroup.get('nameKana')?.value || '',
+      birthDate: spouseFormGroup.get('birthDate')?.value || null,
+      relationship: spouseFormGroup.get('relationship')?.value || '',
+      identificationType: spouseFormGroup.get('identificationType')?.value || '',
+      personalNumber: spouseFormGroup.get('personalNumber')?.value || '',
+      basicPensionNumber: spouseFormGroup.get('basicPensionNumber')?.value || '',
+      address: spouseFormGroup.get('address')?.value || null,
+      phoneNumber: spouseFormGroup.get('phoneNumber')?.value || null,
+      dependentStartDate: spouseFormGroup.get('dependentStartDate')?.value || null,
+      dependentStartReason: spouseFormGroup.get('dependentStartReason')?.value || '',
+      occupation: spouseFormGroup.get('occupation')?.value || '',
+      income: spouseFormGroup.get('income')?.value || null,
+      dependentEndDate: spouseFormGroup.get('dependentEndDate')?.value || null,
+      dependentEndReason: spouseFormGroup.get('dependentEndReason')?.value || ''
+    };
+  }
+
+  /**
+   * 被扶養者異動届：その他の被扶養者の変更前情報を取得（編集時用）
+   */
+  getOtherDependentChangeBeforeInfo(index: number): any {
+    // 編集時は既存データから変更前情報を取得
+    const dependentFormGroup = this.getOtherDependentFormGroup(index);
+    if (!dependentFormGroup) return null;
+    
+    // 既存データから変更前情報を取得（実装は後で詳細化）
+    return {
+      lastName: dependentFormGroup.get('lastName')?.value || '',
+      firstName: dependentFormGroup.get('firstName')?.value || '',
+      lastNameKana: dependentFormGroup.get('lastNameKana')?.value || '',
+      firstNameKana: dependentFormGroup.get('firstNameKana')?.value || '',
+      birthDate: dependentFormGroup.get('birthDate')?.value || null,
+      gender: dependentFormGroup.get('gender')?.value || '',
+      relationship: dependentFormGroup.get('relationship')?.value || '',
+      personalNumber: dependentFormGroup.get('personalNumber')?.value || '',
+      address: dependentFormGroup.get('address')?.value || null,
+      dependentStartDate: dependentFormGroup.get('dependentStartDate')?.value || null,
+      dependentStartReason: dependentFormGroup.get('dependentStartReason')?.value || '',
+      occupation: dependentFormGroup.get('occupation')?.value || '',
+      income: dependentFormGroup.get('income')?.value || null,
+      dependentEndDate: dependentFormGroup.get('dependentEndDate')?.value || null,
+      dependentEndReason: dependentFormGroup.get('dependentEndReason')?.value || ''
+    };
   }
 
   /**
@@ -4721,14 +5251,25 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     if (data['businessOwnerInfo']) {
       const boItems: FormattedItem[] = [];
       const bo = data['businessOwnerInfo'];
-      boItems.push({ label: '事業主の氏名', value: bo.name || '', isEmpty: !bo.name });
-      boItems.push({ label: '事業主の氏名（カナ）', value: bo.nameKana || '', isEmpty: !bo.nameKana });
-      boItems.push({ label: '事業主の生年月日', value: this.formatEraDate(bo.birthDate), isEmpty: !bo.birthDate });
-      boItems.push({ label: '事業主の住所', value: bo.address || '', isEmpty: !bo.address });
-      boItems.push({ label: '事業主の電話番号', value: bo.phoneNumber || '', isEmpty: !bo.phoneNumber });
+      boItems.push({ label: '事業所整理記号', value: bo.officeSymbol || '', isEmpty: !bo.officeSymbol });
+      boItems.push({ label: '事業所番号', value: bo.officeNumber || '', isEmpty: !bo.officeNumber });
+      
+      // 住所に郵便番号を追加（他の申請と合わせる）
+      const postalCode = bo.postalCode || (this.organization?.address as any)?.postalCode || '';
+      let address = bo.address || bo.officeAddress || '';
+      // 住所に既に郵便番号が含まれている場合は除去
+      if (address.match(/^〒\d{3}-?\d{4}/)) {
+        address = address.replace(/^〒\d{3}-?\d{4}\s*/, '');
+      }
+      const addressWithPostalCode = postalCode ? `〒${postalCode} ${address}` : address;
+      boItems.push({ label: '所在地', value: addressWithPostalCode, isEmpty: !address });
+      
+      boItems.push({ label: '事業所名', value: bo.name || bo.officeName || '', isEmpty: !bo.name && !bo.officeName });
+      boItems.push({ label: '事業主氏名', value: bo.ownerName || '', isEmpty: !bo.ownerName });
+      boItems.push({ label: '電話番号', value: bo.phoneNumber || '', isEmpty: !bo.phoneNumber });
 
       sections.push({
-        title: '事業主情報',
+        title: '事業所情報',
         items: boItems
       });
     }
@@ -4741,11 +5282,50 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       ipItems.push({ label: '氏名（カナ）', value: `${ip.lastNameKana || ''} ${ip.firstNameKana || ''}`.trim() || '', isEmpty: !ip.lastNameKana && !ip.firstNameKana });
       ipItems.push({ label: '生年月日', value: this.formatEraDate(ip.birthDate), isEmpty: !ip.birthDate });
       
-      // 個人番号または基礎年金番号（入力欄の順序に合わせて生年月日の後）
+      // 性別を追加
+      if (ip.gender) {
+        const genderMap: Record<string, string> = {
+          'male': '男',
+          'female': '女'
+        };
+        ipItems.push({ label: '性別', value: genderMap[ip.gender] || ip.gender, isEmpty: !ip.gender });
+      }
+      
+      // 個人番号または基礎年金番号
       if (ip.identificationType === 'personal_number') {
         ipItems.push({ label: '個人番号', value: ip.personalNumber || '', isEmpty: !ip.personalNumber });
       } else if (ip.identificationType === 'basic_pension_number') {
         ipItems.push({ label: '基礎年金番号', value: ip.basicPensionNumber || '', isEmpty: !ip.basicPensionNumber });
+        
+        // 基礎年金番号を選択した場合は住所を表示
+        if (ip.address && typeof ip.address === 'object') {
+          const addressParts = [
+            ip.address.postalCode ? `〒${ip.address.postalCode}` : '',
+            ip.address.prefecture || '',
+            ip.address.city || '',
+            ip.address.street || '',
+            ip.address.building || ''
+          ].filter(part => part);
+          const addressValue = addressParts.length > 0 ? addressParts.join(' ') : '';
+          if (addressValue) {
+            ipItems.push({ label: '住所', value: addressValue, isEmpty: false });
+            if (ip.address.addressKana) {
+              ipItems.push({ label: '住所（カナ）', value: ip.address.addressKana, isEmpty: false });
+            }
+          }
+        } else if (ip.address) {
+          ipItems.push({ label: '住所', value: ip.address, isEmpty: !ip.address });
+        }
+      }
+      
+      // 取得年月日を追加
+      if (ip.acquisitionDate) {
+        ipItems.push({ label: '取得年月日', value: this.formatEraDate(ip.acquisitionDate), isEmpty: !ip.acquisitionDate });
+      }
+      
+      // 収入を追加
+      if (ip.income !== null && ip.income !== undefined) {
+        ipItems.push({ label: '収入', value: `${ip.income.toLocaleString()}円`, isEmpty: false });
       }
 
       sections.push({
@@ -4760,60 +5340,311 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       
       if (sd.noChange) {
         sdItems.push({ label: '変更なし', value: '変更なし' });
+        // 異動がない場合の配偶者の収入を表示
+        if (sd.spouseIncome !== null && sd.spouseIncome !== undefined) {
+          sdItems.push({ label: '配偶者の収入（年収）', value: `${sd.spouseIncome.toLocaleString()}円`, isEmpty: false });
+        }
       } else {
         sdItems.push({ label: '異動種別', value: this.formatChangeType(sd.changeType), isEmpty: !sd.changeType });
         
+        // 提出日を追加（businessOwnerReceiptDateまたはsubmissionDateから取得）
+        if (data['businessOwnerReceiptDate']) {
+          sdItems.push({ label: '提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
+        } else if (data['submissionDate']) {
+          sdItems.push({ label: '提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
+        }
+        
         if (sd.changeType === 'change') {
-          sdItems.push({ label: '氏名', value: `${sd.changeAfter?.lastName || ''} ${sd.changeAfter?.firstName || ''}`.trim() || '', isEmpty: !sd.changeAfter?.lastName && !sd.changeAfter?.firstName });
-          sdItems.push({ label: '氏名（カナ）', value: `${sd.changeAfter?.lastNameKana || ''} ${sd.changeAfter?.firstNameKana || ''}`.trim() || '', isEmpty: !sd.changeAfter?.lastNameKana && !sd.changeAfter?.firstNameKana });
-          sdItems.push({ label: '生年月日', value: this.formatEraDate(sd.changeAfter?.birthDate), isEmpty: !sd.changeAfter?.birthDate });
-        }
-        
-        sdItems.push({ label: '続柄', value: sd.relationship || '', isEmpty: !sd.relationship });
-        sdItems.push({ label: '電話番号種別', value: this.formatPhoneType(sd.phoneType), isEmpty: !sd.phoneType });
-        sdItems.push({ label: '電話番号', value: sd.phoneNumber || '', isEmpty: !sd.phoneNumber });
-        sdItems.push({ label: '住所', value: sd.address || '', isEmpty: !sd.address });
-        
-        // 異動年月日（FormGroupの場合は年号付き日付として処理）
-        if (sd.changeDate && typeof sd.changeDate === 'object' && !(sd.changeDate instanceof Date) && !(sd.changeDate instanceof Timestamp)) {
-          sdItems.push({ label: '異動年月日', value: this.formatEraDate(sd.changeDate), isEmpty: !sd.changeDate.era || !sd.changeDate.year || !sd.changeDate.month || !sd.changeDate.day });
-        } else {
-        sdItems.push({ label: '異動年月日', value: this.formatDateValue(sd.changeDate), isEmpty: !sd.changeDate });
-        }
-        
-        sdItems.push({ label: '被扶養者となった理由', value: this.formatDependentStartReason(sd.becameDependentReason), isEmpty: !sd.becameDependentReason });
-        if (sd.becameDependentReason === 'other') {
-          sdItems.push({ label: '被扶養者となった理由（その他）', value: sd.becameDependentReasonOther || '', isEmpty: !sd.becameDependentReasonOther });
-        }
-        sdItems.push({ label: '職業', value: this.formatOccupation(sd.occupation), isEmpty: !sd.occupation });
-        if (sd.occupation === 'other') {
-          sdItems.push({ label: '職業（その他）', value: sd.occupationOther || '', isEmpty: !sd.occupationOther });
-        }
-        if (sd.occupation === 'student_high_school') {
-          sdItems.push({ label: '学年', value: sd.studentYear || '', isEmpty: !sd.studentYear });
-        }
-        sdItems.push({ label: '被扶養者でなくなった理由', value: this.formatDependentEndReason(sd.dependentEndReason), isEmpty: !sd.dependentEndReason });
-        if (sd.dependentEndReason === 'death') {
-          // 死亡年月日（FormGroupの場合は年号付き日付として処理）
-          if (sd.deathDate && typeof sd.deathDate === 'object' && !(sd.deathDate instanceof Date) && !(sd.deathDate instanceof Timestamp)) {
-            sdItems.push({ label: '死亡年月日', value: this.formatEraDate(sd.deathDate), isEmpty: !sd.deathDate.era || !sd.deathDate.year || !sd.deathDate.month || !sd.deathDate.day });
+          // 異動種別が「変更」の場合：変更前・変更後の両方を表示
+          const changeBefore = this.getSpouseChangeBeforeInfo();
+          
+          // 氏名：変更前・変更後
+          sdItems.push({ label: '氏名（変更前）', value: changeBefore?.name || '', isEmpty: !changeBefore?.name });
+          sdItems.push({ label: '氏名（変更後）', value: `${sd.changeAfter?.lastName || ''} ${sd.changeAfter?.firstName || ''}`.trim() || '', isEmpty: !sd.changeAfter?.lastName && !sd.changeAfter?.firstName });
+          
+          // 氏名（カナ）：変更前・変更後
+          sdItems.push({ label: '氏名（カナ）（変更前）', value: changeBefore?.nameKana || '', isEmpty: !changeBefore?.nameKana });
+          sdItems.push({ label: '氏名（カナ）（変更後）', value: `${sd.changeAfter?.lastNameKana || ''} ${sd.changeAfter?.firstNameKana || ''}`.trim() || '', isEmpty: !sd.changeAfter?.lastNameKana && !sd.changeAfter?.firstNameKana });
+          
+          // 生年月日：変更前・変更後
+          sdItems.push({ label: '生年月日（変更前）', value: this.formatEraDate(changeBefore?.birthDate), isEmpty: !changeBefore?.birthDate });
+          // 変更後の生年月日：eraが設定されていても、year、month、dayのいずれかが空の場合は未入力とみなす
+          const changeAfterBirthDate = sd.changeAfter?.birthDate;
+          const isChangeAfterBirthDateEmpty = !changeAfterBirthDate || 
+            (typeof changeAfterBirthDate === 'object' && 
+             (!changeAfterBirthDate.year || 
+              !changeAfterBirthDate.month || 
+              !changeAfterBirthDate.day));
+          sdItems.push({ label: '生年月日（変更後）', value: this.formatEraDate(changeAfterBirthDate), isEmpty: isChangeAfterBirthDateEmpty });
+          
+          // 続柄：変更前・変更後
+          sdItems.push({ label: '続柄（変更前）', value: this.formatSpouseRelationship(changeBefore?.relationship), isEmpty: !changeBefore?.relationship });
+          sdItems.push({ label: '続柄（変更後）', value: this.formatSpouseRelationship(sd.changeAfter?.relationship), isEmpty: !sd.changeAfter?.relationship });
+          
+          // 個人番号または基礎年金番号：変更前のみ（編集不可）
+          if (changeBefore?.identificationType === 'personal_number') {
+            sdItems.push({ label: '個人番号（変更前）', value: changeBefore.personalNumber || '', isEmpty: !changeBefore.personalNumber });
+          } else if (changeBefore?.identificationType === 'basic_pension_number') {
+            sdItems.push({ label: '基礎年金番号（変更前）', value: changeBefore.basicPensionNumber || '', isEmpty: !changeBefore.basicPensionNumber });
+          }
+          
+          // 外国人通称名：変更前のみ（該当する場合のみ）
+          if (changeBefore?.isForeigner) {
+            sdItems.push({ label: '外国人通称名（変更前）', value: changeBefore.foreignName || '', isEmpty: !changeBefore.foreignName });
+            sdItems.push({ label: '外国人通称名（カナ）（変更前）', value: changeBefore.foreignNameKana || '', isEmpty: !changeBefore.foreignNameKana });
+          }
+          
+          // 住所：変更前・変更後
+          if (changeBefore?.address && typeof changeBefore.address === 'object') {
+            const beforeAddressParts = [
+              changeBefore.address.postalCode ? `〒${changeBefore.address.postalCode}` : '',
+              changeBefore.address.prefecture || '',
+              changeBefore.address.city || '',
+              changeBefore.address.street || '',
+              changeBefore.address.building || ''
+            ].filter(part => part);
+            const beforeAddressValue = beforeAddressParts.length > 0 ? beforeAddressParts.join(' ') : '';
+            sdItems.push({ label: '住所（変更前）', value: beforeAddressValue, isEmpty: !beforeAddressValue });
+            if (changeBefore.address.addressKana) {
+              sdItems.push({ label: '住所（カナ）（変更前）', value: changeBefore.address.addressKana, isEmpty: !changeBefore.address.addressKana });
+            }
+            if (changeBefore.address.livingTogether) {
+              sdItems.push({ label: '同居／別居（変更前）', value: changeBefore.address.livingTogether === 'living_together' ? '同居' : '別居', isEmpty: false });
+            }
+          } else if (changeBefore?.address) {
+            sdItems.push({ label: '住所（変更前）', value: changeBefore.address || '', isEmpty: !changeBefore.address });
+          }
+          
+          if (sd.changeAfter?.address && typeof sd.changeAfter.address === 'object') {
+            const afterAddressParts = [
+              sd.changeAfter.address.postalCode ? `〒${sd.changeAfter.address.postalCode}` : '',
+              sd.changeAfter.address.prefecture || '',
+              sd.changeAfter.address.city || '',
+              sd.changeAfter.address.street || '',
+              sd.changeAfter.address.building || ''
+            ].filter(part => part);
+            const afterAddressValue = afterAddressParts.length > 0 ? afterAddressParts.join(' ') : '';
+            sdItems.push({ label: '住所（変更後）', value: afterAddressValue, isEmpty: !afterAddressValue });
+            if (sd.changeAfter.address.addressKana) {
+              sdItems.push({ label: '住所（カナ）（変更後）', value: sd.changeAfter.address.addressKana, isEmpty: !sd.changeAfter.address.addressKana });
+            }
+            // 変更後の同居／別居を常に表示（値がない場合は未入力）
+            const afterLivingTogether = sd.changeAfter.address.livingTogether;
+            const afterLivingTogetherValue = afterLivingTogether === 'living_together' ? '同居' : afterLivingTogether === 'separate' ? '別居' : '';
+            sdItems.push({ label: '同居／別居（変更後）', value: afterLivingTogetherValue, isEmpty: !afterLivingTogether });
           } else {
-          sdItems.push({ label: '死亡年月日', value: this.formatDateValue(sd.deathDate), isEmpty: !sd.deathDate });
+            // 住所がオブジェクト形式でない場合でも、同居／別居の項目を表示
+            sdItems.push({ label: '同居／別居（変更後）', value: '', isEmpty: true });
           }
-        }
-        if (sd.overseasException) {
-          sdItems.push({ label: '海外特例該当', value: '該当する' });
-          sdItems.push({ label: '海外特例該当理由', value: this.formatOverseasExceptionReason(sd.overseasExceptionReason), isEmpty: !sd.overseasExceptionReason });
-          if (sd.overseasExceptionReason === 'other') {
-            sdItems.push({ label: '海外特例該当理由（その他）', value: sd.overseasExceptionReasonOther || '', isEmpty: !sd.overseasExceptionReasonOther });
+          
+          // 電話番号：変更前・変更後
+          if (changeBefore?.phoneNumber && typeof changeBefore.phoneNumber === 'object') {
+            const beforePhoneType = changeBefore.phoneNumber.type ? this.formatPhoneType(changeBefore.phoneNumber.type) : '';
+            const beforePhone = changeBefore.phoneNumber.phone || '';
+            if (beforePhoneType || beforePhone) {
+              sdItems.push({ label: '電話番号種別（変更前）', value: beforePhoneType, isEmpty: !beforePhoneType });
+              sdItems.push({ label: '電話番号（変更前）', value: beforePhone, isEmpty: !beforePhone });
+            }
+          } else if (changeBefore?.phoneNumber) {
+            sdItems.push({ label: '電話番号（変更前）', value: changeBefore.phoneNumber || '', isEmpty: !changeBefore.phoneNumber });
           }
-          sdItems.push({ label: '海外特例該当終了理由', value: this.formatOverseasExceptionEndReason(sd.overseasExceptionEndReason), isEmpty: !sd.overseasExceptionEndReason });
-          if (sd.overseasExceptionEndReason === 'domestic_transfer') {
-            // 国内転出年月日（FormGroupの場合は年号付き日付として処理）
-            if (sd.domesticTransferDate && typeof sd.domesticTransferDate === 'object' && !(sd.domesticTransferDate instanceof Date) && !(sd.domesticTransferDate instanceof Timestamp)) {
-              sdItems.push({ label: '国内転出年月日', value: this.formatEraDate(sd.domesticTransferDate), isEmpty: !sd.domesticTransferDate.era || !sd.domesticTransferDate.year || !sd.domesticTransferDate.month || !sd.domesticTransferDate.day });
-            } else {
-            sdItems.push({ label: '国内転出年月日', value: this.formatDateValue(sd.domesticTransferDate), isEmpty: !sd.domesticTransferDate });
+          
+          if (sd.changeAfter?.phoneNumber && typeof sd.changeAfter.phoneNumber === 'object') {
+            const afterPhoneType = sd.changeAfter.phoneNumber.type ? this.formatPhoneType(sd.changeAfter.phoneNumber.type) : '';
+            const afterPhone = sd.changeAfter.phoneNumber.phone || '';
+            if (afterPhoneType || afterPhone) {
+              sdItems.push({ label: '電話番号種別（変更後）', value: afterPhoneType, isEmpty: !afterPhoneType });
+              sdItems.push({ label: '電話番号（変更後）', value: afterPhone, isEmpty: !afterPhone });
+            }
+          }
+          
+          // 職業：変更前・変更後
+          sdItems.push({ label: '職業（変更前）', value: this.formatOccupation(changeBefore?.occupation), isEmpty: !changeBefore?.occupation });
+          if (changeBefore?.occupation === 'other') {
+            sdItems.push({ label: '職業（その他）（変更前）', value: changeBefore.occupationOther || '', isEmpty: !changeBefore.occupationOther });
+          }
+          if (changeBefore?.occupation === 'student_high_school') {
+            sdItems.push({ label: '学年（変更前）', value: changeBefore.studentYear || '', isEmpty: !changeBefore.studentYear });
+          }
+          
+          sdItems.push({ label: '職業（変更後）', value: this.formatOccupation(sd.changeAfter?.occupation), isEmpty: !sd.changeAfter?.occupation });
+          if (sd.changeAfter?.occupation === 'other') {
+            sdItems.push({ label: '職業（その他）（変更後）', value: sd.changeAfter.occupationOther || '', isEmpty: !sd.changeAfter.occupationOther });
+          }
+          if (sd.changeAfter?.occupation === 'student_high_school') {
+            sdItems.push({ label: '学年（変更後）', value: sd.changeAfter.studentYear || '', isEmpty: !sd.changeAfter.studentYear });
+          }
+          
+          // 収入（年収）：変更前・変更後
+          if (changeBefore?.income !== null && changeBefore?.income !== undefined) {
+            sdItems.push({ label: '収入（年収）（変更前）', value: `${changeBefore.income.toLocaleString()}円`, isEmpty: false });
+          }
+          if (sd.changeAfter?.income !== null && sd.changeAfter?.income !== undefined) {
+            sdItems.push({ label: '収入（年収）（変更後）', value: `${sd.changeAfter.income.toLocaleString()}円`, isEmpty: false });
+          }
+          
+          // 備考：変更前・変更後
+          sdItems.push({ label: '備考（変更前）', value: changeBefore?.remarks || '', isEmpty: !changeBefore?.remarks });
+          sdItems.push({ label: '備考（変更後）', value: sd.changeAfter?.remarks || '', isEmpty: !sd.changeAfter?.remarks });
+          
+          // 海外特例要件：変更前・変更後
+          if (changeBefore?.overseasException) {
+            const beforeOverseasValue = changeBefore.overseasException === 'applicable' ? '該当' : changeBefore.overseasException === 'not_applicable' ? '非該当' : '';
+            sdItems.push({ label: '海外特例要件（変更前）', value: beforeOverseasValue, isEmpty: !beforeOverseasValue });
+            if (changeBefore.overseasException === 'applicable') {
+              sdItems.push({ label: '海外特例該当理由（変更前）', value: this.formatOverseasExceptionReason(changeBefore.overseasExceptionStartReason), isEmpty: !changeBefore.overseasExceptionStartReason });
+              if (changeBefore.overseasExceptionStartReason === 'other') {
+                sdItems.push({ label: '海外特例該当理由（その他）（変更前）', value: changeBefore.overseasExceptionStartReasonOther || '', isEmpty: !changeBefore.overseasExceptionStartReasonOther });
+              }
+              if (changeBefore.overseasExceptionStartDate) {
+                sdItems.push({ label: '海外特例要件に該当した日（変更前）', value: this.formatEraDate(changeBefore.overseasExceptionStartDate), isEmpty: !changeBefore.overseasExceptionStartDate });
+              }
+            }
+            if (changeBefore.overseasException === 'not_applicable') {
+              sdItems.push({ label: '海外特例該当終了理由（変更前）', value: this.formatOverseasExceptionEndReason(changeBefore.overseasExceptionEndReason), isEmpty: !changeBefore.overseasExceptionEndReason });
+              if (changeBefore.overseasExceptionEndReason === 'domestic_transfer') {
+                sdItems.push({ label: '国内転出年月日（変更前）', value: this.formatDateValue(changeBefore.domesticTransferDate), isEmpty: !changeBefore.domesticTransferDate });
+              }
+              if (changeBefore.overseasExceptionEndReason === 'other') {
+                sdItems.push({ label: '海外特例該当終了理由（その他）（変更前）', value: changeBefore.overseasExceptionEndReasonOther || '', isEmpty: !changeBefore.overseasExceptionEndReasonOther });
+              }
+              if (changeBefore.overseasExceptionEndDate) {
+                sdItems.push({ label: '海外特例要件に非該当となった日（変更前）', value: this.formatEraDate(changeBefore.overseasExceptionEndDate), isEmpty: !changeBefore.overseasExceptionEndDate });
+              }
+            }
+          }
+          
+          if (sd.changeAfter?.overseasException) {
+            const afterOverseasValue = sd.changeAfter.overseasException === 'applicable' ? '該当' : sd.changeAfter.overseasException === 'not_applicable' ? '非該当' : '';
+            sdItems.push({ label: '海外特例要件（変更後）', value: afterOverseasValue, isEmpty: !afterOverseasValue });
+            if (sd.changeAfter.overseasException === 'applicable') {
+              sdItems.push({ label: '海外特例該当理由（変更後）', value: this.formatOverseasExceptionReason(sd.changeAfter.overseasExceptionStartReason), isEmpty: !sd.changeAfter.overseasExceptionStartReason });
+              if (sd.changeAfter.overseasExceptionStartReason === 'other') {
+                sdItems.push({ label: '海外特例該当理由（その他）（変更後）', value: sd.changeAfter.overseasExceptionStartReasonOther || '', isEmpty: !sd.changeAfter.overseasExceptionStartReasonOther });
+              }
+              if (sd.changeAfter.overseasExceptionStartDate) {
+                sdItems.push({ label: '海外特例要件に該当した日（変更後）', value: this.formatEraDate(sd.changeAfter.overseasExceptionStartDate), isEmpty: !sd.changeAfter.overseasExceptionStartDate });
+              }
+            }
+            if (sd.changeAfter.overseasException === 'not_applicable') {
+              sdItems.push({ label: '海外特例該当終了理由（変更後）', value: this.formatOverseasExceptionEndReason(sd.changeAfter.overseasExceptionEndReason), isEmpty: !sd.changeAfter.overseasExceptionEndReason });
+              if (sd.changeAfter.overseasExceptionEndReason === 'domestic_transfer') {
+                sdItems.push({ label: '国内転出年月日（変更後）', value: this.formatDateValue(sd.changeAfter.domesticTransferDate), isEmpty: !sd.changeAfter.domesticTransferDate });
+              }
+              if (sd.changeAfter.overseasExceptionEndReason === 'other') {
+                sdItems.push({ label: '海外特例該当終了理由（その他）（変更後）', value: sd.changeAfter.overseasExceptionEndReasonOther || '', isEmpty: !sd.changeAfter.overseasExceptionEndReasonOther });
+              }
+              if (sd.changeAfter.overseasExceptionEndDate) {
+                sdItems.push({ label: '海外特例要件に非該当となった日（変更後）', value: this.formatEraDate(sd.changeAfter.overseasExceptionEndDate), isEmpty: !sd.changeAfter.overseasExceptionEndDate });
+              }
+            }
+          }
+        } else {
+          // 異動種別が変更以外の場合、通常の氏名・氏名（カナ）・生年月日を表示
+          sdItems.push({ label: '氏名', value: sd.name || '', isEmpty: !sd.name });
+          sdItems.push({ label: '氏名（カナ）', value: sd.nameKana || '', isEmpty: !sd.nameKana });
+          sdItems.push({ label: '生年月日', value: this.formatEraDate(sd.birthDate), isEmpty: !sd.birthDate });
+          
+          // 続柄を日本語化
+          sdItems.push({ label: '続柄', value: this.formatSpouseRelationship(sd.relationship), isEmpty: !sd.relationship });
+          
+          // 個人番号または基礎年金番号を追加
+          if (sd.identificationType === 'personal_number') {
+            sdItems.push({ label: '個人番号', value: sd.personalNumber || '', isEmpty: !sd.personalNumber });
+          } else if (sd.identificationType === 'basic_pension_number') {
+            sdItems.push({ label: '基礎年金番号', value: sd.basicPensionNumber || '', isEmpty: !sd.basicPensionNumber });
+          }
+          
+          // 電話番号と住所の[object Object]表示を修正
+          if (sd.phoneNumber && typeof sd.phoneNumber === 'object') {
+            const phoneType = sd.phoneNumber.type ? this.formatPhoneType(sd.phoneNumber.type) : '';
+            const phone = sd.phoneNumber.phone || '';
+            if (phoneType || phone) {
+              sdItems.push({ label: '電話番号種別', value: phoneType, isEmpty: !phoneType });
+              sdItems.push({ label: '電話番号', value: phone, isEmpty: !phone });
+            }
+          } else {
+            // 旧形式のサポート（後方互換性）
+            sdItems.push({ label: '電話番号種別', value: this.formatPhoneType(sd.phoneType), isEmpty: !sd.phoneType });
+            sdItems.push({ label: '電話番号', value: sd.phoneNumber || '', isEmpty: !sd.phoneNumber });
+          }
+          
+          // 住所の[object Object]表示を修正
+          if (sd.address && typeof sd.address === 'object') {
+            const addressParts = [
+              sd.address.postalCode ? `〒${sd.address.postalCode}` : '',
+              sd.address.prefecture || '',
+              sd.address.city || '',
+              sd.address.street || '',
+              sd.address.building || ''
+            ].filter(part => part);
+            const addressValue = addressParts.length > 0 ? addressParts.join(' ') : '';
+            sdItems.push({ label: '住所', value: addressValue, isEmpty: !addressValue });
+            if (sd.address.addressKana) {
+              sdItems.push({ label: '住所（カナ）', value: sd.address.addressKana, isEmpty: !sd.address.addressKana });
+            }
+          } else {
+            // 旧形式のサポート（後方互換性）
+            sdItems.push({ label: '住所', value: sd.address || '', isEmpty: !sd.address });
+          }
+          
+          // 異動年月日を削除（入力欄にない項目）
+          // sdItems.push({ label: '異動年月日', value: this.formatDateValue(sd.changeDate), isEmpty: !sd.changeDate });
+          
+          // 異動種別が該当の場合のみ、被扶養者となった理由と年月日を表示
+          if (sd.changeType === 'applicable') {
+            // 被扶養者となった理由の表示を修正（dependentStartReasonを使用、後方互換性のためbecameDependentReasonもサポート）
+            const startReason = sd.dependentStartReason || sd.becameDependentReason;
+            sdItems.push({ label: '被扶養者となった理由', value: this.formatDependentStartReason(startReason), isEmpty: !startReason });
+            if (startReason === 'other') {
+              sdItems.push({ label: '被扶養者となった理由（その他）', value: sd.dependentStartReasonOther || sd.becameDependentReasonOther || '', isEmpty: !sd.dependentStartReasonOther && !sd.becameDependentReasonOther });
+            }
+            
+            // 被扶養者になった年月日を追加
+            if (sd.dependentStartDate) {
+              sdItems.push({ label: '被扶養者になった年月日', value: this.formatEraDate(sd.dependentStartDate), isEmpty: !sd.dependentStartDate });
+            }
+          }
+          
+          sdItems.push({ label: '職業', value: this.formatOccupation(sd.occupation), isEmpty: !sd.occupation });
+          if (sd.occupation === 'other') {
+            sdItems.push({ label: '職業（その他）', value: sd.occupationOther || '', isEmpty: !sd.occupationOther });
+          }
+          if (sd.occupation === 'student_high_school') {
+            sdItems.push({ label: '学年', value: sd.studentYear || '', isEmpty: !sd.studentYear });
+          }
+          
+          // 収入を追加
+          if (sd.income !== null && sd.income !== undefined) {
+            sdItems.push({ label: '収入', value: `${sd.income.toLocaleString()}円`, isEmpty: false });
+          }
+          
+          // 資格確認書発行要否を追加
+          if (sd.certificateRequired !== null && sd.certificateRequired !== undefined) {
+            sdItems.push({ label: '資格確認書発行要否', value: sd.certificateRequired ? '要' : '不要', isEmpty: false });
+          }
+          
+          // 異動種別が非該当の場合、被扶養者でなくなった理由と年月日を表示
+          if (sd.changeType === 'not_applicable') {
+            sdItems.push({ label: '被扶養者でなくなった理由', value: this.formatDependentEndReason(sd.dependentEndReason), isEmpty: !sd.dependentEndReason });
+            if (sd.dependentEndReason === 'death') {
+              sdItems.push({ label: '死亡年月日', value: this.formatDateValue(sd.deathDate), isEmpty: !sd.deathDate });
+            }
+            // 被扶養者でなくなった年月日を追加
+            if (sd.dependentEndDate) {
+              sdItems.push({ label: '被扶養者でなくなった年月日', value: this.formatEraDate(sd.dependentEndDate), isEmpty: !sd.dependentEndDate });
+            }
+          }
+          
+          if (sd.overseasException) {
+            sdItems.push({ label: '海外特例該当', value: '該当する' });
+            sdItems.push({ label: '海外特例該当理由', value: this.formatOverseasExceptionReason(sd.overseasExceptionReason), isEmpty: !sd.overseasExceptionReason });
+            if (sd.overseasExceptionReason === 'other') {
+              sdItems.push({ label: '海外特例該当理由（その他）', value: sd.overseasExceptionReasonOther || '', isEmpty: !sd.overseasExceptionReasonOther });
+            }
+            sdItems.push({ label: '海外特例該当終了理由', value: this.formatOverseasExceptionEndReason(sd.overseasExceptionEndReason), isEmpty: !sd.overseasExceptionEndReason });
+            if (sd.overseasExceptionEndReason === 'domestic_transfer') {
+              sdItems.push({ label: '国内転出年月日', value: this.formatDateValue(sd.domesticTransferDate), isEmpty: !sd.domesticTransferDate });
             }
           }
         }
@@ -4831,68 +5662,302 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         
         depItems.push({ label: '異動種別', value: this.formatChangeType(dep.changeType), isEmpty: !dep.changeType });
         
-        if (dep.changeType === 'change') {
-          depItems.push({ label: '氏名', value: `${dep.changeAfter?.lastName || ''} ${dep.changeAfter?.firstName || ''}`.trim() || '', isEmpty: !dep.changeAfter?.lastName && !dep.changeAfter?.firstName });
-          depItems.push({ label: '氏名（カナ）', value: `${dep.changeAfter?.lastNameKana || ''} ${dep.changeAfter?.firstNameKana || ''}`.trim() || '', isEmpty: !dep.changeAfter?.lastNameKana && !dep.changeAfter?.firstNameKana });
-          depItems.push({ label: '生年月日', value: this.formatEraDate(dep.changeAfter?.birthDate), isEmpty: !dep.changeAfter?.birthDate });
-        } else {
+        // 異動無しの場合は氏名のみを表示
+        if (dep.changeType === 'no_change') {
           depItems.push({ label: '氏名', value: `${dep.lastName || ''} ${dep.firstName || ''}`.trim() || '', isEmpty: !dep.lastName && !dep.firstName });
-          depItems.push({ label: '氏名（カナ）', value: `${dep.lastNameKana || ''} ${dep.firstNameKana || ''}`.trim() || '', isEmpty: !dep.lastNameKana && !dep.firstNameKana });
-          depItems.push({ label: '生年月日', value: this.formatEraDate(dep.birthDate), isEmpty: !dep.birthDate });
-        }
-        
-        depItems.push({ label: '続柄', value: this.formatOtherDependentRelationship(dep.relationship), isEmpty: !dep.relationship });
-        if (dep.relationship === 'other') {
-          depItems.push({ label: '続柄（その他）', value: dep.relationshipOther || '', isEmpty: !dep.relationshipOther });
-        }
-        
-        // 異動年月日（FormGroupの場合は年号付き日付として処理）
-        if (dep.changeDate && typeof dep.changeDate === 'object' && !(dep.changeDate instanceof Date) && !(dep.changeDate instanceof Timestamp)) {
-          depItems.push({ label: '異動年月日', value: this.formatEraDate(dep.changeDate), isEmpty: !dep.changeDate.era || !dep.changeDate.year || !dep.changeDate.month || !dep.changeDate.day });
         } else {
-        depItems.push({ label: '異動年月日', value: this.formatDateValue(dep.changeDate), isEmpty: !dep.changeDate });
-        }
-        
-        depItems.push({ label: '被扶養者となった理由', value: this.formatOtherDependentStartReason(dep.startReason), isEmpty: !dep.startReason });
-        if (dep.startReason === 'other') {
-          depItems.push({ label: '被扶養者となった理由（その他）', value: dep.startReasonOther || '', isEmpty: !dep.startReasonOther });
-        }
-        depItems.push({ label: '職業', value: this.formatOtherDependentOccupation(dep.occupation), isEmpty: !dep.occupation });
-        if (dep.occupation === 'other') {
-          depItems.push({ label: '職業（その他）', value: dep.occupationOther || '', isEmpty: !dep.occupationOther });
-        }
-        if (dep.occupation === 'student_high_school') {
-          depItems.push({ label: '学年', value: dep.studentYear || '', isEmpty: !dep.studentYear });
-        }
-        depItems.push({ label: '被扶養者でなくなった理由', value: this.formatOtherDependentEndReason(dep.endReason), isEmpty: !dep.endReason });
-        if (dep.endReason === 'death') {
-          // 死亡年月日（FormGroupの場合は年号付き日付として処理）
-          if (dep.deathDate && typeof dep.deathDate === 'object' && !(dep.deathDate instanceof Date) && !(dep.deathDate instanceof Timestamp)) {
-            depItems.push({ label: '死亡年月日', value: this.formatEraDate(dep.deathDate), isEmpty: !dep.deathDate.era || !dep.deathDate.year || !dep.deathDate.month || !dep.deathDate.day });
-          } else {
-          depItems.push({ label: '死亡年月日', value: this.formatDateValue(dep.deathDate), isEmpty: !dep.deathDate });
-          }
-        }
-        if (dep.endReason === 'other') {
-          depItems.push({ label: '被扶養者でなくなった理由（その他）', value: dep.endReasonOther || '', isEmpty: !dep.endReasonOther });
-        }
-        if (dep.overseasException) {
-          depItems.push({ label: '海外特例該当', value: '該当する' });
-          depItems.push({ label: '海外特例該当理由', value: this.formatOverseasExceptionReason(dep.overseasExceptionReason), isEmpty: !dep.overseasExceptionReason });
-          if (dep.overseasExceptionReason === 'other') {
-            depItems.push({ label: '海外特例該当理由（その他）', value: dep.overseasExceptionReasonOther || '', isEmpty: !dep.overseasExceptionReasonOther });
-          }
-          depItems.push({ label: '海外特例該当終了理由', value: this.formatOverseasExceptionEndReason(dep.overseasExceptionEndReason), isEmpty: !dep.overseasExceptionEndReason });
-          if (dep.overseasExceptionEndReason === 'domestic_transfer') {
-            // 国内転出年月日（FormGroupの場合は年号付き日付として処理）
-            if (dep.domesticTransferDate && typeof dep.domesticTransferDate === 'object' && !(dep.domesticTransferDate instanceof Date) && !(dep.domesticTransferDate instanceof Timestamp)) {
-              depItems.push({ label: '国内転出年月日', value: this.formatEraDate(dep.domesticTransferDate), isEmpty: !dep.domesticTransferDate.era || !dep.domesticTransferDate.year || !dep.domesticTransferDate.month || !dep.domesticTransferDate.day });
-            } else {
-            depItems.push({ label: '国内転出年月日', value: this.formatDateValue(dep.domesticTransferDate), isEmpty: !dep.domesticTransferDate });
+          // 異動無し以外の場合、既存の表示ロジックを維持
+          if (dep.changeType === 'change') {
+            // 異動種別が「変更」の場合：変更前・変更後の両方を表示
+            const changeBefore = this.getOtherDependentChangeBeforeInfo(index);
+            
+            // 氏：変更前・変更後
+            depItems.push({ label: '氏（変更前）', value: changeBefore?.lastName || '', isEmpty: !changeBefore?.lastName });
+            depItems.push({ label: '氏（変更後）', value: dep.changeAfter?.lastName || '', isEmpty: !dep.changeAfter?.lastName });
+            
+            // 名：変更前・変更後
+            depItems.push({ label: '名（変更前）', value: changeBefore?.firstName || '', isEmpty: !changeBefore?.firstName });
+            depItems.push({ label: '名（変更後）', value: dep.changeAfter?.firstName || '', isEmpty: !dep.changeAfter?.firstName });
+            
+            // 氏（カナ）：変更前・変更後
+            depItems.push({ label: '氏（カナ）（変更前）', value: changeBefore?.lastNameKana || '', isEmpty: !changeBefore?.lastNameKana });
+            depItems.push({ label: '氏（カナ）（変更後）', value: dep.changeAfter?.lastNameKana || '', isEmpty: !dep.changeAfter?.lastNameKana });
+            
+            // 名（カナ）：変更前・変更後
+            depItems.push({ label: '名（カナ）（変更前）', value: changeBefore?.firstNameKana || '', isEmpty: !changeBefore?.firstNameKana });
+            depItems.push({ label: '名（カナ）（変更後）', value: dep.changeAfter?.firstNameKana || '', isEmpty: !dep.changeAfter?.firstNameKana });
+            
+            // 生年月日：変更前・変更後
+            depItems.push({ label: '生年月日（変更前）', value: this.formatEraDate(changeBefore?.birthDate), isEmpty: !changeBefore?.birthDate });
+            // 変更後の生年月日：eraが設定されていても、year、month、dayのいずれかが空の場合は未入力とみなす
+            const depChangeAfterBirthDate = dep.changeAfter?.birthDate;
+            const isDepChangeAfterBirthDateEmpty = !depChangeAfterBirthDate || 
+              (typeof depChangeAfterBirthDate === 'object' && 
+               (!depChangeAfterBirthDate.year || 
+                !depChangeAfterBirthDate.month || 
+                !depChangeAfterBirthDate.day));
+            depItems.push({ label: '生年月日（変更後）', value: this.formatEraDate(depChangeAfterBirthDate), isEmpty: isDepChangeAfterBirthDateEmpty });
+            
+            // 性別：変更前・変更後
+            if (changeBefore?.gender) {
+              const beforeGenderMap: Record<string, string> = {
+                'male': '男',
+                'female': '女'
+              };
+              depItems.push({ label: '性別（変更前）', value: beforeGenderMap[changeBefore.gender] || changeBefore.gender, isEmpty: !changeBefore.gender });
             }
-          }
-          if (dep.overseasExceptionEndReason === 'other') {
-            depItems.push({ label: '海外特例該当終了理由（その他）', value: dep.overseasExceptionEndReasonOther || '', isEmpty: !dep.overseasExceptionEndReasonOther });
+            if (dep.changeAfter?.gender) {
+              const afterGenderMap: Record<string, string> = {
+                'male': '男',
+                'female': '女'
+              };
+              depItems.push({ label: '性別（変更後）', value: afterGenderMap[dep.changeAfter.gender] || dep.changeAfter.gender, isEmpty: !dep.changeAfter.gender });
+            }
+            
+            // 続柄：変更前・変更後
+            depItems.push({ label: '続柄（変更前）', value: this.formatOtherDependentRelationship(changeBefore?.relationship), isEmpty: !changeBefore?.relationship });
+            if (changeBefore?.relationship === 'other') {
+              depItems.push({ label: '続柄（その他）（変更前）', value: changeBefore.relationshipOther || '', isEmpty: !changeBefore.relationshipOther });
+            }
+            
+            depItems.push({ label: '続柄（変更後）', value: this.formatOtherDependentRelationship(dep.changeAfter?.relationship), isEmpty: !dep.changeAfter?.relationship });
+            if (dep.changeAfter?.relationship === 'other') {
+              depItems.push({ label: '続柄（その他）（変更後）', value: dep.changeAfter.relationshipOther || '', isEmpty: !dep.changeAfter.relationshipOther });
+            }
+            
+            // 個人番号：変更前のみ（編集不可）
+            if (changeBefore?.personalNumber) {
+              depItems.push({ label: '個人番号（変更前）', value: changeBefore.personalNumber, isEmpty: !changeBefore.personalNumber });
+            }
+            
+            // 住所：変更前・変更後
+            if (changeBefore?.address && typeof changeBefore.address === 'object') {
+              const beforeAddressParts = [
+                changeBefore.address.postalCode ? `〒${changeBefore.address.postalCode}` : '',
+                changeBefore.address.prefecture || '',
+                changeBefore.address.city || '',
+                changeBefore.address.street || '',
+                changeBefore.address.building || ''
+              ].filter(part => part);
+              const beforeAddressValue = beforeAddressParts.length > 0 ? beforeAddressParts.join(' ') : '';
+              depItems.push({ label: '住所（変更前）', value: beforeAddressValue, isEmpty: !beforeAddressValue });
+              if (changeBefore.address.addressKana) {
+                depItems.push({ label: '住所（カナ）（変更前）', value: changeBefore.address.addressKana, isEmpty: !changeBefore.address.addressKana });
+              }
+              if (changeBefore.address.livingTogether) {
+                depItems.push({ label: '同居／別居（変更前）', value: changeBefore.address.livingTogether === 'living_together' ? '同居' : '別居', isEmpty: false });
+              }
+            } else if (changeBefore?.address) {
+              depItems.push({ label: '住所（変更前）', value: changeBefore.address || '', isEmpty: !changeBefore.address });
+            }
+            
+            if (dep.changeAfter?.address && typeof dep.changeAfter.address === 'object') {
+              const afterAddressParts = [
+                dep.changeAfter.address.postalCode ? `〒${dep.changeAfter.address.postalCode}` : '',
+                dep.changeAfter.address.prefecture || '',
+                dep.changeAfter.address.city || '',
+                dep.changeAfter.address.street || '',
+                dep.changeAfter.address.building || ''
+              ].filter(part => part);
+              const afterAddressValue = afterAddressParts.length > 0 ? afterAddressParts.join(' ') : '';
+              depItems.push({ label: '住所（変更後）', value: afterAddressValue, isEmpty: !afterAddressValue });
+              if (dep.changeAfter.address.addressKana) {
+                depItems.push({ label: '住所（カナ）（変更後）', value: dep.changeAfter.address.addressKana, isEmpty: !dep.changeAfter.address.addressKana });
+              }
+              // 変更後の同居／別居を常に表示（値がない場合は未入力）
+              const depAfterLivingTogether = dep.changeAfter.address.livingTogether;
+              const depAfterLivingTogetherValue = depAfterLivingTogether === 'living_together' ? '同居' : depAfterLivingTogether === 'separate' ? '別居' : '';
+              depItems.push({ label: '同居／別居（変更後）', value: depAfterLivingTogetherValue, isEmpty: !depAfterLivingTogether });
+            } else {
+              // 住所がオブジェクト形式でない場合でも、同居／別居の項目を表示
+              depItems.push({ label: '同居／別居（変更後）', value: '', isEmpty: true });
+            }
+            
+            // 海外特例要件：変更前・変更後
+            if (changeBefore?.overseasException) {
+              const beforeOverseasValue = changeBefore.overseasException === 'applicable' ? '該当' : changeBefore.overseasException === 'not_applicable' ? '非該当' : '';
+              depItems.push({ label: '海外特例要件（変更前）', value: beforeOverseasValue, isEmpty: !beforeOverseasValue });
+              if (changeBefore.overseasException === 'applicable') {
+                depItems.push({ label: '海外特例該当理由（変更前）', value: this.formatOverseasExceptionReason(changeBefore.overseasExceptionStartReason), isEmpty: !changeBefore.overseasExceptionStartReason });
+                if (changeBefore.overseasExceptionStartReason === 'other') {
+                  depItems.push({ label: '海外特例該当理由（その他）（変更前）', value: changeBefore.overseasExceptionStartReasonOther || '', isEmpty: !changeBefore.overseasExceptionStartReasonOther });
+                }
+                if (changeBefore.overseasExceptionStartDate) {
+                  depItems.push({ label: '海外特例要件に該当した日（変更前）', value: this.formatEraDate(changeBefore.overseasExceptionStartDate), isEmpty: !changeBefore.overseasExceptionStartDate });
+                }
+              }
+              if (changeBefore.overseasException === 'not_applicable') {
+                depItems.push({ label: '海外特例該当終了理由（変更前）', value: this.formatOverseasExceptionEndReason(changeBefore.overseasExceptionEndReason), isEmpty: !changeBefore.overseasExceptionEndReason });
+                if (changeBefore.overseasExceptionEndReason === 'domestic_transfer') {
+                  depItems.push({ label: '国内転出年月日（変更前）', value: this.formatDateValue(changeBefore.domesticTransferDate), isEmpty: !changeBefore.domesticTransferDate });
+                }
+                if (changeBefore.overseasExceptionEndReason === 'other') {
+                  depItems.push({ label: '海外特例該当終了理由（その他）（変更前）', value: changeBefore.overseasExceptionEndReasonOther || '', isEmpty: !changeBefore.overseasExceptionEndReasonOther });
+                }
+                if (changeBefore.overseasExceptionEndDate) {
+                  depItems.push({ label: '海外特例要件に非該当となった日（変更前）', value: this.formatEraDate(changeBefore.overseasExceptionEndDate), isEmpty: !changeBefore.overseasExceptionEndDate });
+                }
+              }
+            }
+            
+            if (dep.changeAfter?.overseasException) {
+              const afterOverseasValue = dep.changeAfter.overseasException === 'applicable' ? '該当' : dep.changeAfter.overseasException === 'not_applicable' ? '非該当' : '';
+              depItems.push({ label: '海外特例要件（変更後）', value: afterOverseasValue, isEmpty: !afterOverseasValue });
+              if (dep.changeAfter.overseasException === 'applicable') {
+                depItems.push({ label: '海外特例該当理由（変更後）', value: this.formatOverseasExceptionReason(dep.changeAfter.overseasExceptionStartReason), isEmpty: !dep.changeAfter.overseasExceptionStartReason });
+                if (dep.changeAfter.overseasExceptionStartReason === 'other') {
+                  depItems.push({ label: '海外特例該当理由（その他）（変更後）', value: dep.changeAfter.overseasExceptionStartReasonOther || '', isEmpty: !dep.changeAfter.overseasExceptionStartReasonOther });
+                }
+                if (dep.changeAfter.overseasExceptionStartDate) {
+                  depItems.push({ label: '海外特例要件に該当した日（変更後）', value: this.formatEraDate(dep.changeAfter.overseasExceptionStartDate), isEmpty: !dep.changeAfter.overseasExceptionStartDate });
+                }
+              }
+              if (dep.changeAfter.overseasException === 'not_applicable') {
+                depItems.push({ label: '海外特例該当終了理由（変更後）', value: this.formatOverseasExceptionEndReason(dep.changeAfter.overseasExceptionEndReason), isEmpty: !dep.changeAfter.overseasExceptionEndReason });
+                if (dep.changeAfter.overseasExceptionEndReason === 'domestic_transfer') {
+                  depItems.push({ label: '国内転出年月日（変更後）', value: this.formatDateValue(dep.changeAfter.domesticTransferDate), isEmpty: !dep.changeAfter.domesticTransferDate });
+                }
+                if (dep.changeAfter.overseasExceptionEndReason === 'other') {
+                  depItems.push({ label: '海外特例該当終了理由（その他）（変更後）', value: dep.changeAfter.overseasExceptionEndReasonOther || '', isEmpty: !dep.changeAfter.overseasExceptionEndReasonOther });
+                }
+                if (dep.changeAfter.overseasExceptionEndDate) {
+                  depItems.push({ label: '海外特例要件に非該当となった日（変更後）', value: this.formatEraDate(dep.changeAfter.overseasExceptionEndDate), isEmpty: !dep.changeAfter.overseasExceptionEndDate });
+                }
+              }
+            }
+            
+            // 職業：変更前・変更後
+            depItems.push({ label: '職業（変更前）', value: this.formatOtherDependentOccupation(changeBefore?.occupation), isEmpty: !changeBefore?.occupation });
+            if (changeBefore?.occupation === 'other') {
+              depItems.push({ label: '職業（その他）（変更前）', value: changeBefore.occupationOther || '', isEmpty: !changeBefore.occupationOther });
+            }
+            if (changeBefore?.occupation === 'student_high_school') {
+              depItems.push({ label: '学年（変更前）', value: changeBefore.studentYear || '', isEmpty: !changeBefore.studentYear });
+            }
+            
+            depItems.push({ label: '職業（変更後）', value: this.formatOtherDependentOccupation(dep.changeAfter?.occupation), isEmpty: !dep.changeAfter?.occupation });
+            if (dep.changeAfter?.occupation === 'other') {
+              depItems.push({ label: '職業（その他）（変更後）', value: dep.changeAfter.occupationOther || '', isEmpty: !dep.changeAfter.occupationOther });
+            }
+            if (dep.changeAfter?.occupation === 'student_high_school') {
+              depItems.push({ label: '学年（変更後）', value: dep.changeAfter.studentYear || '', isEmpty: !dep.changeAfter.studentYear });
+            }
+            
+            // 収入（年収）：変更前・変更後
+            if (changeBefore?.income !== null && changeBefore?.income !== undefined) {
+              depItems.push({ label: '収入（年収）（変更前）', value: `${changeBefore.income.toLocaleString()}円`, isEmpty: false });
+            }
+            if (dep.changeAfter?.income !== null && dep.changeAfter?.income !== undefined) {
+              depItems.push({ label: '収入（年収）（変更後）', value: `${dep.changeAfter.income.toLocaleString()}円`, isEmpty: false });
+            }
+            
+            // 備考：変更前・変更後
+            depItems.push({ label: '備考（変更前）', value: changeBefore?.remarks || '', isEmpty: !changeBefore?.remarks });
+            depItems.push({ label: '備考（変更後）', value: dep.changeAfter?.remarks || '', isEmpty: !dep.changeAfter?.remarks });
+          } else {
+            depItems.push({ label: '氏名', value: `${dep.lastName || ''} ${dep.firstName || ''}`.trim() || '', isEmpty: !dep.lastName && !dep.firstName });
+            depItems.push({ label: '氏名（カナ）', value: `${dep.lastNameKana || ''} ${dep.firstNameKana || ''}`.trim() || '', isEmpty: !dep.lastNameKana && !dep.firstNameKana });
+            depItems.push({ label: '生年月日', value: this.formatEraDate(dep.birthDate), isEmpty: !dep.birthDate });
+            
+            // 性別を追加
+            if (dep.gender) {
+              const genderMap: Record<string, string> = {
+                'male': '男',
+                'female': '女'
+              };
+              depItems.push({ label: '性別', value: genderMap[dep.gender] || dep.gender, isEmpty: !dep.gender });
+            }
+            
+            depItems.push({ label: '続柄', value: this.formatOtherDependentRelationship(dep.relationship), isEmpty: !dep.relationship });
+            if (dep.relationship === 'other') {
+              depItems.push({ label: '続柄（その他）', value: dep.relationshipOther || '', isEmpty: !dep.relationshipOther });
+            }
+            
+            // 個人番号を追加
+            if (dep.personalNumber) {
+              depItems.push({ label: '個人番号', value: dep.personalNumber, isEmpty: !dep.personalNumber });
+            }
+            
+            // 住所の[object Object]表示を修正
+            if (dep.address && typeof dep.address === 'object') {
+              const addressParts = [
+                dep.address.postalCode ? `〒${dep.address.postalCode}` : '',
+                dep.address.prefecture || '',
+                dep.address.city || '',
+                dep.address.street || '',
+                dep.address.building || ''
+              ].filter(part => part);
+              const addressValue = addressParts.length > 0 ? addressParts.join(' ') : '';
+              depItems.push({ label: '住所', value: addressValue, isEmpty: !addressValue });
+              if (dep.address.addressKana) {
+                depItems.push({ label: '住所（カナ）', value: dep.address.addressKana, isEmpty: !dep.address.addressKana });
+              }
+            } else {
+              // 旧形式のサポート（後方互換性）
+              depItems.push({ label: '住所', value: dep.address || '', isEmpty: !dep.address });
+            }
+            
+            // 異動年月日を削除（入力欄にない項目）
+            // depItems.push({ label: '異動年月日', value: this.formatDateValue(dep.changeDate), isEmpty: !dep.changeDate });
+            
+            // 異動種別が該当の場合のみ、被扶養者となった理由と年月日を表示
+            if (dep.changeType === 'applicable') {
+              // 被扶養者となった理由の表示を修正（dependentStartReasonを使用、後方互換性のためstartReasonもサポート）
+              const startReason = dep.dependentStartReason || dep.startReason;
+              depItems.push({ label: '被扶養者となった理由', value: this.formatOtherDependentStartReason(startReason), isEmpty: !startReason });
+              if (startReason === 'other') {
+                depItems.push({ label: '被扶養者となった理由（その他）', value: dep.dependentStartReasonOther || dep.startReasonOther || '', isEmpty: !dep.dependentStartReasonOther && !dep.startReasonOther });
+              }
+              
+              // 被扶養者になった年月日を追加
+              if (dep.dependentStartDate) {
+                depItems.push({ label: '被扶養者になった年月日', value: this.formatEraDate(dep.dependentStartDate), isEmpty: !dep.dependentStartDate });
+              }
+            }
+            
+            depItems.push({ label: '職業', value: this.formatOtherDependentOccupation(dep.occupation), isEmpty: !dep.occupation });
+            if (dep.occupation === 'other') {
+              depItems.push({ label: '職業（その他）', value: dep.occupationOther || '', isEmpty: !dep.occupationOther });
+            }
+            if (dep.occupation === 'student_high_school') {
+              depItems.push({ label: '学年', value: dep.studentYear || '', isEmpty: !dep.studentYear });
+            }
+            
+            // 収入を追加
+            if (dep.income !== null && dep.income !== undefined) {
+              depItems.push({ label: '収入', value: `${dep.income.toLocaleString()}円`, isEmpty: false });
+            }
+            
+            // 異動種別が非該当の場合、被扶養者でなくなった理由と年月日を表示
+            if (dep.changeType === 'not_applicable') {
+              // 後方互換性のためendReasonもサポート
+              const endReason = dep.dependentEndReason || dep.endReason;
+              depItems.push({ label: '被扶養者でなくなった理由', value: this.formatOtherDependentEndReason(endReason), isEmpty: !endReason });
+              if (endReason === 'death') {
+                depItems.push({ label: '死亡年月日', value: this.formatDateValue(dep.deathDate), isEmpty: !dep.deathDate });
+              }
+              if (endReason === 'other') {
+                depItems.push({ label: '被扶養者でなくなった理由（その他）', value: dep.dependentEndReasonOther || dep.endReasonOther || '', isEmpty: !dep.dependentEndReasonOther && !dep.endReasonOther });
+              }
+              // 被扶養者でなくなった年月日を追加
+              if (dep.dependentEndDate) {
+                depItems.push({ label: '被扶養者でなくなった年月日', value: this.formatEraDate(dep.dependentEndDate), isEmpty: !dep.dependentEndDate });
+              }
+            }
+            if (dep.overseasException) {
+              depItems.push({ label: '海外特例該当', value: '該当する' });
+              depItems.push({ label: '海外特例該当理由', value: this.formatOverseasExceptionReason(dep.overseasExceptionReason), isEmpty: !dep.overseasExceptionReason });
+              if (dep.overseasExceptionReason === 'other') {
+                depItems.push({ label: '海外特例該当理由（その他）', value: dep.overseasExceptionReasonOther || '', isEmpty: !dep.overseasExceptionReasonOther });
+              }
+              depItems.push({ label: '海外特例該当終了理由', value: this.formatOverseasExceptionEndReason(dep.overseasExceptionEndReason), isEmpty: !dep.overseasExceptionEndReason });
+              if (dep.overseasExceptionEndReason === 'domestic_transfer') {
+                depItems.push({ label: '国内転出年月日', value: this.formatDateValue(dep.domesticTransferDate), isEmpty: !dep.domesticTransferDate });
+              }
+              if (dep.overseasExceptionEndReason === 'other') {
+                depItems.push({ label: '海外特例該当終了理由（その他）', value: dep.overseasExceptionEndReasonOther || '', isEmpty: !dep.overseasExceptionEndReasonOther });
+              }
+            }
           }
         }
 
@@ -4905,8 +5970,8 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
 
     if (data['declaration']) {
       sections.push({
-        title: '申告',
-        items: [{ label: '申告内容', value: data['declaration'].declarationText || '', isEmpty: !data['declaration'].declarationText }]
+        title: '申立書',
+        items: [{ label: '申立書内容', value: data['declaration'].content || data['declaration'].declarationText || '', isEmpty: !data['declaration'].content && !data['declaration'].declarationText }]
       });
     }
 
@@ -5553,7 +6618,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     return String(date);
   }
 
-  private formatEraDate(birthDate: any): string {
+  formatEraDate(birthDate: any): string {
     if (!birthDate || typeof birthDate !== 'object') return '';
     
     const eraLabels: Record<string, string> = {
@@ -5734,7 +6799,10 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     const types: Record<string, string> = {
       'add': '新規',
       'remove': '削除',
-      'change': '変更'
+      'change': '変更',
+      'applicable': '該当',
+      'not_applicable': '非該当',
+      'no_change': '異動無し'
     };
     return types[type] || type || '';
   }
@@ -5749,28 +6817,34 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     return types[type] || type || '';
   }
 
-  private formatDependentStartReason(reason: string): string {
+  formatDependentStartReason(reason: string): string {
     const reasons: Record<string, string> = {
+      'spouse_employment': '配偶者の就職',
       'marriage': '婚姻',
+      'retirement': '離職',
+      'income_decrease': '収入減少',
       'birth': '出生',
       'adoption': '養子縁組',
+      'living_together': '同居',
       'other': 'その他'
     };
     return reasons[reason] || reason || '';
   }
 
-  private formatOccupation(occupation: string): string {
+  formatOccupation(occupation: string): string {
     const occupations: Record<string, string> = {
-      'student_high_school': '高校生',
-      'student_university': '大学生',
+      'student_high_school': '高・大学生',
+      'student_university': '高・大学生',
       'unemployed': '無職',
-      'part_time': 'パート・アルバイト',
+      'part_time': 'パート',
+      'pension': '年金受給者',
+      'student_elementary': '小・中学生以下',
       'other': 'その他'
     };
     return occupations[occupation] || occupation || '';
   }
 
-  private formatDependentEndReason(reason: string): string {
+  formatDependentEndReason(reason: string): string {
     const reasons: Record<string, string> = {
       'divorce': '離婚',
       'death': '死亡',
@@ -5796,18 +6870,64 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
     return reasons[reason] || reason || '';
   }
 
-  private formatOtherDependentRelationship(relationship: string): string {
+  formatSpouseRelationship(relationship: string): string {
     const relationships: Record<string, string> = {
-      'child': '子',
-      'parent': '父母',
+      'husband': '夫',
+      'wife': '妻',
+      'husband_unregistered': '夫（未届）',
+      'wife_unregistered': '妻（未届）'
+    };
+    return relationships[relationship] || relationship || '';
+  }
+
+  /**
+   * 住所をフォーマット
+   */
+  formatAddress(address: any): string {
+    if (!address) return '';
+    const parts: string[] = [];
+    if (address.postalCode) parts.push(`〒${address.postalCode}`);
+    if (address.prefecture) parts.push(address.prefecture);
+    if (address.city) parts.push(address.city);
+    if (address.street) parts.push(address.street);
+    if (address.building) parts.push(address.building);
+    return parts.join(' ');
+  }
+
+  /**
+   * 電話番号をフォーマット
+   */
+  formatPhoneNumber(phoneNumber: any): string {
+    if (!phoneNumber) return '';
+    const phone = phoneNumber.phone || '';
+    const type = phoneNumber.type || '';
+    const typeLabels: Record<string, string> = {
+      'home': '自宅',
+      'mobile': '携帯',
+      'work': '勤務先',
+      'other': 'その他'
+    };
+    const typeLabel = typeLabels[type] || '';
+    return typeLabel ? `${phone} (${typeLabel})` : phone;
+  }
+
+  formatOtherDependentRelationship(relationship: string): string {
+    const relationships: Record<string, string> = {
+      'child': '実子・養子',
+      'other_child': '実子・養子以外の子',
+      'parent': '父母・養父母',
+      'parent_in_law': '義父母',
+      'sibling': '弟妹',
+      'elder_sibling': '兄姉',
       'grandparent': '祖父母',
-      'sibling': '兄弟姉妹',
+      'great_grandparent': '曽祖父母',
+      'grandchild': '孫',
       'other': 'その他'
     };
     return relationships[relationship] || relationship || '';
   }
 
-  private formatOtherDependentOccupation(occupation: string): string {
+  formatOtherDependentOccupation(occupation: string): string {
     return this.formatOccupation(occupation);
   }
 
@@ -5817,6 +6937,93 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
 
   private formatOtherDependentEndReason(reason: string): string {
     return this.formatDependentEndReason(reason);
+  }
+
+  /**
+   * 続柄が配偶者かどうかを判定
+   */
+  private isSpouseRelationship(relationship: string): boolean {
+    if (!relationship) {
+      return false;
+    }
+    const normalizedRelationship = relationship.toLowerCase().trim();
+    const spouseKeywords = ['spouse', '配偶者', '夫', '妻', '夫（未届）', '妻（未届）', '夫(未届)', '妻(未届)', 'husband', 'wife', 'husband_unregistered', 'wife_unregistered'];
+    return spouseKeywords.some(keyword => normalizedRelationship.includes(keyword.toLowerCase()));
+  }
+
+  /**
+   * その他の被扶養者の同居・別居選択時に住所を転記
+   */
+  onOtherDependentLivingTogetherChange(dependentIndex: number, value: string): void {
+    if (value === 'living_together') {
+      // 被保険者の住所を取得
+      let insuredPersonAddress: any = null;
+      if (this.isDependentChangeFormInternal && this.dependentChangeFormInternal) {
+        insuredPersonAddress = this.dependentChangeFormInternal.get('insuredPerson.address')?.value;
+      } else if (this.isDependentChangeForm && this.dependentChangeForm) {
+        insuredPersonAddress = this.dependentChangeForm.get('insuredPerson.address')?.value;
+      }
+
+      // 被扶養者の住所に転記
+      const dependentFormGroup = this.getOtherDependentFormGroup(dependentIndex);
+      const dependentAddressGroup = dependentFormGroup?.get('address') as FormGroup;
+      
+      if (dependentAddressGroup && insuredPersonAddress) {
+        const addressData: any = {
+          postalCode: insuredPersonAddress.postalCode || '',
+          prefecture: insuredPersonAddress.prefecture || '',
+          city: insuredPersonAddress.city || '',
+          street: insuredPersonAddress.street || '',
+          building: insuredPersonAddress.building || ''
+        };
+        // 住所（カナ）を社員情報から取得して転記
+        if (this.selectedEmployeeForDependentChange?.address?.official?.kana) {
+          addressData.addressKana = this.selectedEmployeeForDependentChange.address.official.kana;
+        }
+        dependentAddressGroup.patchValue(addressData);
+      }
+    }
+  }
+
+  /**
+   * 配偶者の同居・別居選択時に住所を転記
+   */
+  onSpouseDependentLivingTogetherChange(value: string): void {
+    try {
+      if (value === 'living_together') {
+        // 被保険者の住所を取得
+        let insuredPersonAddress: any = null;
+        let spouseDependentGroup: FormGroup | null = null;
+        if (this.isDependentChangeFormInternal && this.dependentChangeFormInternal) {
+          insuredPersonAddress = this.dependentChangeFormInternal.get('insuredPerson.address')?.value;
+          spouseDependentGroup = this.dependentChangeFormInternal.get('spouseDependent') as FormGroup;
+        } else if (this.isDependentChangeForm && this.dependentChangeForm) {
+          insuredPersonAddress = this.dependentChangeForm.get('insuredPerson.address')?.value;
+          spouseDependentGroup = this.dependentChangeForm.get('spouseDependent') as FormGroup;
+        }
+
+        // 配偶者の住所に転記
+        const spouseAddressGroup = spouseDependentGroup?.get('address') as FormGroup;
+        
+        if (spouseAddressGroup && insuredPersonAddress) {
+          const addressData: any = {
+            postalCode: insuredPersonAddress.postalCode || '',
+            prefecture: insuredPersonAddress.prefecture || '',
+            city: insuredPersonAddress.city || '',
+            street: insuredPersonAddress.street || '',
+            building: insuredPersonAddress.building || ''
+          };
+          // 住所（カナ）を社員情報から取得して転記
+          if (this.selectedEmployeeForDependentChange?.address?.official?.kana) {
+            addressData.addressKana = this.selectedEmployeeForDependentChange.address.official.kana;
+          }
+          spouseAddressGroup.patchValue(addressData);
+        }
+      }
+    } catch (error) {
+      console.error('[DEBUG] onSpouseDependentLivingTogetherChange エラー', error);
+      // エラーを再スローせず、ログに記録するだけにする（リロードを防ぐため）
+    }
   }
 
   /**
@@ -5869,6 +7076,136 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       }
     } catch (error) {
       console.error(`内部申請 ${internalApplicationId} の読み込みに失敗しました:`, error);
+    }
+  }
+
+  /**
+   * フォームのバリデーションエラーをログに出力（デバッグ用）
+   */
+  logFormValidationErrors(formName: string): void {
+    let form: FormGroup | null = null;
+    if (formName === 'dependentChangeForm' && this.dependentChangeForm) {
+      form = this.dependentChangeForm;
+    } else if (formName === 'dependentChangeFormInternal' && this.dependentChangeFormInternal) {
+      form = this.dependentChangeFormInternal;
+    }
+
+    if (!form) {
+      console.log(`[DEBUG] ${formName} は存在しません`);
+      return;
+    }
+
+    console.log(`[DEBUG] ${formName} のバリデーション状態:`, {
+      invalid: form.invalid,
+      valid: form.valid,
+      errors: form.errors,
+      status: form.status
+    });
+
+    // 被保険者情報のバリデーション状態
+    const insuredPerson = form.get('insuredPerson') as FormGroup;
+    if (insuredPerson) {
+      console.log(`[DEBUG] ${formName}.insuredPerson のバリデーション状態:`, {
+        invalid: insuredPerson.invalid,
+        errors: insuredPerson.errors,
+        controls: Object.keys(insuredPerson.controls).map(key => ({
+          key,
+          invalid: insuredPerson.get(key)?.invalid,
+          errors: insuredPerson.get(key)?.errors
+        }))
+      });
+    }
+
+    // 配偶者情報のバリデーション状態
+    const spouseDependent = form.get('spouseDependent') as FormGroup;
+    if (spouseDependent) {
+      console.log(`[DEBUG] ${formName}.spouseDependent のバリデーション状態:`, {
+        invalid: spouseDependent.invalid,
+        errors: spouseDependent.errors,
+        controls: Object.keys(spouseDependent.controls).map(key => ({
+          key,
+          invalid: spouseDependent.get(key)?.invalid,
+          errors: spouseDependent.get(key)?.errors
+        }))
+      });
+      
+      // changeAfterフォームグループの詳細なバリデーション状態
+      const changeAfter = spouseDependent.get('changeAfter') as FormGroup;
+      if (changeAfter) {
+        console.log(`[DEBUG] ${formName}.spouseDependent.changeAfter のバリデーション状態:`, {
+          invalid: changeAfter.invalid,
+          errors: changeAfter.errors,
+          controls: Object.keys(changeAfter.controls).map(key => {
+            const control = changeAfter.get(key);
+            return {
+              key,
+              invalid: control?.invalid,
+              errors: control?.errors,
+              value: control?.value
+            };
+          })
+        });
+      }
+    }
+
+    // その他の被扶養者のバリデーション状態
+    const otherDependents = form.get('otherDependents') as FormArray;
+    if (otherDependents && otherDependents.length > 0) {
+      console.log(`[DEBUG] ${formName}.otherDependents のバリデーション状態:`, {
+        length: otherDependents.length,
+        invalid: otherDependents.invalid,
+        errors: otherDependents.errors
+      });
+      otherDependents.controls.forEach((control, index) => {
+        const dependentGroup = control as FormGroup;
+        const controlsInfo = Object.keys(dependentGroup.controls).map(key => {
+          const ctrl = dependentGroup.get(key);
+          return {
+            key,
+            invalid: ctrl?.invalid,
+            errors: ctrl?.errors,
+            value: ctrl?.value
+          };
+        });
+        console.log(`[DEBUG] ${formName}.otherDependents[${index}] のバリデーション状態:`, {
+          invalid: dependentGroup.invalid,
+          errors: dependentGroup.errors,
+          controls: controlsInfo
+        });
+        
+        // 無効なコントロールを特定
+        const invalidControls = controlsInfo.filter(c => c.invalid);
+        if (invalidControls.length > 0) {
+          console.log(`[DEBUG] ${formName}.otherDependents[${index}] の無効なコントロール:`, invalidControls);
+        }
+        
+        // changeAfterフォームグループの詳細なバリデーション状態
+        const changeAfter = dependentGroup.get('changeAfter') as FormGroup;
+        if (changeAfter) {
+          const changeAfterControls = Object.keys(changeAfter.controls).map(key => {
+            const changeAfterControl = changeAfter.get(key);
+            return {
+              key,
+              invalid: changeAfterControl?.invalid,
+              errors: changeAfterControl?.errors,
+              value: changeAfterControl?.value
+            };
+          });
+          console.log(`[DEBUG] ${formName}.otherDependents[${index}].changeAfter のバリデーション状態:`, {
+            invalid: changeAfter.invalid,
+            errors: changeAfter.errors,
+            controls: changeAfterControls
+          });
+          
+          // changeAfter内の無効なコントロールを特定
+          const invalidChangeAfterControls = changeAfterControls.filter(c => c.invalid);
+          if (invalidChangeAfterControls.length > 0) {
+            console.log(`[DEBUG] ${formName}.otherDependents[${index}].changeAfter の無効なコントロール:`, invalidChangeAfterControls);
+          }
+        } else {
+          console.log(`[DEBUG] ${formName}.otherDependents[${index}].changeAfter は存在しません`);
+        }
+      });
     }
   }
 }
