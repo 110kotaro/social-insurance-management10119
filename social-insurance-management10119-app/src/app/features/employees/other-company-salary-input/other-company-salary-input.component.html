@@ -27,65 +27,72 @@
         <p>表示されていない過去分は内部で保持されます。</p>
       </div>
 
-      <form [formGroup]="otherCompanyForm">
-        <div formArrayName="companies">
-        <table mat-table [dataSource]="tableDataSource" class="salary-table">
+      <!-- テーブル -->
+      <div class="table-container">
+        <table mat-table [dataSource]="dataSource" class="salary-table">
+          <!-- 年 -->
           <ng-container matColumnDef="year">
             <th mat-header-cell *matHeaderCellDef>年</th>
-            <td mat-cell *matCellDef="let formGroup">
-              {{ formGroup.get('year')?.value }}
-            </td>
+            <td mat-cell *matCellDef="let row">{{ row.year }}</td>
           </ng-container>
 
+          <!-- 月 -->
           <ng-container matColumnDef="month">
             <th mat-header-cell *matHeaderCellDef>月</th>
-            <td mat-cell *matCellDef="let formGroup">
-              {{ formGroup.get('month')?.value }}
-            </td>
+            <td mat-cell *matCellDef="let row">{{ row.month }}</td>
           </ng-container>
 
+          <!-- 会社名 -->
           <ng-container matColumnDef="companyName">
             <th mat-header-cell *matHeaderCellDef>会社名</th>
-            <td mat-cell *matCellDef="let formGroup">
-              {{ formGroup.get('companyName')?.value }}
-            </td>
+            <td mat-cell *matCellDef="let row">{{ row.companyName }}</td>
           </ng-container>
 
+          <!-- 月額報酬 -->
           <ng-container matColumnDef="monthlyReward">
             <th mat-header-cell *matHeaderCellDef>月額報酬</th>
-            <td mat-cell *matCellDef="let formGroup">
-              <mat-form-field appearance="outline" style="width: 150px;">
-                <input matInput type="number" formControlName="monthlyReward" [readonly]="formGroup.get('isConfirmed')?.value">
-                <span matTextSuffix>円</span>
-              </mat-form-field>
+            <td mat-cell *matCellDef="let row">
+              <input 
+                type="number" 
+                [(ngModel)]="row.monthlyReward" 
+                [readonly]="row.isConfirmed"
+                min="0"
+                class="number-input">
             </td>
           </ng-container>
 
+          <!-- 賞与 -->
           <ng-container matColumnDef="bonus">
             <th mat-header-cell *matHeaderCellDef>賞与</th>
-            <td mat-cell *matCellDef="let formGroup">
-              <mat-form-field appearance="outline" style="width: 150px;">
-                <input matInput type="number" formControlName="bonus" [readonly]="formGroup.get('isConfirmed')?.value">
-                <span matTextSuffix>円</span>
-              </mat-form-field>
+            <td mat-cell *matCellDef="let row">
+              <input 
+                type="number" 
+                [(ngModel)]="row.bonus" 
+                [readonly]="row.isConfirmed"
+                min="0"
+                class="number-input">
             </td>
           </ng-container>
 
+          <!-- 遡及支払額 -->
           <ng-container matColumnDef="retroactivePayment">
             <th mat-header-cell *matHeaderCellDef>遡及支払額</th>
-            <td mat-cell *matCellDef="let formGroup">
-              <mat-form-field appearance="outline" style="width: 150px;">
-                <input matInput type="number" formControlName="retroactivePayment" [readonly]="formGroup.get('isConfirmed')?.value">
-                <span matTextSuffix>円</span>
-              </mat-form-field>
+            <td mat-cell *matCellDef="let row">
+              <input 
+                type="number" 
+                [(ngModel)]="row.retroactivePayment" 
+                [readonly]="row.isConfirmed"
+                min="0"
+                class="number-input">
             </td>
           </ng-container>
 
+          <!-- 確定済み -->
           <ng-container matColumnDef="isConfirmed">
             <th mat-header-cell *matHeaderCellDef>確定済み</th>
-            <td mat-cell *matCellDef="let formGroup">
-              <mat-chip [color]="formGroup.get('isConfirmed')?.value ? 'accent' : undefined">
-                {{ formGroup.get('isConfirmed')?.value ? '確定済み' : '未確定' }}
+            <td mat-cell *matCellDef="let row">
+              <mat-chip [color]="row.isConfirmed ? 'accent' : undefined">
+                {{ row.isConfirmed ? '確定済み' : '未確定' }}
               </mat-chip>
             </td>
           </ng-container>
@@ -93,8 +100,7 @@
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
         </table>
-        </div>
-      </form>
+      </div>
     </mat-card-content>
   </mat-card>
 </div>

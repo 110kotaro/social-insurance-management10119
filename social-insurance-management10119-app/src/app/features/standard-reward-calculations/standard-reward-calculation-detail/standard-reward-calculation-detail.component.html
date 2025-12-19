@@ -5,6 +5,31 @@
         <mat-icon>{{ calculation.calculationType === 'standard' ? 'assessment' : 'trending_up' }}</mat-icon>
         {{ calculation.calculationType === 'standard' ? '算定計算' : '月変計算' }}詳細
       </mat-card-title>
+      <div class="header-actions">
+        <button mat-raised-button color="primary" (click)="confirmCalculation()" *ngIf="calculation.status === 'draft'">
+          <mat-icon>check_circle</mat-icon>
+          確定
+        </button>
+        <button mat-raised-button color="primary" (click)="changeStatus()" *ngIf="calculation.status === 'confirmed' || calculation.status === 'applied' || calculation.status === 'approved'">
+          <mat-icon>edit</mat-icon>
+          ステータス変更
+        </button>
+        <button mat-raised-button color="accent" (click)="recalculateHistorical()" *ngIf="calculation.status === 'confirmed' || calculation.status === 'applied' || calculation.status === 'approved'">
+          <mat-icon>history</mat-icon>
+          再現計算（当時条件）
+        </button>
+        <button mat-raised-button color="accent" (click)="recalculate()" *ngIf="calculation.status === 'confirmed' || calculation.status === 'applied' || calculation.status === 'approved'">
+          <mat-icon>refresh</mat-icon>
+          再計算（現在条件）
+        </button>
+        <button mat-raised-button color="warn" (click)="deleteCalculation()" *ngIf="calculation.status === 'draft'">
+          <mat-icon>delete</mat-icon>
+          計算結果を削除
+        </button>
+        <button mat-icon-button (click)="navigateBack()" matTooltip="一覧に戻る">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+      </div>
     </mat-card-header>
     <mat-card-content>
       <!-- 基本情報 -->
@@ -69,10 +94,16 @@
           <mat-divider *ngIf="calculation.calculationMonths && calculation.calculationMonths.length > 0"></mat-divider>
 
           <mat-list-item *ngIf="calculation.previousGrade !== undefined">
-            <span matListItemTitle>従前等級</span>
+            <span matListItemTitle>従前健康保険等級</span>
             <span matListItemLine>{{ calculation.previousGrade }}級</span>
           </mat-list-item>
           <mat-divider *ngIf="calculation.previousGrade !== undefined"></mat-divider>
+
+          <mat-list-item *ngIf="calculation.previousPensionGrade !== undefined">
+            <span matListItemTitle>従前厚生年金等級</span>
+            <span matListItemLine>{{ calculation.previousPensionGrade }}級</span>
+          </mat-list-item>
+          <mat-divider *ngIf="calculation.previousPensionGrade !== undefined"></mat-divider>
 
           <mat-list-item *ngIf="calculation.gradeChange !== undefined">
             <span matListItemTitle>等級変動</span>
@@ -88,19 +119,19 @@
         <mat-divider></mat-divider>
 
         <mat-list-item>
-          <span matListItemTitle>決定等級</span>
+          <span matListItemTitle>計算後健康保険等級</span>
           <span matListItemLine>{{ calculation.grade }}級</span>
         </mat-list-item>
         <mat-divider></mat-divider>
 
         <mat-list-item *ngIf="calculation.pensionGrade">
-          <span matListItemTitle>厚生年金等級</span>
+          <span matListItemTitle>計算後厚生年金等級</span>
           <span matListItemLine>{{ calculation.pensionGrade }}級</span>
         </mat-list-item>
         <mat-divider *ngIf="calculation.pensionGrade"></mat-divider>
 
         <mat-list-item>
-          <span matListItemTitle>標準報酬月額</span>
+          <span matListItemTitle>計算後標準報酬月額</span>
           <span matListItemLine>{{ formatCurrency(calculation.standardReward) }}</span>
         </mat-list-item>
         <mat-divider></mat-divider>
@@ -153,34 +184,24 @@
       <!-- 再計算履歴 -->
       <mat-expansion-panel *ngIf="calculation.recalculationHistory && calculation.recalculationHistory.length > 0" style="margin-top: 20px;">
         <mat-expansion-panel-header>
-          <mat-panel-title>再計算履歴</mat-panel-title>
+          <mat-panel-title>再計算履歴（再計算前の結果）</mat-panel-title>
         </mat-expansion-panel-header>
-        <mat-list>
-          <mat-list-item *ngFor="let history of getSortedRecalculationHistory(); let i = index">
-            <span matListItemTitle>{{ i + 1 }}回目 - {{ formatDate(history.recalculatedAt) }}</span>
-            <span matListItemLine>
-              実行者: {{ history.recalculatedBy }}
-              <span *ngIf="history.reason">、理由: {{ history.reason }}</span>
-            </span>
-          </mat-list-item>
-        </mat-list>
+        <div style="padding: 16px;">
+          <p style="color: #666; margin-bottom: 16px;">
+            この履歴は、各再計算時点での再計算前の計算結果を表示しています。
+          </p>
+          <mat-list>
+            <mat-list-item *ngFor="let history of getSortedRecalculationHistory(); let i = index">
+              <span matListItemTitle>{{ i + 1 }}回目 - {{ getRecalculationTypeLabel(history.recalculationType) }}（{{ formatDate(history.recalculatedAt) }}）</span>
+              <span matListItemLine>
+                実行者: {{ history.recalculatedBy }}
+                <span *ngIf="history.reason">、理由: {{ history.reason }}</span>
+              </span>
+            </mat-list-item>
+          </mat-list>
+        </div>
       </mat-expansion-panel>
 
-      <!-- 操作ボタン -->
-      <div style="margin-top: 20px; display: flex; gap: 8px;">
-        <button mat-raised-button (click)="navigateBack()">
-          <mat-icon>arrow_back</mat-icon>
-          戻る
-        </button>
-        <button mat-raised-button color="primary" (click)="recalculate()" *ngIf="calculation.status === 'draft'">
-          <mat-icon>refresh</mat-icon>
-          再計算
-        </button>
-        <button mat-raised-button color="accent" (click)="createApplication()" *ngIf="calculation.requiresApplication && calculation.status === 'draft'">
-          <mat-icon>description</mat-icon>
-          申請作成
-        </button>
-      </div>
     </mat-card-content>
   </mat-card>
 </div>

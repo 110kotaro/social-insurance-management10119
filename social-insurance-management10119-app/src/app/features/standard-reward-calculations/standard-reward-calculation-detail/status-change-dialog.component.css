@@ -1,0 +1,12 @@
+.employee-info {
+  margin-bottom: 16px;
+}
+
+.current-status {
+  margin-bottom: 16px;
+  color: #666;
+}
+
+mat-form-field {
+  width: 100%;
+}

@@ -114,6 +114,32 @@ export class EmployeeService {
       updatedAt: new Date()
     };
 
+    // bonusData配列内のDateをTimestampに変換
+    if (updateData.bonusData && Array.isArray(updateData.bonusData)) {
+      updateData.bonusData = updateData.bonusData.map((bd: any) => ({
+        ...bd,
+        bonusPaymentDate: bd.bonusPaymentDate instanceof Date 
+          ? Timestamp.fromDate(bd.bonusPaymentDate) 
+          : bd.bonusPaymentDate,
+        createdAt: bd.createdAt instanceof Date ? Timestamp.fromDate(bd.createdAt) : bd.createdAt,
+        updatedAt: bd.updatedAt instanceof Date ? Timestamp.fromDate(bd.updatedAt) : bd.updatedAt,
+        confirmedAt: bd.confirmedAt instanceof Date ? Timestamp.fromDate(bd.confirmedAt) : bd.confirmedAt
+      }));
+    }
+
+    // leaveInfo配列内のDateをTimestampに変換
+    if (updateData.leaveInfo && Array.isArray(updateData.leaveInfo)) {
+      updateData.leaveInfo = updateData.leaveInfo.map((leave: any) => ({
+        ...leave,
+        startDate: leave.startDate instanceof Date 
+          ? Timestamp.fromDate(leave.startDate) 
+          : leave.startDate,
+        endDate: leave.endDate instanceof Date 
+          ? Timestamp.fromDate(leave.endDate) 
+          : leave.endDate
+      }));
+    }
+
     // id, createdAt, updatedAtを除外
     delete updateData.id;
     delete updateData.createdAt;
@@ -469,6 +495,28 @@ export class EmployeeService {
       }));
     }
 
+    // bonusDataの変換処理
+    let bonusData = data['bonusData'];
+    if (bonusData && Array.isArray(bonusData)) {
+      bonusData = bonusData.map((bd: any) => ({
+        ...bd,
+        bonusPaymentDate: bd.bonusPaymentDate ? (this.convertToDate(bd.bonusPaymentDate) || bd.bonusPaymentDate) : undefined,
+        createdAt: this.convertToDate(bd.createdAt) || new Date(),
+        updatedAt: this.convertToDate(bd.updatedAt) || new Date(),
+        confirmedAt: bd.confirmedAt ? (this.convertToDate(bd.confirmedAt) || undefined) : undefined
+      }));
+    }
+
+    // leaveInfoの変換処理
+    let leaveInfo = data['leaveInfo'];
+    if (leaveInfo && Array.isArray(leaveInfo)) {
+      leaveInfo = leaveInfo.map((leave: any) => ({
+        ...leave,
+        startDate: leave.startDate ? (this.convertToDate(leave.startDate) || leave.startDate) : undefined,
+        endDate: leave.endDate ? (this.convertToDate(leave.endDate) || leave.endDate) : undefined
+      }));
+    }
+
     // 後方互換性: name/nameKanaがある場合はfirstName/lastNameに分割
     let firstName = data['firstName'];
     let lastName = data['lastName'];
@@ -502,10 +550,12 @@ export class EmployeeService {
       address: data['address'],
       changeHistory: data['changeHistory'],
       salaryData: salaryData,
+      bonusData: bonusData,
       organizationId: data['organizationId'],
       role: data['role'] || 'employee', // デフォルト: 'employee'
       invitationEmailSent: data['invitationEmailSent'],
       emailVerified: data['emailVerified'],
+      leaveInfo: leaveInfo,
       createdAt: this.convertToDate(data['createdAt']) || new Date(),
       updatedAt: this.convertToDate(data['updatedAt']) || new Date(),
       attachments: data['attachments'] // ファイル添付（修正17）

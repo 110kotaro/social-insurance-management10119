@@ -24,6 +24,7 @@ import { DepartmentService } from '../../core/services/department.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { Employee, SalaryData } from '../../core/models/employee.model';
 import { Department } from '../../core/models/department.model';
+import { SalarySampleDialogComponent } from '../external-integration/salary-import/salary-sample-dialog.component';
 
 interface SalaryInputRow {
   employeeId: string;
@@ -248,6 +249,21 @@ export class SalaryInputComponent implements OnInit {
     this.employeeNameFilter = this.filterForm.value.employeeName || '';
     this.confirmedFilter = this.filterForm.value.confirmed || 'all';
     this.applyFilters();
+  }
+
+  onBonusPaymentDateChange(row: SalaryInputRow, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const value = input.value;
+    const index = this.salaryRows.findIndex(r => r.employeeId === row.employeeId);
+    if (index >= 0) {
+      // 日付文字列をDateオブジェクトに変換
+      if (value) {
+        this.salaryRows[index].bonusPaymentDate = new Date(value);
+      } else {
+        this.salaryRows[index].bonusPaymentDate = null;
+      }
+      this.applyFilters();
+    }
   }
 
   updateSalaryData(row: SalaryInputRow, field: string, value: any): void {
@@ -484,6 +500,17 @@ export class SalaryInputComponent implements OnInit {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, '給与データ');
     XLSX.writeFile(workbook, `給与データ_${this.selectedYear}年${this.selectedMonth}月_${new Date().getTime()}.xlsx`);
+  }
+
+  /**
+   * サンプルデータを表示
+   */
+  showSample(): void {
+    this.dialog.open(SalarySampleDialogComponent, {
+      width: '900px',
+      maxWidth: '90vw',
+      maxHeight: '90vh'
+    });
   }
 }
 

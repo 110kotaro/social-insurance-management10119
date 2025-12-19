@@ -228,8 +228,15 @@ export class CalculationService {
     employee: Employee,
     year: number,
     month: number,
-    calculatedBy: string
+    calculatedBy: string,
+    historicalCalculation?: MonthlyCalculation
   ): Promise<MonthlyCalculation> {
+    // 再現計算（当時条件）の場合
+    if (historicalCalculation) {
+      return this.calculateEmployeePremiumHistorical(employee, year, month, calculatedBy, historicalCalculation);
+    }
+
+    // 再計算（現在条件）または通常計算の場合
     if (!employee.insuranceInfo?.standardReward) {
       throw new Error(`社員 ${employee.employeeNumber} の標準報酬月額が設定されていません`);
     }
@@ -256,6 +263,7 @@ export class CalculationService {
     let isOnLeave = false;
     let leaveTypeLabel = '';
     let leaveInsuranceCollectionMethod: 'postpaid' | 'direct_transfer' = 'postpaid';
+    let isApprovedLeaveExempt = false; // 申請承認済みの休職で全額免除の場合のフラグ
     
     if (employee.leaveInfo && employee.leaveInfo.length > 0) {
       // 組織情報を取得して保険料徴収方法を確認
@@ -319,40 +327,9 @@ export class CalculationService {
                   const leaveDays = Math.floor((leaveEndDate.getTime() - leaveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
                   
                   if (leaveDays >= 14) {
-                    // 条件1と条件2を両方満たす場合: 免除
-                    const now = new Date();
-                    const employeeName = `${employee.lastName} ${employee.firstName}`;
-                    
-                    return {
-                      organizationId: employee.organizationId,
-                      year,
-                      month,
-                      employeeId: employee.id || '',
-                      employeeNumber: employee.employeeNumber,
-                      employeeName,
-                      departmentName: undefined,
-                      standardReward: employee.insuranceInfo.standardReward,
-                      grade: 0,
-                      pensionGrade: null,
-                      healthInsurancePremium: 0,
-                      pensionInsurancePremium: 0,
-                      careInsurancePremium: 0,
-                      totalPremium: 0,
-                      employeeShare: 0,
-                      companyShare: 0,
-                      status: 'draft',
-                      calculatedBy,
-                      calculationDate: now,
-                      notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-                      dependentInfo: undefined,
-                      healthInsuranceRate: 0,
-                      healthInsuranceRateWithCare: false,
-                      pensionInsuranceRate: 0,
-                      birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-                      joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-                      createdAt: now,
-                      updatedAt: now
-                    };
+                    // 条件1と条件2を両方満たす場合: 免除（フラグを立てて通常計算を続行）
+                    isApprovedLeaveExempt = true;
+                    break; // 休職情報のループを抜ける
                   } else {
                     // 条件1を満たすが条件2を満たさない場合: 通常計算を続行
                     // isOnLeaveフラグをfalseに戻して通常計算に進む
@@ -360,112 +337,19 @@ export class CalculationService {
                     continue;
                   }
                 } else {
-                  // 計算対象月が条件1で一致した月と異なる場合: 既存ロジック（全額免除）
-                  const now = new Date();
-                  const employeeName = `${employee.lastName} ${employee.firstName}`;
-                  
-                  return {
-                    organizationId: employee.organizationId,
-                    year,
-                    month,
-                    employeeId: employee.id || '',
-                    employeeNumber: employee.employeeNumber,
-                    employeeName,
-                    departmentName: undefined,
-                    standardReward: employee.insuranceInfo.standardReward,
-                    grade: 0,
-                    pensionGrade: null,
-                    healthInsurancePremium: 0,
-                    pensionInsurancePremium: 0,
-                    careInsurancePremium: 0,
-                    totalPremium: 0,
-                    employeeShare: 0,
-                    companyShare: 0,
-                    status: 'draft',
-                    calculatedBy,
-                    calculationDate: now,
-                    notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-                    dependentInfo: undefined,
-                    healthInsuranceRate: 0,
-                    healthInsuranceRateWithCare: false,
-                    pensionInsuranceRate: 0,
-                    birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-                    joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-                    createdAt: now,
-                    updatedAt: now
-                  };
+                  // 計算対象月が条件1で一致した月と異なる場合: 免除（フラグを立てて通常計算を続行）
+                  isApprovedLeaveExempt = true;
+                  break; // 休職情報のループを抜ける
                 }
               } else {
-                // 条件1を満たさない場合: 既存ロジック（全額免除）
-                const now = new Date();
-                const employeeName = `${employee.lastName} ${employee.firstName}`;
-                
-                return {
-                  organizationId: employee.organizationId,
-                  year,
-                  month,
-                  employeeId: employee.id || '',
-                  employeeNumber: employee.employeeNumber,
-                  employeeName,
-                  departmentName: undefined,
-                  standardReward: employee.insuranceInfo.standardReward,
-                  grade: 0,
-                  pensionGrade: null,
-                  healthInsurancePremium: 0,
-                  pensionInsurancePremium: 0,
-                  careInsurancePremium: 0,
-                  totalPremium: 0,
-                  employeeShare: 0,
-                  companyShare: 0,
-                  status: 'draft',
-                  calculatedBy,
-                  calculationDate: now,
-                  notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-                  dependentInfo: undefined,
-                  healthInsuranceRate: 0,
-                  healthInsuranceRateWithCare: false,
-                  pensionInsuranceRate: 0,
-                  birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-                  joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-                  createdAt: now,
-                  updatedAt: now
-                };
+                // 条件1を満たさない場合: 免除（フラグを立てて通常計算を続行）
+                isApprovedLeaveExempt = true;
+                break; // 休職情報のループを抜ける
               }
             } else {
-              // 休職終了日が未設定の場合: 既存ロジック（全額免除）
-              const now = new Date();
-              const employeeName = `${employee.lastName} ${employee.firstName}`;
-              
-              return {
-                organizationId: employee.organizationId,
-                year,
-                month,
-                employeeId: employee.id || '',
-                employeeNumber: employee.employeeNumber,
-                employeeName,
-                departmentName: undefined,
-                standardReward: employee.insuranceInfo.standardReward,
-                grade: 0,
-                pensionGrade: null,
-                healthInsurancePremium: 0,
-                pensionInsurancePremium: 0,
-                careInsurancePremium: 0,
-                totalPremium: 0,
-                employeeShare: 0,
-                companyShare: 0,
-                status: 'draft',
-                calculatedBy,
-                calculationDate: now,
-                notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-                dependentInfo: undefined,
-                healthInsuranceRate: 0,
-                healthInsuranceRateWithCare: false,
-                pensionInsuranceRate: 0,
-                birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-                joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-                createdAt: now,
-                updatedAt: now
-              };
+              // 休職終了日が未設定の場合: 免除（フラグを立てて通常計算を続行）
+              isApprovedLeaveExempt = true;
+              break; // 休職情報のループを抜ける
             }
           }
           // 申請承認されていない場合は通常計算を続行（後で処理）
@@ -720,15 +604,18 @@ export class CalculationService {
     if (isOnLeave) {
       finalIsOnLeave = true;
       
-      if (leaveInsuranceCollectionMethod === 'postpaid') {
-        // 後払いの場合：社員負担分を0にして、後払い分の情報を設定
-        finalPostpaidLeaveAmount = employeeShare; // 後払い分（社員負担分）
-        finalPostpaidLeaveCompanyAmount = totalPremium; // 建て替え分（折半前の全額）
-        finalEmployeeShare = 0; // 社員負担分は0（後払い）
-        finalNotes = `休職中特例で復職後徴収（後払い分：${finalPostpaidLeaveAmount.toLocaleString()}円、建て替え分：${finalPostpaidLeaveCompanyAmount.toLocaleString()}円）`;
-      } else if (leaveInsuranceCollectionMethod === 'direct_transfer') {
-        // 本人振込の場合：通常通り計算（端数処理は既に適用済み）
-        finalNotes = `給与天引きではない（本人振込）`;
+      // 申請承認済みの休職者は後払いや本人振込の処理をスキップ（全額免除のため）
+      if (!isApprovedLeaveExempt) {
+        if (leaveInsuranceCollectionMethod === 'postpaid') {
+          // 後払いの場合：社員負担分を0にして、後払い分の情報を設定
+          finalPostpaidLeaveAmount = employeeShare; // 後払い分（社員負担分）
+          finalPostpaidLeaveCompanyAmount = totalPremium; // 建て替え分（折半前の全額）
+          finalEmployeeShare = 0; // 社員負担分は0（後払い）
+          finalNotes = `休職中特例で復職後徴収（後払い分：${finalPostpaidLeaveAmount.toLocaleString()}円、建て替え分：${finalPostpaidLeaveCompanyAmount.toLocaleString()}円）`;
+        } else if (leaveInsuranceCollectionMethod === 'direct_transfer') {
+          // 本人振込の場合：通常通り計算（端数処理は既に適用済み）
+          finalNotes = `給与天引きではない（本人振込）`;
+        }
       }
     }
 
@@ -807,6 +694,25 @@ export class CalculationService {
       }
     }
 
+    // 申請承認済みの休職で全額免除の場合、保険料を0にしてnotesを設定
+    let finalHealthPremium = healthPremium;
+    let finalPensionPremium = pensionPremium;
+    let finalTotalPremium = dependentCount > 0 
+      ? healthPremium + totalDependentHealthPremium + pensionPremium + totalDependentPensionPremium
+      : totalPremium;
+    let finalCompanyShareValue = finalCompanyShare;
+    let finalEmployeeShareValue = finalEmployeeShare;
+    let finalNotesValue = finalNotes;
+
+    if (isApprovedLeaveExempt) {
+      finalHealthPremium = 0;
+      finalPensionPremium = 0;
+      finalTotalPremium = 0;
+      finalCompanyShareValue = 0;
+      finalEmployeeShareValue = 0;
+      finalNotesValue = `休職中（${leaveTypeLabel}、申請承認済み）により全額免除（休職による免除のため）`;
+    }
+
     return {
       organizationId: employee.organizationId,
       year,
@@ -818,16 +724,18 @@ export class CalculationService {
       standardReward,
       grade: healthInsurance.grade,
       pensionGrade: pensionInsurance.grade,
-      healthInsurancePremium: healthPremium,
-      pensionInsurancePremium: pensionPremium,
+      healthInsurancePremium: finalHealthPremium,
+      pensionInsurancePremium: finalPensionPremium,
+      dependentHealthInsurancePremium: isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentHealthPremium : undefined),
+      dependentPensionInsurancePremium: isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentPensionPremium : undefined),
       careInsurancePremium: 0, // 介護保険料は健康保険料に統合されているため0
-      totalPremium,
-      companyShare: finalCompanyShare,
-      employeeShare: finalEmployeeShare,
+      totalPremium: finalTotalPremium,
+      companyShare: finalCompanyShareValue,
+      employeeShare: finalEmployeeShareValue,
       calculationDate: now,
       calculatedBy,
       status: 'draft',
-      notes: finalNotes,
+      notes: finalNotesValue,
       // 過去計算再現用の追加情報
       monthlyPaymentAmount, // その月の支給額（給与データから取得）
       dependentInfo: dependents.length > 0 ? dependents.map(dep => ({
@@ -850,6 +758,201 @@ export class CalculationService {
       postpaidLeaveAmounts,
       postpaidLeaveTotal,
       postpaidLeaveCompanyTotal,
+      createdAt: now,
+      updatedAt: now
+    };
+  }
+
+  /**
+   * 再現計算（当時条件）：過去の計算結果に保存されている情報を使用して計算
+   */
+  private async calculateEmployeePremiumHistorical(
+    employee: Employee,
+    year: number,
+    month: number,
+    calculatedBy: string,
+    historicalCalculation: MonthlyCalculation
+  ): Promise<MonthlyCalculation> {
+    const now = new Date();
+    const employeeName = `${employee.lastName} ${employee.firstName}`;
+
+    // 部署名を取得
+    let departmentName: string | undefined;
+    if (employee.departmentId) {
+      try {
+        const departments = await this.departmentService.getDepartmentsByOrganization(employee.organizationId);
+        const department = departments.find(d => d.id === employee.departmentId);
+        departmentName = department?.name;
+      } catch (error) {
+        console.error('部署情報の取得に失敗しました:', error);
+      }
+    }
+
+    // historicalCalculationから情報を取得
+    const standardReward = historicalCalculation.standardReward;
+    const grade = historicalCalculation.grade;
+    const pensionGrade = historicalCalculation.pensionGrade ?? null;
+    const healthInsuranceRate = historicalCalculation.healthInsuranceRate;
+    const healthInsuranceRateWithCare = historicalCalculation.healthInsuranceRateWithCare ?? false;
+    const pensionInsuranceRate = historicalCalculation.pensionInsuranceRate;
+    const dependentInfo = historicalCalculation.dependentInfo || [];
+    const dependentCount = dependentInfo.length;
+    const isOtherCompany = historicalCalculation.isOtherCompany ?? false;
+    const ownCompanySalary = historicalCalculation.ownCompanySalary;
+    const otherCompanySalaryTotal = historicalCalculation.otherCompanySalaryTotal;
+    const isOnLeave = historicalCalculation.isOnLeave ?? false;
+    const notes = historicalCalculation.notes;
+
+    // 申請承認済みの休職判定（notesから「申請承認済み」またはtotalPremium === 0かつ「全額免除」をチェック）
+    const isApprovedLeaveExempt = historicalCalculation.totalPremium === 0 && 
+      (notes?.includes('申請承認済み') || notes?.includes('全額免除') || false);
+
+    // 当時の等級表を取得（計算日時点で有効だった等級表）
+    const targetDate = new Date(year, month - 1, 1);
+    const rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(employee.organizationId);
+    const validRateTables = rateTables.filter(table => {
+      const effectiveFrom = this.convertToDate(table.effectiveFrom);
+      const effectiveTo = table.effectiveTo ? this.convertToDate(table.effectiveTo) : null;
+      if (!effectiveFrom) return false;
+      const fromDate = new Date(effectiveFrom.getFullYear(), effectiveFrom.getMonth(), 1);
+      const toDate = effectiveTo ? new Date(effectiveTo.getFullYear(), effectiveTo.getMonth(), 1) : null;
+      return targetDate >= fromDate && (!toDate || targetDate <= toDate);
+    });
+
+    if (validRateTables.length === 0) {
+      throw new Error(`${year}年${month}月に適用される保険料率テーブルが見つかりません`);
+    }
+
+    // 等級表から折半額を取得
+    const rateTable = validRateTables.find(t => t.grade === grade);
+    if (!rateTable) {
+      throw new Error(`等級 ${grade} の料率テーブルが見つかりません`);
+    }
+
+    // 健康保険料の折半額を取得
+    const healthInsuranceRateData = healthInsuranceRateWithCare 
+      ? rateTable.healthInsuranceWithCare 
+      : rateTable.healthInsuranceWithoutCare;
+    const healthHalf = healthInsuranceRateData.half;
+
+    // 厚生年金料の折半額を取得
+    const pensionHalf = pensionGrade ? rateTable.pensionInsurance.half : 0;
+
+    // 扶養者1人あたりの折半額
+    let dependentHealthHalf = 0;
+    let dependentPensionHalf = 0;
+    if (dependentCount > 0) {
+      dependentHealthHalf = healthHalf;
+      dependentPensionHalf = pensionHalf;
+    }
+
+    // 端数処理（50銭基準、通常の処理）
+    const roundHalf = (half: number): number => {
+      const fractionalPart = half % 1;
+      return fractionalPart <= 0.5 ? Math.floor(half) : Math.ceil(half);
+    };
+
+    let healthEmployeeShare = roundHalf(healthHalf);
+    let pensionEmployeeShare = roundHalf(pensionHalf);
+
+    // 全額は折半額×2で計算
+    let healthPremium = healthEmployeeShare * 2;
+    let pensionPremium = pensionEmployeeShare * 2;
+
+    // 扶養者全員分の保険料を計算
+    let totalDependentHealthPremium = dependentHealthHalf * 2 * dependentCount;
+    let totalDependentPensionPremium = dependentPensionHalf * 2 * dependentCount;
+
+    // 会社負担額
+    let healthCompanyShare = healthPremium - healthEmployeeShare;
+    let pensionCompanyShare = pensionPremium - pensionEmployeeShare;
+    let dependentHealthCompanyShare = totalDependentHealthPremium;
+    let dependentPensionCompanyShare = totalDependentPensionPremium;
+
+    // 合計
+    let totalPremium = healthPremium + pensionPremium;
+    let employeeShare = healthEmployeeShare + pensionEmployeeShare;
+    let companyShare = healthCompanyShare + pensionCompanyShare + dependentHealthCompanyShare + dependentPensionCompanyShare;
+
+    // 他社兼務の場合の計算
+    if (isOtherCompany && ownCompanySalary !== undefined && otherCompanySalaryTotal !== undefined) {
+      const salaryRatio = ownCompanySalary / (ownCompanySalary + otherCompanySalaryTotal);
+      healthPremium = Math.round(healthPremium * salaryRatio);
+      pensionPremium = Math.round(pensionPremium * salaryRatio);
+      totalDependentHealthPremium = Math.round(totalDependentHealthPremium * salaryRatio);
+      totalDependentPensionPremium = Math.round(totalDependentPensionPremium * salaryRatio);
+      healthEmployeeShare = Math.round(healthEmployeeShare * salaryRatio);
+      pensionEmployeeShare = Math.round(pensionEmployeeShare * salaryRatio);
+      healthCompanyShare = healthPremium - healthEmployeeShare;
+      pensionCompanyShare = pensionPremium - pensionEmployeeShare;
+      dependentHealthCompanyShare = totalDependentHealthPremium;
+      dependentPensionCompanyShare = totalDependentPensionPremium;
+      totalPremium = healthPremium + pensionPremium;
+      employeeShare = healthEmployeeShare + pensionEmployeeShare;
+      companyShare = healthCompanyShare + pensionCompanyShare + dependentHealthCompanyShare + dependentPensionCompanyShare;
+    }
+
+    // 申請承認済みの休職で全額免除の場合
+    let finalHealthPremium = healthPremium;
+    let finalPensionPremium = pensionPremium;
+    let finalTotalPremium = dependentCount > 0 
+      ? healthPremium + totalDependentHealthPremium + pensionPremium + totalDependentPensionPremium
+      : totalPremium;
+    let finalCompanyShareValue = companyShare;
+    let finalEmployeeShareValue = employeeShare;
+    let finalNotesValue = notes;
+
+    if (isApprovedLeaveExempt) {
+      finalHealthPremium = 0;
+      finalPensionPremium = 0;
+      finalTotalPremium = 0;
+      finalCompanyShareValue = 0;
+      finalEmployeeShareValue = 0;
+      finalNotesValue = notes || `休職中（申請承認済み）により全額免除（休職による免除のため）`;
+    }
+
+    return {
+      organizationId: employee.organizationId,
+      year,
+      month,
+      employeeId: employee.id || '',
+      employeeNumber: employee.employeeNumber,
+      employeeName,
+      departmentName,
+      standardReward,
+      grade,
+      pensionGrade,
+      healthInsurancePremium: finalHealthPremium,
+      pensionInsurancePremium: finalPensionPremium,
+      dependentHealthInsurancePremium: isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentHealthPremium : undefined),
+      dependentPensionInsurancePremium: isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentPensionPremium : undefined),
+      careInsurancePremium: 0,
+      totalPremium: finalTotalPremium,
+      companyShare: finalCompanyShareValue,
+      employeeShare: finalEmployeeShareValue,
+      calculationDate: now,
+      calculatedBy,
+      status: 'draft',
+      notes: finalNotesValue,
+      monthlyPaymentAmount: historicalCalculation.monthlyPaymentAmount,
+      dependentInfo: dependentInfo.length > 0 ? dependentInfo.map(dep => ({
+        ...dep,
+        birthDate: dep.birthDate instanceof Date ? dep.birthDate : (dep.birthDate?.toDate ? dep.birthDate.toDate() : dep.birthDate)
+      })) : undefined,
+      healthInsuranceRate,
+      healthInsuranceRateWithCare,
+      pensionInsuranceRate,
+      birthDate: historicalCalculation.birthDate instanceof Date ? historicalCalculation.birthDate : (historicalCalculation.birthDate?.toDate ? historicalCalculation.birthDate.toDate() : historicalCalculation.birthDate),
+      joinDate: historicalCalculation.joinDate instanceof Date ? historicalCalculation.joinDate : (historicalCalculation.joinDate?.toDate ? historicalCalculation.joinDate.toDate() : historicalCalculation.joinDate),
+      isOtherCompany,
+      ownCompanySalary,
+      otherCompanySalaryTotal,
+      isOnLeave,
+      postpaidLeaveAmount: historicalCalculation.postpaidLeaveAmount,
+      postpaidLeaveCompanyAmount: historicalCalculation.postpaidLeaveCompanyAmount,
+      postpaidLeaveAmounts: historicalCalculation.postpaidLeaveAmounts,
+      postpaidLeaveTotal: historicalCalculation.postpaidLeaveTotal,
+      postpaidLeaveCompanyTotal: historicalCalculation.postpaidLeaveCompanyTotal,
       createdAt: now,
       updatedAt: now
     };
@@ -894,6 +997,8 @@ export class CalculationService {
       grade: calculation.grade,
       healthInsurancePremium: calculation.healthInsurancePremium,
       pensionInsurancePremium: calculation.pensionInsurancePremium,
+      dependentHealthInsurancePremium: calculation.dependentHealthInsurancePremium,
+      dependentPensionInsurancePremium: calculation.dependentPensionInsurancePremium,
       careInsurancePremium: calculation.careInsurancePremium,
       totalPremium: calculation.totalPremium,
       companyShare: calculation.companyShare,
@@ -996,6 +1101,7 @@ export class CalculationService {
           : hist.recalculatedAt,
         recalculatedBy: hist.recalculatedBy,
         reason: hist.reason,
+        recalculationType: hist.recalculationType,
         dataSnapshot: hist.dataSnapshot
       }));
     }
@@ -1031,11 +1137,14 @@ export class CalculationService {
       calcData.postpaidLeaveCompanyTotal = calculation.postpaidLeaveCompanyTotal;
     }
 
+    // undefined値を削除してから保存
+    const cleanedCalcData = this.removeUndefinedValues(calcData);
+
     if (calculation.id) {
-      await setDoc(doc(this.firestore, `${environment.firestorePrefix}calculations`, calculation.id), calcData, { merge: true });
+      await setDoc(doc(this.firestore, `${environment.firestorePrefix}calculations`, calculation.id), cleanedCalcData, { merge: true });
       return calculation.id;
     } else {
-      await setDoc(calcRef, calcData);
+      await setDoc(calcRef, cleanedCalcData);
       return calcRef.id;
     }
   }
@@ -1082,6 +1191,7 @@ export class CalculationService {
         recalculatedAt: this.convertToDate(hist.recalculatedAt) || hist.recalculatedAt,
         recalculatedBy: hist.recalculatedBy,
         reason: hist.reason,
+        recalculationType: hist.recalculationType,
         dataSnapshot: hist.dataSnapshot || {}
       }));
     }
@@ -1100,6 +1210,8 @@ export class CalculationService {
       pensionGrade: data['pensionGrade'] || null,
       healthInsurancePremium: data['healthInsurancePremium'],
       pensionInsurancePremium: data['pensionInsurancePremium'],
+      dependentHealthInsurancePremium: data['dependentHealthInsurancePremium'],
+      dependentPensionInsurancePremium: data['dependentPensionInsurancePremium'],
       careInsurancePremium: data['careInsurancePremium'],
       totalPremium: data['totalPremium'],
       companyShare: data['companyShare'],
@@ -1203,6 +1315,8 @@ export class CalculationService {
     if (updates.notes !== undefined) updateData.notes = updates.notes;
     if (updates.healthInsurancePremium !== undefined) updateData.healthInsurancePremium = updates.healthInsurancePremium;
     if (updates.pensionInsurancePremium !== undefined) updateData.pensionInsurancePremium = updates.pensionInsurancePremium;
+    if (updates.dependentHealthInsurancePremium !== undefined) updateData.dependentHealthInsurancePremium = updates.dependentHealthInsurancePremium;
+    if (updates.dependentPensionInsurancePremium !== undefined) updateData.dependentPensionInsurancePremium = updates.dependentPensionInsurancePremium;
     if (updates.careInsurancePremium !== undefined) updateData.careInsurancePremium = updates.careInsurancePremium;
     if (updates.totalPremium !== undefined) updateData.totalPremium = updates.totalPremium;
     if (updates.companyShare !== undefined) updateData.companyShare = updates.companyShare;
@@ -1263,6 +1377,7 @@ export class CalculationService {
           : hist.recalculatedAt,
         recalculatedBy: hist.recalculatedBy,
         reason: hist.reason,
+        recalculationType: hist.recalculationType,
         dataSnapshot: hist.dataSnapshot
       }));
     }
@@ -1343,9 +1458,11 @@ export class CalculationService {
   /**
    * 確定済みの計算結果を再計算する（履歴に保存）
    */
-  async recalculateConfirmedCalculation(
+  /**
+   * 再現計算（当時条件）：過去の計算結果に保存されている情報を使用して再計算
+   */
+  async recalculateConfirmedCalculationHistorical(
     calculationId: string,
-    newCalculation: MonthlyCalculation,
     recalculatedBy: string,
     reason?: string
   ): Promise<string> {
@@ -1358,11 +1475,27 @@ export class CalculationService {
       throw new Error('確定済みまたは出力済みの計算結果のみ再計算できます');
     }
 
+    // 社員情報を取得
+    const employee = await this.employeeService.getEmployee(existingCalculation.employeeId);
+    if (!employee) {
+      throw new Error('社員情報が見つかりません');
+    }
+
+    // 再現計算（当時条件）を実行
+    const newCalculation = await this.calculateEmployeePremium(
+      employee,
+      existingCalculation.year,
+      existingCalculation.month,
+      recalculatedBy,
+      existingCalculation // historicalCalculationとして渡す
+    );
+
     // 再計算前のデータを履歴に保存
     const recalculationHistory: CalculationRecalculationHistory = {
       recalculatedAt: new Date(),
       recalculatedBy: recalculatedBy,
       reason: reason,
+      recalculationType: 'historical',
       dataSnapshot: {
         standardReward: existingCalculation.standardReward,
         grade: existingCalculation.grade,
@@ -1385,30 +1518,87 @@ export class CalculationService {
     const existingHistory = existingCalculation.recalculationHistory || [];
     const updatedHistory = [...existingHistory, recalculationHistory];
 
-    // 差額を計算
-    const healthInsurancePremiumDiff = newCalculation.healthInsurancePremium - existingCalculation.healthInsurancePremium;
-    const pensionInsurancePremiumDiff = newCalculation.pensionInsurancePremium - existingCalculation.pensionInsurancePremium;
-    const companyShareDiff = newCalculation.companyShare - existingCalculation.companyShare;
-    const employeeShareDiff = newCalculation.employeeShare - existingCalculation.employeeShare;
+    // 新しい計算結果で更新（ステータスは元のまま維持）
+    const updates: Partial<MonthlyCalculation> = {
+      ...newCalculation,
+      status: existingCalculation.status, // 元のステータスを維持
+      recalculationHistory: updatedHistory,
+      confirmedAt: existingCalculation.confirmedAt,
+      confirmedBy: existingCalculation.confirmedBy,
+      exportedAt: existingCalculation.exportedAt,
+      exportedBy: existingCalculation.exportedBy
+    };
 
-    // 差額がある場合のみpremiumDifferenceを設定
-    const hasDifference = healthInsurancePremiumDiff !== 0 || pensionInsurancePremiumDiff !== 0 || 
-                         companyShareDiff !== 0 || employeeShareDiff !== 0;
+    return await this.updateCalculation(calculationId, updates);
+  }
 
-    const premiumDifference: PremiumDifference | undefined = hasDifference ? {
-      previousHealthInsurancePremium: existingCalculation.healthInsurancePremium,
-      previousPensionInsurancePremium: existingCalculation.pensionInsurancePremium,
-      previousCompanyShare: existingCalculation.companyShare,
-      previousEmployeeShare: existingCalculation.employeeShare,
-      newHealthInsurancePremium: newCalculation.healthInsurancePremium,
-      newPensionInsurancePremium: newCalculation.pensionInsurancePremium,
-      newCompanyShare: newCalculation.companyShare,
-      newEmployeeShare: newCalculation.employeeShare,
-      healthInsurancePremiumDiff: healthInsurancePremiumDiff,
-      pensionInsurancePremiumDiff: pensionInsurancePremiumDiff,
-      companyShareDiff: companyShareDiff,
-      employeeShareDiff: employeeShareDiff
-    } : undefined;
+  /**
+   * 再計算（現在条件）：現在のDBデータを使用して再計算
+   */
+  async recalculateConfirmedCalculation(
+    calculationId: string,
+    newCalculation: MonthlyCalculation,
+    recalculatedBy: string,
+    reason?: string
+  ): Promise<string> {
+    const existingCalculation = await this.getCalculation(calculationId);
+    if (!existingCalculation) {
+      throw new Error('計算結果が見つかりません');
+    }
+    
+    if (existingCalculation.status !== 'confirmed' && existingCalculation.status !== 'exported') {
+      throw new Error('確定済みまたは出力済みの計算結果のみ再計算できます');
+    }
+
+    // 再計算前のデータを履歴に保存
+    const recalculationHistory: CalculationRecalculationHistory = {
+      recalculatedAt: new Date(),
+      recalculatedBy: recalculatedBy,
+      reason: reason,
+      recalculationType: 'current',
+      dataSnapshot: {
+        standardReward: existingCalculation.standardReward,
+        grade: existingCalculation.grade,
+        pensionGrade: existingCalculation.pensionGrade,
+        healthInsurancePremium: existingCalculation.healthInsurancePremium,
+        pensionInsurancePremium: existingCalculation.pensionInsurancePremium,
+        totalPremium: existingCalculation.totalPremium,
+        companyShare: existingCalculation.companyShare,
+        employeeShare: existingCalculation.employeeShare,
+        calculationDate: existingCalculation.calculationDate,
+        calculatedBy: existingCalculation.calculatedBy,
+        dependentInfo: existingCalculation.dependentInfo,
+        healthInsuranceRate: existingCalculation.healthInsuranceRate,
+        healthInsuranceRateWithCare: existingCalculation.healthInsuranceRateWithCare,
+        pensionInsuranceRate: existingCalculation.pensionInsuranceRate
+      }
+    };
+
+    // 既存の履歴に追加
+    const existingHistory = existingCalculation.recalculationHistory || [];
+    const updatedHistory = [...existingHistory, recalculationHistory];
+
+    // 差額計算機能は削除（コメントアウト）
+    // const healthInsurancePremiumDiff = newCalculation.healthInsurancePremium - existingCalculation.healthInsurancePremium;
+    // const pensionInsurancePremiumDiff = newCalculation.pensionInsurancePremium - existingCalculation.pensionInsurancePremium;
+    // const companyShareDiff = newCalculation.companyShare - existingCalculation.companyShare;
+    // const employeeShareDiff = newCalculation.employeeShare - existingCalculation.employeeShare;
+    // const hasDifference = healthInsurancePremiumDiff !== 0 || pensionInsurancePremiumDiff !== 0 || 
+    //                      companyShareDiff !== 0 || employeeShareDiff !== 0;
+    // const premiumDifference: PremiumDifference | undefined = hasDifference ? {
+    //   previousHealthInsurancePremium: existingCalculation.healthInsurancePremium,
+    //   previousPensionInsurancePremium: existingCalculation.pensionInsurancePremium,
+    //   previousCompanyShare: existingCalculation.companyShare,
+    //   previousEmployeeShare: existingCalculation.employeeShare,
+    //   newHealthInsurancePremium: newCalculation.healthInsurancePremium,
+    //   newPensionInsurancePremium: newCalculation.pensionInsurancePremium,
+    //   newCompanyShare: newCalculation.companyShare,
+    //   newEmployeeShare: newCalculation.employeeShare,
+    //   healthInsurancePremiumDiff: healthInsurancePremiumDiff,
+    //   pensionInsurancePremiumDiff: pensionInsurancePremiumDiff,
+    //   companyShareDiff: companyShareDiff,
+    //   employeeShareDiff: employeeShareDiff
+    // } : undefined;
 
     // 新しい計算結果で更新（ステータスは元のまま維持）
     const updates: Partial<MonthlyCalculation> = {
@@ -1421,10 +1611,10 @@ export class CalculationService {
       exportedBy: existingCalculation.exportedBy
     };
     
-    // premiumDifferenceがundefinedでない場合のみ追加
-    if (premiumDifference !== undefined) {
-      updates.premiumDifference = premiumDifference;
-    }
+    // 差額計算機能は削除（コメントアウト）
+    // if (premiumDifference !== undefined) {
+    //   updates.premiumDifference = premiumDifference;
+    // }
 
     return await this.updateCalculation(calculationId, updates);
   }
@@ -1624,12 +1814,20 @@ export class CalculationService {
     employee: Employee,
     year: number,
     month: number,
-    calculatedBy: string
+    calculatedBy: string,
+    historicalCalculation?: BonusCalculation
   ): Promise<BonusCalculation> {
+    // 再現計算（当時条件）の場合
+    if (historicalCalculation) {
+      return this.calculateEmployeeBonusPremiumHistorical(employee, year, month, calculatedBy, historicalCalculation);
+    }
+
+    // 再計算（現在条件）または通常計算の場合
     // 休職者の処理
     let isOnLeave = false;
     let leaveTypeLabel = '';
     let leaveInsuranceCollectionMethod: 'postpaid' | 'direct_transfer' = 'postpaid';
+    let isApprovedLeaveExempt = false; // 申請承認済みの休職で全額免除の場合のフラグ
     
     if (employee.leaveInfo && employee.leaveInfo.length > 0) {
       // 組織情報を取得して保険料徴収方法を確認
@@ -1693,39 +1891,9 @@ export class CalculationService {
                   const leaveDays = Math.floor((leaveEndDate.getTime() - leaveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
                   
                   if (leaveDays >= 14) {
-                    // 条件1と条件2を両方満たす場合: 免除
-                    const now = new Date();
-                    const employeeName = `${employee.lastName} ${employee.firstName}`;
-                    
-                    return {
-                      organizationId: employee.organizationId,
-                      year,
-                      month,
-                      employeeId: employee.id || '',
-                      employeeNumber: employee.employeeNumber,
-                      employeeName,
-                      departmentName: undefined,
-                      bonusAmount: 0,
-                      standardBonusAmount: 0,
-                      healthInsurancePremium: 0,
-                      pensionInsurancePremium: 0,
-                      careInsurancePremium: 0,
-                      totalPremium: 0,
-                      employeeShare: 0,
-                      companyShare: 0,
-                      status: 'draft',
-                      calculatedBy,
-                      calculationDate: now,
-                      notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-                      dependentInfo: undefined,
-                      healthInsuranceRate: 0,
-                      healthInsuranceRateWithCare: false,
-                      pensionInsuranceRate: 0,
-                      birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-                      joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-                      createdAt: now,
-                      updatedAt: now
-                    };
+                    // 条件1と条件2を両方満たす場合: 免除（フラグを立てて通常計算を続行）
+                    isApprovedLeaveExempt = true;
+                    break; // 休職情報のループを抜ける
                   } else {
                     // 条件1を満たすが条件2を満たさない場合: 通常計算を続行
                     // isOnLeaveフラグをfalseに戻して通常計算に進む
@@ -1733,109 +1901,19 @@ export class CalculationService {
                     continue;
                   }
                 } else {
-                  // 計算対象月が条件1で一致した月と異なる場合: 既存ロジック（全額免除）
-                  const now = new Date();
-                  const employeeName = `${employee.lastName} ${employee.firstName}`;
-                  
-                  return {
-                    organizationId: employee.organizationId,
-                    year,
-                    month,
-                    employeeId: employee.id || '',
-                    employeeNumber: employee.employeeNumber,
-                    employeeName,
-                    departmentName: undefined,
-                    bonusAmount: 0,
-                    standardBonusAmount: 0,
-                    healthInsurancePremium: 0,
-                    pensionInsurancePremium: 0,
-                    careInsurancePremium: 0,
-                    totalPremium: 0,
-                    employeeShare: 0,
-                    companyShare: 0,
-                    status: 'draft',
-                    calculatedBy,
-                    calculationDate: now,
-                    notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-                    dependentInfo: undefined,
-                    healthInsuranceRate: 0,
-                    healthInsuranceRateWithCare: false,
-                    pensionInsuranceRate: 0,
-                    birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-                    joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-                    createdAt: now,
-                    updatedAt: now
-                  };
+                  // 計算対象月が条件1で一致した月と異なる場合: 免除（フラグを立てて通常計算を続行）
+                  isApprovedLeaveExempt = true;
+                  break; // 休職情報のループを抜ける
                 }
               } else {
-                // 条件1を満たさない場合: 既存ロジック（全額免除）
-                const now = new Date();
-                const employeeName = `${employee.lastName} ${employee.firstName}`;
-                
-                return {
-                  organizationId: employee.organizationId,
-                  year,
-                  month,
-                  employeeId: employee.id || '',
-                  employeeNumber: employee.employeeNumber,
-                  employeeName,
-                  departmentName: undefined,
-                  bonusAmount: 0,
-                  standardBonusAmount: 0,
-                  healthInsurancePremium: 0,
-                  pensionInsurancePremium: 0,
-                  careInsurancePremium: 0,
-                  totalPremium: 0,
-                  employeeShare: 0,
-                  companyShare: 0,
-                  status: 'draft',
-                  calculatedBy,
-                  calculationDate: now,
-                  notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-                  dependentInfo: undefined,
-                  healthInsuranceRate: 0,
-                  healthInsuranceRateWithCare: false,
-                  pensionInsuranceRate: 0,
-                  birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-                  joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-                  createdAt: now,
-                  updatedAt: now
-                };
+                // 条件1を満たさない場合: 免除（フラグを立てて通常計算を続行）
+                isApprovedLeaveExempt = true;
+                break; // 休職情報のループを抜ける
               }
             } else {
-              // 休職終了日が未設定の場合: 既存ロジック（全額免除）
-              const now = new Date();
-              const employeeName = `${employee.lastName} ${employee.firstName}`;
-              
-              return {
-                organizationId: employee.organizationId,
-                year,
-                month,
-                employeeId: employee.id || '',
-                employeeNumber: employee.employeeNumber,
-                employeeName,
-                departmentName: undefined,
-                bonusAmount: 0,
-                standardBonusAmount: 0,
-                healthInsurancePremium: 0,
-                pensionInsurancePremium: 0,
-                careInsurancePremium: 0,
-                totalPremium: 0,
-                employeeShare: 0,
-                companyShare: 0,
-                status: 'draft',
-                calculatedBy,
-                calculationDate: now,
-                notes: `休職中（${leaveTypeLabel}、申請承認済み）により全額免除`,
-                dependentInfo: undefined,
-                healthInsuranceRate: 0,
-                healthInsuranceRateWithCare: false,
-                pensionInsuranceRate: 0,
-                birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
-                joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
-                createdAt: now,
-                updatedAt: now
-              };
+              // 休職終了日が未設定の場合: 免除（フラグを立てて通常計算を続行）
+              isApprovedLeaveExempt = true;
+              break; // 休職情報のループを抜ける
             }
           }
           // 申請承認されていない場合は通常計算を続行（後で処理）
@@ -2177,15 +2255,18 @@ export class CalculationService {
     if (isOnLeave) {
       finalIsOnLeave = true;
       
-      if (leaveInsuranceCollectionMethod === 'postpaid') {
-        // 後払いの場合：社員負担分を0にして、後払い分の情報を設定
-        finalPostpaidLeaveAmount = employeeShare; // 後払い分（社員負担分）
-        finalPostpaidLeaveCompanyAmount = totalPremium; // 建て替え分（折半前の全額）
-        finalEmployeeShare = 0; // 社員負担分は0（後払い）
-        finalNotes = `休職中特例で復職後徴収（後払い分：${finalPostpaidLeaveAmount.toLocaleString()}円、建て替え分：${finalPostpaidLeaveCompanyAmount.toLocaleString()}円）`;
-      } else if (leaveInsuranceCollectionMethod === 'direct_transfer') {
-        // 本人振込の場合：通常通り計算（端数処理は既に適用済み）
-        finalNotes = `給与天引きではない（本人振込）`;
+      // 申請承認済みの休職者は後払いや本人振込の処理をスキップ（全額免除のため）
+      if (!isApprovedLeaveExempt) {
+        if (leaveInsuranceCollectionMethod === 'postpaid') {
+          // 後払いの場合：社員負担分を0にして、後払い分の情報を設定
+          finalPostpaidLeaveAmount = employeeShare; // 後払い分（社員負担分）
+          finalPostpaidLeaveCompanyAmount = totalPremium; // 建て替え分（折半前の全額）
+          finalEmployeeShare = 0; // 社員負担分は0（後払い）
+          finalNotes = `休職中特例で復職後徴収（後払い分：${finalPostpaidLeaveAmount.toLocaleString()}円、建て替え分：${finalPostpaidLeaveCompanyAmount.toLocaleString()}円）`;
+        } else if (leaveInsuranceCollectionMethod === 'direct_transfer') {
+          // 本人振込の場合：通常通り計算（端数処理は既に適用済み）
+          finalNotes = `給与天引きではない（本人振込）`;
+        }
       }
     }
 
@@ -2275,6 +2356,28 @@ export class CalculationService {
       }
     }
 
+    // 申請承認済みの休職で全額免除の場合、保険料を0にしてnotesを設定
+    let finalHealthPremiumBonus = healthPremium;
+    let finalPensionPremiumBonus = pensionPremium;
+    let finalTotalPremiumBonus = dependentCount > 0 
+      ? healthPremium + totalDependentHealthPremium + pensionPremium + totalDependentPensionPremium
+      : totalPremium;
+    let finalCompanyShareBonus = finalCompanyShare;
+    let finalEmployeeShareBonus = finalEmployeeShare;
+    let finalNotesBonus = finalNotes;
+
+    if (isApprovedLeaveExempt) {
+      finalHealthPremiumBonus = 0;
+      finalPensionPremiumBonus = 0;
+      finalTotalPremiumBonus = 0;
+      finalCompanyShareBonus = 0;
+      finalEmployeeShareBonus = 0;
+      finalNotesBonus = `休職中（${leaveTypeLabel}、申請承認済み）により全額免除（休職による免除のため）`;
+    }
+
+    const finalDependentHealthPremium = isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentHealthPremium : undefined);
+    const finalDependentPensionPremium = isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentPensionPremium : undefined);
+
     return {
       organizationId: employee.organizationId,
       year,
@@ -2285,16 +2388,18 @@ export class CalculationService {
       departmentName,
       bonusAmount: bonusData.bonusAmount,
       standardBonusAmount,
-      healthInsurancePremium: healthPremium,
-      pensionInsurancePremium: pensionPremium,
+      healthInsurancePremium: finalHealthPremiumBonus,
+      pensionInsurancePremium: finalPensionPremiumBonus,
+      dependentHealthInsurancePremium: finalDependentHealthPremium,
+      dependentPensionInsurancePremium: finalDependentPensionPremium,
       careInsurancePremium: 0,
-      totalPremium,
-      companyShare: finalCompanyShare,
-      employeeShare: finalEmployeeShare,
+      totalPremium: finalTotalPremiumBonus,
+      companyShare: finalCompanyShareBonus,
+      employeeShare: finalEmployeeShareBonus,
       calculationDate: now,
       calculatedBy,
       status: 'draft',
-      notes: finalNotes,
+      notes: finalNotesBonus,
       dependentInfo: dependents.length > 0 ? dependents.map(dep => ({
         ...dep,
         birthDate: dep.birthDate instanceof Date ? dep.birthDate : (dep.birthDate?.toDate ? dep.birthDate.toDate() : dep.birthDate)
@@ -2310,11 +2415,213 @@ export class CalculationService {
       postpaidLeaveAmounts,
       postpaidLeaveTotal,
       postpaidLeaveCompanyTotal,
+      grade: healthInsurance.grade,
+      pensionGrade: pensionInsurance.grade,
       healthInsuranceRate,
       healthInsuranceRateWithCare: isCareInsuranceTarget,
       pensionInsuranceRate,
       birthDate: employee.birthDate instanceof Date ? employee.birthDate : (employee.birthDate?.toDate ? employee.birthDate.toDate() : employee.birthDate),
       joinDate: employee.joinDate instanceof Date ? employee.joinDate : (employee.joinDate?.toDate ? employee.joinDate.toDate() : employee.joinDate),
+      createdAt: now,
+      updatedAt: now
+    };
+  }
+
+  /**
+   * 再現計算（当時条件）：過去の計算結果に保存されている情報を使用して計算（賞与計算）
+   */
+  private async calculateEmployeeBonusPremiumHistorical(
+    employee: Employee,
+    year: number,
+    month: number,
+    calculatedBy: string,
+    historicalCalculation: BonusCalculation
+  ): Promise<BonusCalculation> {
+    const now = new Date();
+    const employeeName = `${employee.lastName} ${employee.firstName}`;
+
+    // 部署名を取得
+    let departmentName: string | undefined;
+    if (employee.departmentId) {
+      try {
+        const departments = await this.departmentService.getDepartmentsByOrganization(employee.organizationId);
+        const department = departments.find(d => d.id === employee.departmentId);
+        departmentName = department?.name;
+      } catch (error) {
+        console.error('部署情報の取得に失敗しました:', error);
+      }
+    }
+
+    // historicalCalculationから情報を取得
+    const bonusAmount = historicalCalculation.bonusAmount;
+    const standardBonusAmount = historicalCalculation.standardBonusAmount;
+    const grade = historicalCalculation.grade;
+    const pensionGrade = historicalCalculation.pensionGrade ?? null;
+    const healthInsuranceRate = historicalCalculation.healthInsuranceRate;
+    const healthInsuranceRateWithCare = historicalCalculation.healthInsuranceRateWithCare ?? false;
+    const pensionInsuranceRate = historicalCalculation.pensionInsuranceRate;
+    const dependentInfo = historicalCalculation.dependentInfo || [];
+    const dependentCount = dependentInfo.length;
+    const isOtherCompany = historicalCalculation.isOtherCompany ?? false;
+    const ownCompanySalary = historicalCalculation.ownCompanySalary;
+    const otherCompanySalaryTotal = historicalCalculation.otherCompanySalaryTotal;
+    const isOnLeave = historicalCalculation.isOnLeave ?? false;
+    const notes = historicalCalculation.notes;
+
+    // 申請承認済みの休職判定
+    const isApprovedLeaveExempt = historicalCalculation.totalPremium === 0 && 
+      (notes?.includes('申請承認済み') || notes?.includes('全額免除') || false);
+
+    // 当時の等級表を取得
+    const targetDate = new Date(year, month - 1, 1);
+    const rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(employee.organizationId);
+    const validRateTables = rateTables.filter(table => {
+      const effectiveFrom = this.convertToDate(table.effectiveFrom);
+      const effectiveTo = table.effectiveTo ? this.convertToDate(table.effectiveTo) : null;
+      if (!effectiveFrom) return false;
+      const fromDate = new Date(effectiveFrom.getFullYear(), effectiveFrom.getMonth(), 1);
+      const toDate = effectiveTo ? new Date(effectiveTo.getFullYear(), effectiveTo.getMonth(), 1) : null;
+      return targetDate >= fromDate && (!toDate || targetDate <= toDate);
+    });
+
+    if (validRateTables.length === 0) {
+      throw new Error(`${year}年${month}月に適用される保険料率テーブルが見つかりません`);
+    }
+
+    // 標準賞与額から等級を決定
+    const healthInsurance = await this.calculateHealthInsurance(employee, standardBonusAmount, validRateTables, targetDate);
+    const pensionInsurance = await this.calculatePensionInsurance(standardBonusAmount, validRateTables);
+
+    // 等級表から折半額を取得
+    const rateTable = validRateTables.find(t => t.grade === (grade || healthInsurance.grade));
+    if (!rateTable) {
+      throw new Error(`等級 ${grade || healthInsurance.grade} の料率テーブルが見つかりません`);
+    }
+
+    const healthInsuranceRateData = healthInsuranceRateWithCare 
+      ? rateTable.healthInsuranceWithCare 
+      : rateTable.healthInsuranceWithoutCare;
+    const healthHalf = healthInsuranceRateData.half;
+    const pensionHalf = pensionGrade ? rateTable.pensionInsurance.half : 0;
+
+    // 扶養者1人あたりの折半額
+    let dependentHealthHalf = 0;
+    let dependentPensionHalf = 0;
+    if (dependentCount > 0) {
+      dependentHealthHalf = healthHalf;
+      dependentPensionHalf = pensionHalf;
+    }
+
+    // 端数処理
+    const roundHalf = (half: number): number => {
+      const fractionalPart = half % 1;
+      return fractionalPart <= 0.5 ? Math.floor(half) : Math.ceil(half);
+    };
+
+    let healthEmployeeShare = roundHalf(healthHalf);
+    let pensionEmployeeShare = roundHalf(pensionHalf);
+
+    // 全額は折半額×2で計算
+    let healthPremium = healthEmployeeShare * 2;
+    let pensionPremium = pensionEmployeeShare * 2;
+
+    // 扶養者全員分の保険料を計算
+    let totalDependentHealthPremium = dependentHealthHalf * 2 * dependentCount;
+    let totalDependentPensionPremium = dependentPensionHalf * 2 * dependentCount;
+
+    // 会社負担額
+    let healthCompanyShare = healthPremium - healthEmployeeShare;
+    let pensionCompanyShare = pensionPremium - pensionEmployeeShare;
+    let dependentHealthCompanyShare = totalDependentHealthPremium;
+    let dependentPensionCompanyShare = totalDependentPensionPremium;
+
+    // 合計
+    let totalPremium = healthPremium + pensionPremium;
+    let employeeShare = healthEmployeeShare + pensionEmployeeShare;
+    let companyShare = healthCompanyShare + pensionCompanyShare + dependentHealthCompanyShare + dependentPensionCompanyShare;
+
+    // 他社兼務の場合の計算
+    if (isOtherCompany && ownCompanySalary !== undefined && otherCompanySalaryTotal !== undefined) {
+      const salaryRatio = ownCompanySalary / (ownCompanySalary + otherCompanySalaryTotal);
+      healthPremium = Math.round(healthPremium * salaryRatio);
+      pensionPremium = Math.round(pensionPremium * salaryRatio);
+      totalDependentHealthPremium = Math.round(totalDependentHealthPremium * salaryRatio);
+      totalDependentPensionPremium = Math.round(totalDependentPensionPremium * salaryRatio);
+      healthEmployeeShare = Math.round(healthEmployeeShare * salaryRatio);
+      pensionEmployeeShare = Math.round(pensionEmployeeShare * salaryRatio);
+      healthCompanyShare = healthPremium - healthEmployeeShare;
+      pensionCompanyShare = pensionPremium - pensionEmployeeShare;
+      dependentHealthCompanyShare = totalDependentHealthPremium;
+      dependentPensionCompanyShare = totalDependentPensionPremium;
+      totalPremium = healthPremium + pensionPremium;
+      employeeShare = healthEmployeeShare + pensionEmployeeShare;
+      companyShare = healthCompanyShare + pensionCompanyShare + dependentHealthCompanyShare + dependentPensionCompanyShare;
+    }
+
+    // 申請承認済みの休職で全額免除の場合
+    let finalHealthPremiumBonus = healthPremium;
+    let finalPensionPremiumBonus = pensionPremium;
+    let finalTotalPremiumBonus = dependentCount > 0 
+      ? healthPremium + totalDependentHealthPremium + pensionPremium + totalDependentPensionPremium
+      : totalPremium;
+    let finalCompanyShareBonus = companyShare;
+    let finalEmployeeShareBonus = employeeShare;
+    let finalNotesBonus = notes;
+
+    if (isApprovedLeaveExempt) {
+      finalHealthPremiumBonus = 0;
+      finalPensionPremiumBonus = 0;
+      finalTotalPremiumBonus = 0;
+      finalCompanyShareBonus = 0;
+      finalEmployeeShareBonus = 0;
+      finalNotesBonus = notes || `休職中（申請承認済み）により全額免除（休職による免除のため）`;
+    }
+
+    const finalDependentHealthPremium = isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentHealthPremium : undefined);
+    const finalDependentPensionPremium = isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentPensionPremium : undefined);
+
+    return {
+      organizationId: employee.organizationId,
+      year,
+      month,
+      employeeId: employee.id || '',
+      employeeNumber: employee.employeeNumber,
+      employeeName,
+      departmentName,
+      bonusAmount,
+      standardBonusAmount,
+      healthInsurancePremium: finalHealthPremiumBonus,
+      pensionInsurancePremium: finalPensionPremiumBonus,
+      dependentHealthInsurancePremium: finalDependentHealthPremium,
+      dependentPensionInsurancePremium: finalDependentPensionPremium,
+      careInsurancePremium: 0,
+      totalPremium: finalTotalPremiumBonus,
+      companyShare: finalCompanyShareBonus,
+      employeeShare: finalEmployeeShareBonus,
+      calculationDate: now,
+      calculatedBy,
+      status: 'draft',
+      notes: finalNotesBonus,
+      dependentInfo: dependentInfo.length > 0 ? dependentInfo.map(dep => ({
+        ...dep,
+        birthDate: dep.birthDate instanceof Date ? dep.birthDate : (dep.birthDate?.toDate ? dep.birthDate.toDate() : dep.birthDate)
+      })) : undefined,
+      isOtherCompany,
+      ownCompanySalary,
+      otherCompanySalaryTotal,
+      isOnLeave,
+      postpaidLeaveAmount: historicalCalculation.postpaidLeaveAmount,
+      postpaidLeaveCompanyAmount: historicalCalculation.postpaidLeaveCompanyAmount,
+      postpaidLeaveAmounts: historicalCalculation.postpaidLeaveAmounts,
+      postpaidLeaveTotal: historicalCalculation.postpaidLeaveTotal,
+      postpaidLeaveCompanyTotal: historicalCalculation.postpaidLeaveCompanyTotal,
+      grade: grade || healthInsurance.grade,
+      pensionGrade,
+      healthInsuranceRate,
+      healthInsuranceRateWithCare,
+      pensionInsuranceRate,
+      birthDate: historicalCalculation.birthDate instanceof Date ? historicalCalculation.birthDate : (historicalCalculation.birthDate?.toDate ? historicalCalculation.birthDate.toDate() : historicalCalculation.birthDate),
+      joinDate: historicalCalculation.joinDate instanceof Date ? historicalCalculation.joinDate : (historicalCalculation.joinDate?.toDate ? historicalCalculation.joinDate.toDate() : historicalCalculation.joinDate),
       createdAt: now,
       updatedAt: now
     };
@@ -2427,7 +2734,9 @@ export class CalculationService {
       calcData.postpaidLeaveCompanyTotal = calculation.postpaidLeaveCompanyTotal;
     }
 
-    await setDoc(calcRef, calcData);
+    // undefined値を削除してから保存
+    const cleanedCalcData = this.removeUndefinedValues(calcData);
+    await setDoc(calcRef, cleanedCalcData);
     return calcRef.id;
   }
 
@@ -2540,9 +2849,11 @@ export class CalculationService {
   /**
    * 確定済みの賞与計算結果を再計算する（履歴に保存）
    */
-  async recalculateBonusCalculation(
+  /**
+   * 再現計算（当時条件）：過去の計算結果に保存されている情報を使用して再計算（賞与計算）
+   */
+  async recalculateBonusCalculationHistorical(
     calculationId: string,
-    newCalculation: BonusCalculation,
     recalculatedBy: string,
     reason?: string
   ): Promise<string> {
@@ -2555,11 +2866,27 @@ export class CalculationService {
       throw new Error('確定済みまたは出力済みの計算結果のみ再計算できます');
     }
 
+    // 社員情報を取得
+    const employee = await this.employeeService.getEmployee(existingCalculation.employeeId);
+    if (!employee) {
+      throw new Error('社員情報が見つかりません');
+    }
+
+    // 再現計算（当時条件）を実行
+    const newCalculation = await this.calculateEmployeeBonusPremium(
+      employee,
+      existingCalculation.year,
+      existingCalculation.month,
+      recalculatedBy,
+      existingCalculation // historicalCalculationとして渡す
+    );
+
     // 再計算前のデータを履歴に保存
     const recalculationHistory: BonusCalculationRecalculationHistory = {
       recalculatedAt: new Date(),
       recalculatedBy: recalculatedBy,
       reason: reason,
+      recalculationType: 'historical',
       dataSnapshot: {
         bonusAmount: existingCalculation.bonusAmount,
         standardBonusAmount: existingCalculation.standardBonusAmount,
@@ -2581,30 +2908,86 @@ export class CalculationService {
     const existingHistory = existingCalculation.recalculationHistory || [];
     const updatedHistory = [...existingHistory, recalculationHistory];
 
-    // 差額を計算
-    const healthInsurancePremiumDiff = newCalculation.healthInsurancePremium - existingCalculation.healthInsurancePremium;
-    const pensionInsurancePremiumDiff = newCalculation.pensionInsurancePremium - existingCalculation.pensionInsurancePremium;
-    const companyShareDiff = newCalculation.companyShare - existingCalculation.companyShare;
-    const employeeShareDiff = newCalculation.employeeShare - existingCalculation.employeeShare;
+    // 新しい計算結果で更新（ステータスは元のまま維持）
+    const updates: Partial<BonusCalculation> = {
+      ...newCalculation,
+      status: existingCalculation.status,
+      recalculationHistory: updatedHistory,
+      confirmedAt: existingCalculation.confirmedAt,
+      confirmedBy: existingCalculation.confirmedBy,
+      exportedAt: existingCalculation.exportedAt,
+      exportedBy: existingCalculation.exportedBy
+    };
 
-    // 差額がある場合のみpremiumDifferenceを設定
-    const hasDifference = healthInsurancePremiumDiff !== 0 || pensionInsurancePremiumDiff !== 0 || 
-                         companyShareDiff !== 0 || employeeShareDiff !== 0;
+    return await this.updateBonusCalculation(calculationId, updates);
+  }
 
-    const premiumDifference: BonusPremiumDifference | undefined = hasDifference ? {
-      previousHealthInsurancePremium: existingCalculation.healthInsurancePremium,
-      previousPensionInsurancePremium: existingCalculation.pensionInsurancePremium,
-      previousCompanyShare: existingCalculation.companyShare,
-      previousEmployeeShare: existingCalculation.employeeShare,
-      newHealthInsurancePremium: newCalculation.healthInsurancePremium,
-      newPensionInsurancePremium: newCalculation.pensionInsurancePremium,
-      newCompanyShare: newCalculation.companyShare,
-      newEmployeeShare: newCalculation.employeeShare,
-      healthInsurancePremiumDiff: healthInsurancePremiumDiff,
-      pensionInsurancePremiumDiff: pensionInsurancePremiumDiff,
-      companyShareDiff: companyShareDiff,
-      employeeShareDiff: employeeShareDiff
-    } : undefined;
+  /**
+   * 再計算（現在条件）：現在のDBデータを使用して再計算（賞与計算）
+   */
+  async recalculateBonusCalculation(
+    calculationId: string,
+    newCalculation: BonusCalculation,
+    recalculatedBy: string,
+    reason?: string
+  ): Promise<string> {
+    const existingCalculation = await this.getBonusCalculation(calculationId);
+    if (!existingCalculation) {
+      throw new Error('計算結果が見つかりません');
+    }
+    
+    if (existingCalculation.status !== 'confirmed' && existingCalculation.status !== 'exported') {
+      throw new Error('確定済みまたは出力済みの計算結果のみ再計算できます');
+    }
+
+    // 再計算前のデータを履歴に保存
+    const recalculationHistory: BonusCalculationRecalculationHistory = {
+      recalculatedAt: new Date(),
+      recalculatedBy: recalculatedBy,
+      reason: reason,
+      recalculationType: 'current',
+      dataSnapshot: {
+        bonusAmount: existingCalculation.bonusAmount,
+        standardBonusAmount: existingCalculation.standardBonusAmount,
+        healthInsurancePremium: existingCalculation.healthInsurancePremium,
+        pensionInsurancePremium: existingCalculation.pensionInsurancePremium,
+        totalPremium: existingCalculation.totalPremium,
+        companyShare: existingCalculation.companyShare,
+        employeeShare: existingCalculation.employeeShare,
+        calculationDate: existingCalculation.calculationDate,
+        calculatedBy: existingCalculation.calculatedBy,
+        dependentInfo: existingCalculation.dependentInfo,
+        healthInsuranceRate: existingCalculation.healthInsuranceRate,
+        healthInsuranceRateWithCare: existingCalculation.healthInsuranceRateWithCare,
+        pensionInsuranceRate: existingCalculation.pensionInsuranceRate
+      }
+    };
+
+    // 既存の履歴に追加
+    const existingHistory = existingCalculation.recalculationHistory || [];
+    const updatedHistory = [...existingHistory, recalculationHistory];
+
+    // 差額計算機能は削除（コメントアウト）
+    // const healthInsurancePremiumDiff = newCalculation.healthInsurancePremium - existingCalculation.healthInsurancePremium;
+    // const pensionInsurancePremiumDiff = newCalculation.pensionInsurancePremium - existingCalculation.pensionInsurancePremium;
+    // const companyShareDiff = newCalculation.companyShare - existingCalculation.companyShare;
+    // const employeeShareDiff = newCalculation.employeeShare - existingCalculation.employeeShare;
+    // const hasDifference = healthInsurancePremiumDiff !== 0 || pensionInsurancePremiumDiff !== 0 || 
+    //                      companyShareDiff !== 0 || employeeShareDiff !== 0;
+    // const premiumDifference: BonusPremiumDifference | undefined = hasDifference ? {
+    //   previousHealthInsurancePremium: existingCalculation.healthInsurancePremium,
+    //   previousPensionInsurancePremium: existingCalculation.pensionInsurancePremium,
+    //   previousCompanyShare: existingCalculation.companyShare,
+    //   previousEmployeeShare: existingCalculation.employeeShare,
+    //   newHealthInsurancePremium: newCalculation.healthInsurancePremium,
+    //   newPensionInsurancePremium: newCalculation.pensionInsurancePremium,
+    //   newCompanyShare: newCalculation.companyShare,
+    //   newEmployeeShare: newCalculation.employeeShare,
+    //   healthInsurancePremiumDiff: healthInsurancePremiumDiff,
+    //   pensionInsurancePremiumDiff: pensionInsurancePremiumDiff,
+    //   companyShareDiff: companyShareDiff,
+    //   employeeShareDiff: employeeShareDiff
+    // } : undefined;
 
     // 新しい計算結果で更新（ステータスは元のまま維持）
     const updates: Partial<BonusCalculation> = {
@@ -2617,9 +3000,10 @@ export class CalculationService {
       exportedBy: existingCalculation.exportedBy
     };
     
-    if (premiumDifference !== undefined) {
-      updates.premiumDifference = premiumDifference;
-    }
+    // 差額計算機能は削除（コメントアウト）
+    // if (premiumDifference !== undefined) {
+    //   updates.premiumDifference = premiumDifference;
+    // }
 
     return await this.updateBonusCalculation(calculationId, updates);
   }
@@ -2648,6 +3032,18 @@ export class CalculationService {
    * FirestoreデータをBonusCalculationに変換
    */
   private convertToBonusCalculation(id: string, data: any): BonusCalculation {
+    // recalculationHistoryを変換
+    let recalculationHistory = data['recalculationHistory'];
+    if (recalculationHistory && Array.isArray(recalculationHistory)) {
+      recalculationHistory = recalculationHistory.map((hist: any) => ({
+        recalculatedAt: this.convertToDate(hist.recalculatedAt) || hist.recalculatedAt,
+        recalculatedBy: hist.recalculatedBy,
+        reason: hist.reason,
+        recalculationType: hist.recalculationType,
+        dataSnapshot: hist.dataSnapshot || {}
+      }));
+    }
+
     return {
       id: id,
       organizationId: data['organizationId'],
@@ -2661,6 +3057,8 @@ export class CalculationService {
       standardBonusAmount: data['standardBonusAmount'],
       healthInsurancePremium: data['healthInsurancePremium'],
       pensionInsurancePremium: data['pensionInsurancePremium'],
+      dependentHealthInsurancePremium: data['dependentHealthInsurancePremium'],
+      dependentPensionInsurancePremium: data['dependentPensionInsurancePremium'],
       careInsurancePremium: data['careInsurancePremium'] || 0,
       totalPremium: data['totalPremium'],
       companyShare: data['companyShare'],
@@ -2673,9 +3071,11 @@ export class CalculationService {
       healthInsuranceRate: data['healthInsuranceRate'],
       healthInsuranceRateWithCare: data['healthInsuranceRateWithCare'],
       pensionInsuranceRate: data['pensionInsuranceRate'],
+      grade: data['grade'],
+      pensionGrade: data['pensionGrade'] || null,
       birthDate: data['birthDate'] ? this.convertToDate(data['birthDate']) : undefined,
       joinDate: data['joinDate'] ? this.convertToDate(data['joinDate']) : undefined,
-      recalculationHistory: data['recalculationHistory'],
+      recalculationHistory: recalculationHistory,
       confirmedAt: data['confirmedAt'] ? this.convertToDate(data['confirmedAt']) : undefined,
       confirmedBy: data['confirmedBy'],
       exportedAt: data['exportedAt'] ? this.convertToDate(data['exportedAt']) : undefined,

@@ -172,7 +172,19 @@ export class CalculationDetailComponent implements OnInit {
     if (!this.calculation) {
       return 0;
     }
-    let total = this.calculation.totalPremium || 0;
+    
+    // 被扶養者がいる場合は、被保険者分と被扶養者分の合計を計算
+    let total = 0;
+    if (this.calculation.dependentInfo && this.calculation.dependentInfo.length > 0) {
+      // 被保険者健康保険料 + 被扶養者健康保険料 + 被保険者厚生年金料 + 被扶養者厚生年金料
+      total = (this.calculation.healthInsurancePremium || 0) +
+              (this.calculation.dependentHealthInsurancePremium || 0) +
+              (this.calculation.pensionInsurancePremium || 0) +
+              (this.calculation.dependentPensionInsurancePremium || 0);
+    } else {
+      // 被扶養者がいない場合は従来通り
+      total = this.calculation.totalPremium || 0;
+    }
     
     // この計算結果に適用されている遡及控除額を加算
     if (this.calculation.retroactiveDeductions && this.calculation.retroactiveDeductions.length > 0) {
@@ -347,7 +359,51 @@ export class CalculationDetailComponent implements OnInit {
   }
 
   /**
-   * 確定済みの計算結果を再計算する
+   * 再現計算（当時条件）：過去の計算結果に保存されている情報を使用して再計算
+   */
+  async recalculateCalculationHistorical(): Promise<void> {
+    if (!this.calculation?.id || !this.employee) {
+      return;
+    }
+
+    if (this.calculation.status !== 'confirmed' && this.calculation.status !== 'exported') {
+      this.snackBar.open('確定済みまたは出力済みの計算結果のみ再計算できます', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const reason = prompt('再現計算理由を入力してください（任意）:');
+    if (reason === null) {
+      return; // キャンセルされた場合
+    }
+
+    const calculationId = this.calculation.id!;
+    const currentUser = this.authService.getCurrentUser();
+
+    if (!currentUser?.uid) {
+      this.snackBar.open('ユーザー情報が取得できませんでした', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    try {
+      this.snackBar.open('再現計算を実行中です...', '閉じる', { duration: 2000 });
+      
+      // 再現計算（当時条件）を実行
+      await this.calculationService.recalculateConfirmedCalculationHistorical(
+        calculationId,
+        currentUser.uid,
+        reason || undefined
+      );
+
+      this.snackBar.open('再現計算が完了しました', '閉じる', { duration: 3000 });
+      await this.loadCalculation(calculationId);
+    } catch (error: any) {
+      console.error('再現計算の実行に失敗しました:', error);
+      this.snackBar.open(error.message || '再現計算の実行に失敗しました', '閉じる', { duration: 5000 });
+    }
+  }
+
+  /**
+   * 再計算（現在条件）：現在のDBデータを使用して再計算
    */
   async recalculateCalculation(): Promise<void> {
     if (!this.calculation?.id || !this.employee) {
@@ -383,7 +439,7 @@ export class CalculationDetailComponent implements OnInit {
     try {
       this.snackBar.open('再計算を実行中です...', '閉じる', { duration: 2000 });
       
-      // 再計算を実行
+      // 再計算（現在条件）を実行
       const newCalculation = await this.calculationService.calculateEmployeePremium(
         employee,
         year,
@@ -399,60 +455,55 @@ export class CalculationDetailComponent implements OnInit {
         reason || undefined
       );
 
-      // 再計算後の計算結果を取得して差額を確認
-      const updatedCalculation = await this.calculationService.getCalculation(calculationId);
-      
-      // 差額がある場合、遡及控除月選択ダイアログを表示
-      if (updatedCalculation?.premiumDifference) {
-        const diff = updatedCalculation.premiumDifference;
-        const hasDifference = diff.healthInsurancePremiumDiff !== 0 || 
-                             diff.pensionInsurancePremiumDiff !== 0 || 
-                             diff.companyShareDiff !== 0 || 
-                             diff.employeeShareDiff !== 0;
-        
-        if (hasDifference) {
-          const deductionDialogRef = this.dialog.open(RetroactiveDeductionDialogComponent, {
-            width: '500px',
-            data: {
-              premiumDifference: diff,
-              currentYear: year,
-              currentMonth: month
-            }
-          });
+      // 遡及控除機能は削除（コメントアウト）
+      // const updatedCalculation = await this.calculationService.getCalculation(calculationId);
+      // if (updatedCalculation?.premiumDifference) {
+      //   const diff = updatedCalculation.premiumDifference;
+      //   const hasDifference = diff.healthInsurancePremiumDiff !== 0 || 
+      //                        diff.pensionInsurancePremiumDiff !== 0 || 
+      //                        diff.companyShareDiff !== 0 || 
+      //                        diff.employeeShareDiff !== 0;
+      //   if (hasDifference) {
+      //     const deductionDialogRef = this.dialog.open(RetroactiveDeductionDialogComponent, {
+      //       width: '500px',
+      //       data: {
+      //         premiumDifference: diff,
+      //         currentYear: year,
+      //         currentMonth: month
+      //       }
+      //     });
+      //     deductionDialogRef.afterClosed().subscribe(async (selectedMonths: RetroactiveDeductionMonth[] | undefined) => {
+      //       if (selectedMonths && selectedMonths.length > 0) {
+      //         const retroactiveDeductions: RetroactiveDeduction[] = selectedMonths.map(month => ({
+      //           year: month.year,
+      //           month: month.month,
+      //           healthInsurancePremiumDiff: diff.healthInsurancePremiumDiff,
+      //           pensionInsurancePremiumDiff: diff.pensionInsurancePremiumDiff,
+      //           companyShareDiff: diff.companyShareDiff,
+      //           employeeShareDiff: diff.employeeShareDiff,
+      //           appliedAt: new Date(),
+      //           appliedBy: currentUser.uid
+      //         }));
+      //         await this.calculationService.updateCalculation(calculationId, {
+      //           retroactiveDeductions: retroactiveDeductions
+      //         });
+      //         this.snackBar.open('再計算と遡及控除の適用が完了しました', '閉じる', { duration: 3000 });
+      //       } else {
+      //         this.snackBar.open('再計算が完了しました', '閉じる', { duration: 3000 });
+      //       }
+      //       await this.loadCalculation(calculationId);
+      //     });
+      //   } else {
+      //     this.snackBar.open('再計算が完了しました', '閉じる', { duration: 3000 });
+      //     await this.loadCalculation(calculationId);
+      //   }
+      // } else {
+      //   this.snackBar.open('再計算が完了しました', '閉じる', { duration: 3000 });
+      //   await this.loadCalculation(calculationId);
+      // }
 
-          deductionDialogRef.afterClosed().subscribe(async (selectedMonths: RetroactiveDeductionMonth[] | undefined) => {
-            if (selectedMonths && selectedMonths.length > 0) {
-              // 遡及控除情報を作成
-              const retroactiveDeductions: RetroactiveDeduction[] = selectedMonths.map(month => ({
-                year: month.year,
-                month: month.month,
-                healthInsurancePremiumDiff: diff.healthInsurancePremiumDiff,
-                pensionInsurancePremiumDiff: diff.pensionInsurancePremiumDiff,
-                companyShareDiff: diff.companyShareDiff,
-                employeeShareDiff: diff.employeeShareDiff,
-                appliedAt: new Date(),
-                appliedBy: currentUser.uid
-              }));
-
-              // 遡及控除情報を更新
-              await this.calculationService.updateCalculation(calculationId, {
-                retroactiveDeductions: retroactiveDeductions
-              });
-
-              this.snackBar.open('再計算と遡及控除の適用が完了しました', '閉じる', { duration: 3000 });
-            } else {
-              this.snackBar.open('再計算が完了しました', '閉じる', { duration: 3000 });
-            }
-            await this.loadCalculation(calculationId);
-          });
-        } else {
-          this.snackBar.open('再計算が完了しました', '閉じる', { duration: 3000 });
-          await this.loadCalculation(calculationId);
-        }
-      } else {
-        this.snackBar.open('再計算が完了しました', '閉じる', { duration: 3000 });
-        await this.loadCalculation(calculationId);
-      }
+      this.snackBar.open('再計算が完了しました', '閉じる', { duration: 3000 });
+      await this.loadCalculation(calculationId);
     } catch (error: any) {
       console.error('再計算の実行に失敗しました:', error);
       this.snackBar.open(error.message || '再計算の実行に失敗しました', '閉じる', { duration: 5000 });
@@ -471,6 +522,18 @@ export class CalculationDetailComponent implements OnInit {
       const dateB = b.recalculatedAt instanceof Date ? b.recalculatedAt.getTime() : (b.recalculatedAt?.toDate ? b.recalculatedAt.toDate().getTime() : 0);
       return dateA - dateB; // 昇順（古い順）
     });
+  }
+
+  /**
+   * 再計算タイプのラベルを取得
+   */
+  getRecalculationTypeLabel(recalculationType?: 'historical' | 'current'): string {
+    if (recalculationType === 'historical') {
+      return '再現計算（当時条件）';
+    } else if (recalculationType === 'current') {
+      return '再計算（現在条件）';
+    }
+    return '再計算'; // 既存データ用のフォールバック
   }
 
   /**
@@ -538,11 +601,34 @@ export class CalculationDetailComponent implements OnInit {
 
       this.snackBar.open('計算が完了しました', '閉じる', { duration: 3000 });
       
-      // 計算詳細画面に遷移（計算結果を読み込む）
-      await this.loadCalculation(calculationId);
+      // URLを計算IDに更新してから再読み込み（リロード時に正しく表示されるように）
+      this.router.navigate(['/calculations', calculationId], { replaceUrl: true }).then(() => {
+        this.loadCalculation(calculationId);
+      });
     } catch (error: any) {
       console.error('計算の実行に失敗しました:', error);
-      this.snackBar.open(error.message || '計算の実行に失敗しました', '閉じる', { duration: 5000 });
+      // エラーメッセージを日本語に変換
+      let errorMessage = '計算の実行に失敗しました';
+      if (error.message) {
+        // Firestoreのエラーメッセージを日本語に変換
+        if (error.message.includes('Unsupported field value: undefined')) {
+          errorMessage = '計算データに無効な値が含まれています。部署情報などの必須情報が設定されているか確認してください。';
+        } else if (error.message.includes('Function setDoc() called with invalid data')) {
+          errorMessage = '計算データの保存に失敗しました。データに無効な値が含まれています。';
+        } else if (error.message.includes('給与データが確定されていません')) {
+          errorMessage = error.message; // 既に日本語
+        } else if (error.message.includes('他社給与データが確定されていません')) {
+          errorMessage = error.message; // 既に日本語
+        } else if (error.message.includes('標準報酬月額が設定されていません')) {
+          errorMessage = error.message; // 既に日本語
+        } else if (error.message.includes('既に確定済み')) {
+          errorMessage = error.message; // 既に日本語
+        } else {
+          // その他のエラーは元のメッセージを表示
+          errorMessage = error.message;
+        }
+      }
+      this.snackBar.open(errorMessage, '閉じる', { duration: 5000 });
     }
   }
 }

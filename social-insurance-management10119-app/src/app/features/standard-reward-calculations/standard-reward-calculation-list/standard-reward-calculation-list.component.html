@@ -40,9 +40,13 @@
                 <mat-icon>play_arrow</mat-icon>
                 一括計算実行
               </button>
-              <button mat-raised-button color="primary" (click)="confirmSelectedStandardCalculations()" [disabled]="selectedStandardCalculations.size === 0">
+              <button mat-raised-button color="primary" (click)="confirmSelectedStandardCalculations()" [disabled]="!hasSelectedDraftStandardCalculations()">
                 <mat-icon>check_circle</mat-icon>
                 一括確定
+              </button>
+              <button mat-raised-button color="primary" (click)="changeStatusesForSelectedStandardCalculations()" [disabled]="getSelectedStandardCalculationsForStatusChange().length === 0">
+                <mat-icon>edit</mat-icon>
+                一括ステータス変更
               </button>
             </div>
 
@@ -61,8 +65,7 @@
                     <mat-checkbox
                       (click)="$event.stopPropagation()"
                       (change)="$event ? toggleStandardSelection(row) : null"
-                      [checked]="isStandardSelected(row)"
-                      [disabled]="row.calculation && row.calculation.status !== 'draft'">
+                      [checked]="isStandardSelected(row)">
                     </mat-checkbox>
                   </td>
                 </ng-container>
@@ -104,7 +107,7 @@
                   <th mat-header-cell *matHeaderCellDef>ステータス</th>
                   <td mat-cell *matCellDef="let row">
                     <mat-chip *ngIf="row.calculation">
-                      {{ row.calculation.status === 'draft' ? '下書き' : row.calculation.status === 'applied' ? '申請済み' : '承認済み' }}
+                      {{ row.calculation.status === 'draft' ? '下書き' : row.calculation.status === 'confirmed' ? '確定済み' : row.calculation.status === 'applied' ? '申請済み' : '承認済み' }}
                     </mat-chip>
                     <span *ngIf="!row.calculation">未計算</span>
                   </td>
@@ -114,10 +117,10 @@
                 <ng-container matColumnDef="actions">
                   <th mat-header-cell *matHeaderCellDef>操作</th>
                   <td mat-cell *matCellDef="let row">
-                    <button mat-icon-button color="primary" (click)="executeStandardCalculation(row.employeeId)" *ngIf="!row.calculation">
+                    <button mat-icon-button color="primary" (click)="executeStandardCalculation(row.employeeId)" *ngIf="!row.calculation" matTooltip="算定計算を実行">
                       <mat-icon>play_arrow</mat-icon>
                     </button>
-                    <button mat-icon-button color="primary" (click)="viewDetail(row)" *ngIf="row.calculation">
+                    <button mat-icon-button color="primary" (click)="viewDetail(row)" *ngIf="row.calculation" matTooltip="詳細を表示">
                       <mat-icon>visibility</mat-icon>
                     </button>
                   </td>
@@ -155,15 +158,24 @@
               </div>
             </form>
 
+            <!-- 注意書き -->
+            <div style="margin-bottom: 16px;">
+              <span style="color: red;">※月変計算では他社兼務者の計算や判定は行いません</span>
+            </div>
+
             <!-- 一括操作ボタン -->
             <div style="margin-bottom: 16px; display: flex; gap: 8px;">
               <button mat-raised-button color="primary" (click)="executeBulkMonthlyChangeCalculation()" [disabled]="selectedMonthlyChangeEmployees.size === 0">
                 <mat-icon>play_arrow</mat-icon>
                 一括計算実行
               </button>
-              <button mat-raised-button color="primary" (click)="confirmSelectedMonthlyChangeCalculations()" [disabled]="selectedMonthlyChangeCalculations.size === 0">
+              <button mat-raised-button color="primary" (click)="confirmSelectedMonthlyChangeCalculations()" [disabled]="!hasSelectedDraftMonthlyChangeCalculations()">
                 <mat-icon>check_circle</mat-icon>
                 一括確定
+              </button>
+              <button mat-raised-button color="primary" (click)="changeStatusesForSelectedMonthlyChangeCalculations()" [disabled]="getSelectedMonthlyChangeCalculationsForStatusChange().length === 0">
+                <mat-icon>edit</mat-icon>
+                一括ステータス変更
               </button>
             </div>
 
@@ -182,8 +194,7 @@
                     <mat-checkbox
                       (click)="$event.stopPropagation()"
                       (change)="$event ? toggleMonthlyChangeSelection(row) : null"
-                      [checked]="isMonthlyChangeSelected(row)"
-                      [disabled]="row.calculation && row.calculation.status !== 'draft'">
+                      [checked]="isMonthlyChangeSelected(row)">
                     </mat-checkbox>
                   </td>
                 </ng-container>
@@ -210,7 +221,7 @@
                 <ng-container matColumnDef="changeMonth">
                   <th mat-header-cell *matHeaderCellDef>変動月</th>
                   <td mat-cell *matCellDef="let row">
-                    {{ row.calculation?.changeMonth ? row.calculation.changeMonth.year + '年' + row.calculation.changeMonth.month + '月' : '-' }}
+                    {{ row.changeMonth ? row.changeMonth.year + '年' + row.changeMonth.month + '月' : '-' }}
                   </td>
                 </ng-container>
 
@@ -218,7 +229,7 @@
                 <ng-container matColumnDef="gradeChange">
                   <th mat-header-cell *matHeaderCellDef>等級変動</th>
                   <td mat-cell *matCellDef="let row">
-                    {{ row.calculation?.gradeChange !== undefined ? row.calculation.gradeChange + '等級' : '-' }}
+                    {{ row.calculation && row.calculation.gradeChange !== undefined ? row.calculation.gradeChange + '等級' : '-' }}
                   </td>
                 </ng-container>
 
@@ -238,7 +249,7 @@
                   <th mat-header-cell *matHeaderCellDef>ステータス</th>
                   <td mat-cell *matCellDef="let row">
                     <mat-chip *ngIf="row.calculation">
-                      {{ row.calculation.status === 'draft' ? '下書き' : row.calculation.status === 'applied' ? '申請済み' : '承認済み' }}
+                      {{ row.calculation.status === 'draft' ? '下書き' : row.calculation.status === 'confirmed' ? '確定済み' : row.calculation.status === 'applied' ? '申請済み' : '承認済み' }}
                     </mat-chip>
                     <span *ngIf="!row.calculation">未計算</span>
                   </td>
@@ -248,14 +259,11 @@
                 <ng-container matColumnDef="actions">
                   <th mat-header-cell *matHeaderCellDef>操作</th>
                   <td mat-cell *matCellDef="let row">
-                    <button mat-icon-button color="primary" (click)="executeMonthlyChangeCalculation(row.employeeId)" *ngIf="!row.calculation">
+                    <button mat-icon-button color="primary" (click)="executeMonthlyChangeCalculation(row.employeeId)" *ngIf="!row.calculation" matTooltip="月変計算を実行">
                       <mat-icon>play_arrow</mat-icon>
                     </button>
-                    <button mat-icon-button color="primary" (click)="viewDetail(row)" *ngIf="row.calculation">
+                    <button mat-icon-button color="primary" (click)="viewDetail(row)" *ngIf="row.calculation" matTooltip="詳細を表示">
                       <mat-icon>visibility</mat-icon>
-                    </button>
-                    <button mat-icon-button color="accent" (click)="createApplication(row)" *ngIf="row.calculation && row.calculation.requiresApplication">
-                      <mat-icon>description</mat-icon>
                     </button>
                   </td>
                 </ng-container>

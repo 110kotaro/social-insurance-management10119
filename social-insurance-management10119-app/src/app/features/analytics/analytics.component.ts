@@ -16,6 +16,7 @@ import { StandardRewardCalculationService } from '../../core/services/standard-r
 import { DepartmentService } from '../../core/services/department.service';
 import { EmployeeService } from '../../core/services/employee.service';
 import { MonthlyCalculation } from '../../core/models/monthly-calculation.model';
+import { BonusCalculation } from '../../core/models/bonus-calculation.model';
 import { StandardRewardCalculation } from '../../core/models/standard-reward-calculation.model';
 import { Department } from '../../core/models/department.model';
 import { Employee } from '../../core/models/employee.model';
@@ -179,27 +180,41 @@ export class AnalyticsComponent implements OnInit {
   }
 
   /**
-   * 保険料集計を読み込み
+   * 保険料集計を読み込み（月次と賞与の両方を含む）
    */
   async loadPremiumSummary(): Promise<void> {
     if (!this.organizationId) {
       return;
     }
 
-    const calculations = await this.calculationService.getCalculationsByMonth(
+    // 月次計算結果を取得
+    const monthlyCalculations = await this.calculationService.getCalculationsByMonth(
+      this.organizationId,
+      this.selectedYear,
+      this.selectedMonth
+    );
+
+    // 賞与計算結果を取得
+    const bonusCalculations = await this.calculationService.getBonusCalculationsByMonth(
       this.organizationId,
       this.selectedYear,
       this.selectedMonth
     );
 
     // 確定済みまたは出力済みの計算結果のみを集計
-    const confirmedCalculations = calculations.filter(calc => 
+    const confirmedMonthlyCalculations = monthlyCalculations.filter(calc => 
       calc.status === 'confirmed' || calc.status === 'exported'
     );
 
-    // 社員別集計
+    const confirmedBonusCalculations = bonusCalculations.filter(calc => 
+      calc.status === 'confirmed' || calc.status === 'exported'
+    );
+
+    // 社員別集計（月次と賞与を統合）
     const employeeMap = new Map<string, EmployeeSummary>();
-    for (const calc of confirmedCalculations) {
+    
+    // 月次計算結果を処理
+    for (const calc of confirmedMonthlyCalculations) {
       if (!calc.employeeId) continue;
 
       const existing = employeeMap.get(calc.employeeId);
@@ -207,6 +222,32 @@ export class AnalyticsComponent implements OnInit {
         existing.employeeShare += calc.employeeShare || 0;
         existing.companyShare += calc.companyShare || 0;
         existing.totalPremium += calc.totalPremium || 0;
+      } else {
+        employeeMap.set(calc.employeeId, {
+          employeeId: calc.employeeId,
+          employeeNumber: calc.employeeNumber || '',
+          employeeName: calc.employeeName || '',
+          departmentName: calc.departmentName || '',
+          employeeShare: calc.employeeShare || 0,
+          companyShare: calc.companyShare || 0,
+          totalPremium: calc.totalPremium || 0
+        });
+      }
+    }
+
+    // 賞与計算結果を処理（同じ社員IDで合算）
+    for (const calc of confirmedBonusCalculations) {
+      if (!calc.employeeId) continue;
+
+      const existing = employeeMap.get(calc.employeeId);
+      if (existing) {
+        existing.employeeShare += calc.employeeShare || 0;
+        existing.companyShare += calc.companyShare || 0;
+        existing.totalPremium += calc.totalPremium || 0;
+        // 部署名が月次にない場合は賞与から取得
+        if (!existing.departmentName && calc.departmentName) {
+          existing.departmentName = calc.departmentName;
+        }
       } else {
         employeeMap.set(calc.employeeId, {
           employeeId: calc.employeeId,
@@ -261,7 +302,7 @@ export class AnalyticsComponent implements OnInit {
   }
 
   /**
-   * 月次推移を読み込み
+   * 月次推移を読み込み（月次と賞与の両方を含む）
    */
   async loadMonthlyTrends(): Promise<void> {
     if (!this.organizationId) {
@@ -272,19 +313,36 @@ export class AnalyticsComponent implements OnInit {
     
     // 選択年の1月から12月まで
     for (let month = 1; month <= 12; month++) {
-      const calculations = await this.calculationService.getCalculationsByMonth(
+      // 月次計算結果を取得
+      const monthlyCalculations = await this.calculationService.getCalculationsByMonth(
         this.organizationId,
         this.selectedTrendYear,
         month
       );
 
-      const confirmedCalculations = calculations.filter(calc => 
+      // 賞与計算結果を取得
+      const bonusCalculations = await this.calculationService.getBonusCalculationsByMonth(
+        this.organizationId,
+        this.selectedTrendYear,
+        month
+      );
+
+      // 確定済みまたは出力済みの計算結果のみを集計
+      const confirmedMonthlyCalculations = monthlyCalculations.filter(calc => 
         calc.status === 'confirmed' || calc.status === 'exported'
       );
 
-      const employeeShare = confirmedCalculations.reduce((sum, calc) => sum + (calc.employeeShare || 0), 0);
-      const companyShare = confirmedCalculations.reduce((sum, calc) => sum + (calc.companyShare || 0), 0);
-      const totalPremium = confirmedCalculations.reduce((sum, calc) => sum + (calc.totalPremium || 0), 0);
+      const confirmedBonusCalculations = bonusCalculations.filter(calc => 
+        calc.status === 'confirmed' || calc.status === 'exported'
+      );
+
+      // 月次と賞与を合算
+      const employeeShare = confirmedMonthlyCalculations.reduce((sum, calc) => sum + (calc.employeeShare || 0), 0) +
+                           confirmedBonusCalculations.reduce((sum, calc) => sum + (calc.employeeShare || 0), 0);
+      const companyShare = confirmedMonthlyCalculations.reduce((sum, calc) => sum + (calc.companyShare || 0), 0) +
+                           confirmedBonusCalculations.reduce((sum, calc) => sum + (calc.companyShare || 0), 0);
+      const totalPremium = confirmedMonthlyCalculations.reduce((sum, calc) => sum + (calc.totalPremium || 0), 0) +
+                           confirmedBonusCalculations.reduce((sum, calc) => sum + (calc.totalPremium || 0), 0);
 
       trends.push({
         year: this.selectedTrendYear,

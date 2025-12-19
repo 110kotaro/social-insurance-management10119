@@ -449,10 +449,14 @@ export class EmployeeDetailComponent implements OnInit {
       return `${fieldLabel}: ${beforeValue} → ${afterValue}`;
     }
 
-    // 複雑なオブジェクト（扶養情報、保険情報全体、他社勤務情報、休職情報、住所情報）
+    // 休職情報の詳細表示
+    if (change.field === 'leaveInfo') {
+      return this.formatLeaveInfoChange(change.before, change.after);
+    }
+
+    // 複雑なオブジェクト（扶養情報、保険情報全体、他社勤務情報、住所情報）
     if (change.field === 'dependentInfo' || change.field === 'insuranceInfo' || 
-        change.field === 'otherCompanyInfo' || change.field === 'leaveInfo' || 
-        change.field === 'address.official') {
+        change.field === 'otherCompanyInfo' || change.field === 'address.official') {
       // 簡易的な差分表示（詳細は後で改善可能）
       const beforeStr = change.before ? JSON.stringify(change.before) : '-';
       const afterStr = change.after ? JSON.stringify(change.after) : '-';
@@ -502,6 +506,116 @@ export class EmployeeDetailComponent implements OnInit {
     if (date instanceof Date) return date;
     if (date?.toDate) return date.toDate();
     return new Date(date);
+  }
+
+  /**
+   * 休職情報の変更を詳細に表示
+   */
+  formatLeaveInfoChange(before: any, after: any): string {
+    const beforeArray = Array.isArray(before) ? before : (before ? [before] : []);
+    const afterArray = Array.isArray(after) ? after : (after ? [after] : []);
+
+    // 両方とも空の場合
+    if (beforeArray.length === 0 && afterArray.length === 0) {
+      return '休職情報: 変更なし';
+    }
+
+    // 追加された場合
+    if (beforeArray.length === 0 && afterArray.length > 0) {
+      const messages = afterArray.map((leave: any, index: number) => {
+        const typeLabel = this.getLeaveTypeLabel(leave.type || '');
+        const startDate = this.formatDateValue(leave.startDate);
+        const endDate = leave.endDate ? this.formatDateValue(leave.endDate) : null;
+        const dateInfo = endDate ? `開始日: ${startDate}、終了日: ${endDate}` : `開始日: ${startDate}`;
+        return `休職情報${index + 1}（${typeLabel}、${dateInfo}）を追加`;
+      });
+      return messages.join('、');
+    }
+
+    // 削除された場合
+    if (beforeArray.length > 0 && afterArray.length === 0) {
+      const messages = beforeArray.map((leave: any, index: number) => {
+        const typeLabel = this.getLeaveTypeLabel(leave.type || '');
+        const startDate = this.formatDateValue(leave.startDate);
+        const endDate = leave.endDate ? this.formatDateValue(leave.endDate) : null;
+        const dateInfo = endDate ? `開始日: ${startDate}、終了日: ${endDate}` : `開始日: ${startDate}`;
+        return `休職情報${index + 1}（${typeLabel}、${dateInfo}）を削除`;
+      });
+      return messages.join('、');
+    }
+
+    // 変更があった場合
+    const changes: string[] = [];
+    const maxLength = Math.max(beforeArray.length, afterArray.length);
+
+    for (let i = 0; i < maxLength; i++) {
+      const beforeLeave = beforeArray[i];
+      const afterLeave = afterArray[i];
+      const leaveIndex = i + 1;
+
+      // 追加された休職情報
+      if (!beforeLeave && afterLeave) {
+        const typeLabel = this.getLeaveTypeLabel(afterLeave.type || '');
+        const startDate = this.formatDateValue(afterLeave.startDate);
+        const endDate = afterLeave.endDate ? this.formatDateValue(afterLeave.endDate) : null;
+        const dateInfo = endDate ? `開始日: ${startDate}、終了日: ${endDate}` : `開始日: ${startDate}`;
+        changes.push(`休職情報${leaveIndex}（${typeLabel}、${dateInfo}）を追加`);
+        continue;
+      }
+
+      // 削除された休職情報
+      if (beforeLeave && !afterLeave) {
+        const typeLabel = this.getLeaveTypeLabel(beforeLeave.type || '');
+        const startDate = this.formatDateValue(beforeLeave.startDate);
+        const endDate = beforeLeave.endDate ? this.formatDateValue(beforeLeave.endDate) : null;
+        const dateInfo = endDate ? `開始日: ${startDate}、終了日: ${endDate}` : `開始日: ${startDate}`;
+        changes.push(`休職情報${leaveIndex}（${typeLabel}、${dateInfo}）を削除`);
+        continue;
+      }
+
+      // 変更があった休職情報
+      if (beforeLeave && afterLeave) {
+        const leaveChanges: string[] = [];
+
+        // 休職種別の変更
+        if (beforeLeave.type !== afterLeave.type) {
+          const beforeTypeLabel = this.getLeaveTypeLabel(beforeLeave.type || '');
+          const afterTypeLabel = this.getLeaveTypeLabel(afterLeave.type || '');
+          leaveChanges.push(`休職種別: ${beforeTypeLabel} → ${afterTypeLabel}`);
+        }
+
+        // 開始日の変更
+        const beforeStartDate = this.formatDateValue(beforeLeave.startDate);
+        const afterStartDate = this.formatDateValue(afterLeave.startDate);
+        if (beforeStartDate !== afterStartDate) {
+          leaveChanges.push(`開始日: ${beforeStartDate} → ${afterStartDate}`);
+        }
+
+        // 終了日の変更
+        const beforeEndDate = this.formatDateValue(beforeLeave.endDate);
+        const afterEndDate = this.formatDateValue(afterLeave.endDate);
+        if (beforeEndDate !== afterEndDate) {
+          leaveChanges.push(`終了日: ${beforeEndDate || '未設定'} → ${afterEndDate || '未設定'}`);
+        }
+
+        // 承認状態の変更
+        if (beforeLeave.isApproved !== afterLeave.isApproved) {
+          const beforeApproved = beforeLeave.isApproved ? '承認済み' : '未承認';
+          const afterApproved = afterLeave.isApproved ? '承認済み' : '未承認';
+          leaveChanges.push(`承認状態: ${beforeApproved} → ${afterApproved}`);
+        }
+
+        if (leaveChanges.length > 0) {
+          changes.push(`休職情報${leaveIndex}: ${leaveChanges.join('、')}`);
+        }
+      }
+    }
+
+    if (changes.length === 0) {
+      return '休職情報: 変更なし';
+    }
+
+    return changes.join('、');
   }
 
 }

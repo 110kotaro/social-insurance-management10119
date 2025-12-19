@@ -20,6 +20,14 @@
         </mat-form-field>
       </div>
 
+      <!-- 注意事項 -->
+      <div class="notice-section">
+        <mat-icon>info</mat-icon>
+        <div class="notice-content">
+          計算月分と同月入社、同月退社した方で、報酬を日割りしている場合は、報酬額をその月の総日数で除して得た額の30倍に相当する額を記入してください。
+        </div>
+      </div>
+
       <!-- フィルタ -->
       <div class="filter-section">
         <form [formGroup]="filterForm" (ngSubmit)="onFilterChange()">
@@ -50,6 +58,10 @@
         <button mat-raised-button color="primary" (click)="importFromExcel()">
           <mat-icon>upload</mat-icon>
           Excel/CSVインポート
+        </button>
+        <button mat-stroked-button color="primary" (click)="showSample()">
+          <mat-icon>description</mat-icon>
+          サンプルデータを表示
         </button>
         <button mat-raised-button (click)="exportToExcel()" *ngIf="!hideExport">
           <mat-icon>download</mat-icon>
@@ -150,9 +162,9 @@
             <td mat-cell *matCellDef="let row">
               <input 
                 type="date" 
-                [(ngModel)]="row.bonusPaymentDate"
-                (blur)="updateSalaryData(row, 'bonusPaymentDate', row.bonusPaymentDate)"
                 [value]="row.bonusPaymentDate ? formatDateForInput(row.bonusPaymentDate) : ''"
+                (input)="onBonusPaymentDateChange(row, $event)"
+                (blur)="updateSalaryData(row, 'bonusPaymentDate', row.bonusPaymentDate)"
                 class="date-input">
             </td>
           </ng-container>

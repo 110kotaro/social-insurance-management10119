@@ -1,0 +1,33 @@
+<h2 mat-dialog-title>
+  <mat-icon>edit</mat-icon>
+  ステータス変更
+</h2>
+
+<mat-dialog-content>
+  <p class="employee-info" *ngIf="data.employeeName">
+    <strong>{{ data.employeeName }}</strong> の計算結果のステータスを変更します。
+  </p>
+  <p class="employee-info" *ngIf="data.count">
+    <strong>{{ data.count }}件</strong>の計算結果のステータスを変更します。
+  </p>
+
+  <p class="current-status">
+    現在のステータス: <strong>{{ getStatusLabel(data.currentStatus) }}</strong>
+  </p>
+
+  <mat-form-field appearance="outline">
+    <mat-label>新しいステータス</mat-label>
+    <mat-select [(ngModel)]="selectedStatus">
+      <mat-option value="applied">申請済み</mat-option>
+      <mat-option value="approved">承認済み</mat-option>
+    </mat-select>
+  </mat-form-field>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">キャンセル</button>
+  <button mat-raised-button color="primary" (click)="save()">
+    <mat-icon>save</mat-icon>
+    変更
+  </button>
+</mat-dialog-actions>

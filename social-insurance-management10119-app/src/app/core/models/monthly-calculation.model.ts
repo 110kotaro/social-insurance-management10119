@@ -8,6 +8,7 @@ export interface CalculationRecalculationHistory {
   recalculatedAt: Date | Timestamp; // 再計算日時
   recalculatedBy: string; // 再計算実行者のuserId
   reason?: string; // 再計算理由
+  recalculationType?: 'historical' | 'current'; // 再現計算（当時条件） or 再計算（現在条件）
   dataSnapshot: Partial<MonthlyCalculation>; // 再計算前の計算データのスナップショット
 }
 
@@ -77,6 +78,8 @@ export interface MonthlyCalculation {
   pensionGrade?: number | null; // 厚生年金等級
   healthInsurancePremium: number; // 健康保険料（全額）
   pensionInsurancePremium: number; // 厚生年金料（全額）
+  dependentHealthInsurancePremium?: number; // 被扶養者健康保険料（全額）
+  dependentPensionInsurancePremium?: number; // 被扶養者厚生年金料（全額）
   careInsurancePremium: number; // 介護保険料（全額、40-64歳のみ）
   totalPremium: number; // 合計保険料（全額）
   companyShare: number; // 会社負担額（折半額）

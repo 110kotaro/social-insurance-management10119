@@ -8,6 +8,7 @@ export interface BonusCalculationRecalculationHistory {
   recalculatedAt: Date | Timestamp;
   recalculatedBy: string;
   reason?: string;
+  recalculationType?: 'historical' | 'current'; // 再現計算（当時条件） or 再計算（現在条件）
   dataSnapshot: Partial<BonusCalculation>;
 }
 
@@ -72,6 +73,8 @@ export interface BonusCalculation {
   healthInsurancePremium: number; // 健康保険料（全額）
   pensionInsurancePremium: number; // 厚生年金料（全額）
   careInsurancePremium: number; // 介護保険料（全額、40-64歳のみ）
+  dependentHealthInsurancePremium?: number; // 被扶養者健康保険料（全額）
+  dependentPensionInsurancePremium?: number; // 被扶養者厚生年金料（全額）
   totalPremium: number; // 合計保険料（全額）
   companyShare: number; // 会社負担額（折半額）
   employeeShare: number; // 従業員負担額（折半額）
@@ -84,6 +87,8 @@ export interface BonusCalculation {
   isOtherCompany?: boolean; // 他社兼務かどうか
   ownCompanySalary?: number; // 自社給与（賞与）
   otherCompanySalaryTotal?: number; // 他社月額報酬合算（賞与）
+  grade?: number; // 健康保険等級
+  pensionGrade?: number | null; // 厚生年金等級
   healthInsuranceRate?: number;
   healthInsuranceRateWithCare?: boolean;
   pensionInsuranceRate?: number;

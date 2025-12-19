@@ -100,8 +100,6 @@ export class EmployeeExportComponent implements OnInit {
     { value: 'salary', label: '給与情報', selected: true }
   ];
 
-  // 出力形式（'excel' | 'csv'）
-  exportFormat: 'excel' | 'csv' = 'excel';
 
   constructor() {
     this.filterForm = this.fb.group({
@@ -254,13 +252,6 @@ export class EmployeeExportComponent implements OnInit {
   /**
    * エクスポート実行
    */
-  async exportData(): Promise<void> {
-    if (this.exportFormat === 'excel') {
-      await this.exportToExcel();
-    } else {
-      await this.exportToCsv();
-    }
-  }
 
   /**
    * Excel形式でエクスポート

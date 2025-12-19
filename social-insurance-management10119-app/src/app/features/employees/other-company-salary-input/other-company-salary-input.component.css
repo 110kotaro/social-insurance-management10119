@@ -22,9 +22,12 @@
   color: #666;
 }
 
+.table-container {
+  overflow-x: auto;
+}
+
 .salary-table {
   width: 100%;
-  margin-top: 16px;
 }
 
 .salary-table th,
@@ -32,7 +35,10 @@
   padding: 8px 16px;
 }
 
-.salary-table mat-form-field {
-  width: 100%;
+.number-input {
+  width: 150px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
 

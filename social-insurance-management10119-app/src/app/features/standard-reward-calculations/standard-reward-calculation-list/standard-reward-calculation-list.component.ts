@@ -14,13 +14,16 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../../core/auth/auth.service';
 import { StandardRewardCalculationService } from '../../../core/services/standard-reward-calculation.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { SalaryDataService } from '../../../core/services/salary-data.service';
 import { StandardRewardCalculation, StandardRewardCalculationListRow } from '../../../core/models/standard-reward-calculation.model';
-import { Employee } from '../../../core/models/employee.model';
+import { Employee, LeaveInfo } from '../../../core/models/employee.model';
+import { Timestamp } from '@angular/fire/firestore';
+import { StatusChangeDialogComponent, StatusChangeDialogData } from '../standard-reward-calculation-detail/status-change-dialog.component';
 
 @Component({
   selector: 'app-standard-reward-calculation-list',
@@ -39,7 +42,8 @@ import { Employee } from '../../../core/models/employee.model';
     MatChipsModule,
     MatSnackBarModule,
     MatDialogModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatTooltipModule
   ],
   templateUrl: './standard-reward-calculation-list.component.html',
   styleUrl: './standard-reward-calculation-list.component.css'
@@ -74,14 +78,14 @@ export class StandardRewardCalculationListComponent implements OnInit {
   standardRows: StandardRewardCalculationListRow[] = [];
   standardDataSource = new MatTableDataSource<StandardRewardCalculationListRow>([]);
   standardDisplayedColumns: string[] = ['select', 'employeeNumber', 'employeeName', 'departmentName', 'targetYear', 'standardReward', 'status', 'actions'];
-  selectedStandardCalculations: Set<string> = new Set(); // draftの計算結果ID
+  selectedStandardCalculations: Set<string> = new Set(); // 選択された計算結果ID（draft/confirmed/applied/approved）
   selectedStandardEmployees: Set<string> = new Set(); // 未計算の社員ID
 
   // 月変タブ
   monthlyChangeRows: StandardRewardCalculationListRow[] = [];
   monthlyChangeDataSource = new MatTableDataSource<StandardRewardCalculationListRow>([]);
   monthlyChangeDisplayedColumns: string[] = ['select', 'employeeNumber', 'employeeName', 'departmentName', 'changeMonth', 'gradeChange', 'requiresApplication', 'status', 'actions'];
-  selectedMonthlyChangeCalculations: Set<string> = new Set(); // draftの計算結果ID
+  selectedMonthlyChangeCalculations: Set<string> = new Set(); // 選択された計算結果ID（draft/confirmed/applied/approved）
   selectedMonthlyChangeEmployees: Set<string> = new Set(); // 未計算の社員ID
 
   isLoading = false;
@@ -273,6 +277,11 @@ export class StandardRewardCalculationListComponent implements OnInit {
     }
     
     for (const employee of employees) {
+      // 他社兼務者は除外
+      if (employee.otherCompanyInfo && employee.otherCompanyInfo.length > 0) {
+        continue;
+      }
+
       // 退職日の翌日が含まれる月以降は除外
       if (employee.retirementDate) {
         const retirementDate = employee.retirementDate instanceof Date ? employee.retirementDate : new Date((employee.retirementDate as any).seconds * 1000);
@@ -325,6 +334,29 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
       if (!allMonthsValid) continue;
 
+      // 変動月を含む3か月間（(A-2)月からA月まで）のうち、いずれかの月が休職期間中に含まれる場合は除外
+      if (employee.leaveInfo && employee.leaveInfo.length > 0) {
+        let isOnLeaveDuringPeriod = false;
+        checkYear = changeMonthYear;
+        checkMonth = changeMonth;
+        
+        for (let i = 0; i < 3; i++) {
+          if (this.isMonthOnLeave(employee.leaveInfo, checkYear, checkMonth)) {
+            isOnLeaveDuringPeriod = true;
+            break;
+          }
+          checkMonth++;
+          if (checkMonth > 12) {
+            checkMonth = 1;
+            checkYear++;
+          }
+        }
+        
+        if (isOnLeaveDuringPeriod) {
+          continue;
+        }
+      }
+
       const department = departments.find(d => d.id === employee.departmentId);
       // 変動月に一致する計算履歴を取得
       const calculation = calculations.find(c => {
@@ -337,11 +369,91 @@ export class StandardRewardCalculationListComponent implements OnInit {
         employeeNumber: employee.employeeNumber,
         employeeName: `${employee.lastName} ${employee.firstName}`,
         departmentName: department?.name,
-        calculation: calculation || null
+        calculation: calculation || null,
+        changeMonth: { year: changeMonthYear, month: changeMonth }
       });
     }
 
     return rows;
+  }
+
+  /**
+   * 指定された年月が休職期間中かどうかを判定
+   */
+  private isMonthOnLeave(leaveInfo: LeaveInfo[], year: number, month: number): boolean {
+    if (!leaveInfo || leaveInfo.length === 0) {
+      return false;
+    }
+
+    const targetMonthStart = new Date(year, month - 1, 1);
+    const targetMonthEnd = new Date(year, month, 0); // その月の最終日
+
+    for (const leave of leaveInfo) {
+      const leaveStartDate = this.convertToDate(leave.startDate);
+      if (!leaveStartDate) {
+        continue;
+      }
+
+      // 休職開始日を含む月の月初
+      const leaveStartMonth = new Date(leaveStartDate.getFullYear(), leaveStartDate.getMonth(), 1);
+
+      // 休職終了日の判定（退職日と同じロジック）
+      // 休職終了日の翌日が含まれる月は除外（免除対象外）
+      if (leave.endDate) {
+        const leaveEndDate = this.convertToDate(leave.endDate);
+        if (leaveEndDate) {
+          const nextDay = new Date(leaveEndDate);
+          nextDay.setDate(nextDay.getDate() + 1); // 休職終了日の翌日
+          const nextDayYear = nextDay.getFullYear();
+          const nextDayMonth = nextDay.getMonth() + 1;
+          
+          // 対象月が休職終了日の翌日が含まれる月以降なら除外（免除対象外）
+          if (year > nextDayYear || (year === nextDayYear && month >= nextDayMonth)) {
+            continue; // この休職期間は対象外
+          }
+        }
+      }
+
+      // 対象月が休職期間内かチェック
+      // 対象月の月初が休職開始月の月初以降で、かつ休職終了日の翌日が含まれる月より前
+      if (targetMonthStart >= leaveStartMonth) {
+        // 休職終了日がない場合、または対象月が休職終了日の翌日が含まれる月より前の場合
+        if (!leave.endDate) {
+          return true; // 休職期間中（終了日なし）
+        } else {
+          const leaveEndDate = this.convertToDate(leave.endDate);
+          if (leaveEndDate) {
+            const nextDay = new Date(leaveEndDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            const nextDayMonthStart = new Date(nextDay.getFullYear(), nextDay.getMonth(), 1);
+            if (targetMonthStart < nextDayMonthStart) {
+              return true; // 休職期間中
+            }
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 日付をDateオブジェクトに変換
+   */
+  private convertToDate(date: Date | Timestamp | any): Date | null {
+    if (!date) {
+      return null;
+    }
+    if (date instanceof Date) {
+      return date;
+    }
+    if (date && typeof date.toDate === 'function') {
+      return date.toDate();
+    }
+    if (date && typeof date.seconds === 'number') {
+      return new Date(date.seconds * 1000);
+    }
+    return null;
   }
 
   onTabChange(index: number): void {
@@ -429,7 +541,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   // 算定タブの選択状態管理
   isStandardSelected(row: StandardRewardCalculationListRow): boolean {
-    if (row.calculation?.id && row.calculation.status === 'draft') {
+    if (row.calculation?.id) {
       return this.selectedStandardCalculations.has(row.calculation.id);
     } else if (!row.calculation) {
       return this.selectedStandardEmployees.has(row.employeeId);
@@ -438,7 +550,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
   }
 
   toggleStandardSelection(row: StandardRewardCalculationListRow): void {
-    if (row.calculation?.id && row.calculation.status === 'draft') {
+    if (row.calculation?.id) {
       const calculationId = row.calculation.id;
       if (this.selectedStandardCalculations.has(calculationId)) {
         this.selectedStandardCalculations.delete(calculationId);
@@ -456,14 +568,14 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   isAllStandardSelected(): boolean {
     const selectableRows = this.standardRows.filter(row => 
-      (!row.calculation) || (row.calculation.status === 'draft' && row.calculation.id)
+      (!row.calculation) || (row.calculation?.id)
     );
     return selectableRows.length > 0 && selectableRows.every(row => this.isStandardSelected(row));
   }
 
   isSomeStandardSelected(): boolean {
     const selectableRows = this.standardRows.filter(row => 
-      (!row.calculation) || (row.calculation.status === 'draft' && row.calculation.id)
+      (!row.calculation) || (row.calculation?.id)
     );
     const selectedCount = selectableRows.filter(row => this.isStandardSelected(row)).length;
     return selectedCount > 0 && selectedCount < selectableRows.length;
@@ -471,12 +583,12 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   toggleAllStandard(): void {
     const selectableRows = this.standardRows.filter(row => 
-      (!row.calculation) || (row.calculation.status === 'draft' && row.calculation.id)
+      (!row.calculation) || (row.calculation?.id)
     );
     
     if (this.isAllStandardSelected()) {
       selectableRows.forEach(row => {
-        if (row.calculation?.id && row.calculation.status === 'draft') {
+        if (row.calculation?.id) {
           this.selectedStandardCalculations.delete(row.calculation.id);
         } else if (!row.calculation) {
           this.selectedStandardEmployees.delete(row.employeeId);
@@ -484,7 +596,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
       });
     } else {
       selectableRows.forEach(row => {
-        if (row.calculation?.id && row.calculation.status === 'draft') {
+        if (row.calculation?.id) {
           this.selectedStandardCalculations.add(row.calculation.id);
         } else if (!row.calculation) {
           this.selectedStandardEmployees.add(row.employeeId);
@@ -495,7 +607,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   // 月変タブの選択状態管理
   isMonthlyChangeSelected(row: StandardRewardCalculationListRow): boolean {
-    if (row.calculation?.id && row.calculation.status === 'draft') {
+    if (row.calculation?.id) {
       return this.selectedMonthlyChangeCalculations.has(row.calculation.id);
     } else if (!row.calculation) {
       return this.selectedMonthlyChangeEmployees.has(row.employeeId);
@@ -504,7 +616,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
   }
 
   toggleMonthlyChangeSelection(row: StandardRewardCalculationListRow): void {
-    if (row.calculation?.id && row.calculation.status === 'draft') {
+    if (row.calculation?.id) {
       const calculationId = row.calculation.id;
       if (this.selectedMonthlyChangeCalculations.has(calculationId)) {
         this.selectedMonthlyChangeCalculations.delete(calculationId);
@@ -522,14 +634,14 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   isAllMonthlyChangeSelected(): boolean {
     const selectableRows = this.monthlyChangeRows.filter(row => 
-      (!row.calculation) || (row.calculation.status === 'draft' && row.calculation.id)
+      (!row.calculation) || (row.calculation?.id)
     );
     return selectableRows.length > 0 && selectableRows.every(row => this.isMonthlyChangeSelected(row));
   }
 
   isSomeMonthlyChangeSelected(): boolean {
     const selectableRows = this.monthlyChangeRows.filter(row => 
-      (!row.calculation) || (row.calculation.status === 'draft' && row.calculation.id)
+      (!row.calculation) || (row.calculation?.id)
     );
     const selectedCount = selectableRows.filter(row => this.isMonthlyChangeSelected(row)).length;
     return selectedCount > 0 && selectedCount < selectableRows.length;
@@ -537,12 +649,12 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   toggleAllMonthlyChange(): void {
     const selectableRows = this.monthlyChangeRows.filter(row => 
-      (!row.calculation) || (row.calculation.status === 'draft' && row.calculation.id)
+      (!row.calculation) || (row.calculation?.id)
     );
     
     if (this.isAllMonthlyChangeSelected()) {
       selectableRows.forEach(row => {
-        if (row.calculation?.id && row.calculation.status === 'draft') {
+        if (row.calculation?.id) {
           this.selectedMonthlyChangeCalculations.delete(row.calculation.id);
         } else if (!row.calculation) {
           this.selectedMonthlyChangeEmployees.delete(row.employeeId);
@@ -550,7 +662,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
       });
     } else {
       selectableRows.forEach(row => {
-        if (row.calculation?.id && row.calculation.status === 'draft') {
+        if (row.calculation?.id) {
           this.selectedMonthlyChangeCalculations.add(row.calculation.id);
         } else if (!row.calculation) {
           this.selectedMonthlyChangeEmployees.add(row.employeeId);
@@ -614,9 +726,40 @@ export class StandardRewardCalculationListComponent implements OnInit {
     }
   }
 
+  // 選択された計算結果のうち、confirmed/applied/approvedのものを取得（算定タブ）
+  getSelectedStandardCalculationsForStatusChange(): StandardRewardCalculation[] {
+    return this.standardRows
+      .filter(row => row.calculation?.id && this.selectedStandardCalculations.has(row.calculation.id))
+      .filter(row => {
+        const status = row.calculation?.status;
+        return status === 'confirmed' || status === 'applied' || status === 'approved';
+      })
+      .map(row => row.calculation!)
+      .filter((calc): calc is StandardRewardCalculation => calc !== null);
+  }
+
+  // 選択された計算結果のうち、confirmed/applied/approvedのものを取得（月変タブ）
+  getSelectedMonthlyChangeCalculationsForStatusChange(): StandardRewardCalculation[] {
+    return this.monthlyChangeRows
+      .filter(row => row.calculation?.id && this.selectedMonthlyChangeCalculations.has(row.calculation.id))
+      .filter(row => {
+        const status = row.calculation?.status;
+        return status === 'confirmed' || status === 'applied' || status === 'approved';
+      })
+      .map(row => row.calculation!)
+      .filter((calc): calc is StandardRewardCalculation => calc !== null);
+  }
+
   // 算定タブの一括確定
   async confirmSelectedStandardCalculations(): Promise<void> {
-    if (this.selectedStandardCalculations.size === 0) {
+    // draftの計算結果のみを対象
+    const draftCalculations = this.standardRows
+      .filter(row => row.calculation?.id && this.selectedStandardCalculations.has(row.calculation.id))
+      .filter(row => row.calculation?.status === 'draft')
+      .map(row => row.calculation!.id!)
+      .filter((id): id is string => id !== undefined);
+
+    if (draftCalculations.length === 0) {
       return;
     }
 
@@ -626,16 +769,15 @@ export class StandardRewardCalculationListComponent implements OnInit {
       return;
     }
 
-    const confirmed = confirm(`${this.selectedStandardCalculations.size}件の算定計算結果を確定しますか？`);
+    const confirmed = confirm(`${draftCalculations.length}件の算定計算結果を確定しますか？`);
     if (!confirmed) {
       return;
     }
 
     try {
-      const calculationIds = Array.from(this.selectedStandardCalculations);
-      await this.calculationService.confirmCalculations(calculationIds, currentUser.uid);
-      this.selectedStandardCalculations.clear();
-      this.snackBar.open(`${calculationIds.length}件の算定計算結果を確定しました`, '閉じる', { duration: 3000 });
+      await this.calculationService.confirmCalculations(draftCalculations, currentUser.uid);
+      draftCalculations.forEach(id => this.selectedStandardCalculations.delete(id));
+      this.snackBar.open(`${draftCalculations.length}件の算定計算結果を確定しました`, '閉じる', { duration: 3000 });
       await this.loadStandardCalculations();
     } catch (error) {
       console.error('算定計算結果の確定に失敗しました:', error);
@@ -720,7 +862,14 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   // 月変タブの一括確定
   async confirmSelectedMonthlyChangeCalculations(): Promise<void> {
-    if (this.selectedMonthlyChangeCalculations.size === 0) {
+    // draftの計算結果のみを対象
+    const draftCalculations = this.monthlyChangeRows
+      .filter(row => row.calculation?.id && this.selectedMonthlyChangeCalculations.has(row.calculation.id))
+      .filter(row => row.calculation?.status === 'draft')
+      .map(row => row.calculation!.id!)
+      .filter((id): id is string => id !== undefined);
+
+    if (draftCalculations.length === 0) {
       return;
     }
 
@@ -730,21 +879,130 @@ export class StandardRewardCalculationListComponent implements OnInit {
       return;
     }
 
-    const confirmed = confirm(`${this.selectedMonthlyChangeCalculations.size}件の月変計算結果を確定しますか？`);
+    const confirmed = confirm(`${draftCalculations.length}件の月変計算結果を確定しますか？`);
     if (!confirmed) {
       return;
     }
 
     try {
-      const calculationIds = Array.from(this.selectedMonthlyChangeCalculations);
-      await this.calculationService.confirmCalculations(calculationIds, currentUser.uid);
-      this.selectedMonthlyChangeCalculations.clear();
-      this.snackBar.open(`${calculationIds.length}件の月変計算結果を確定しました`, '閉じる', { duration: 3000 });
+      await this.calculationService.confirmCalculations(draftCalculations, currentUser.uid);
+      draftCalculations.forEach(id => this.selectedMonthlyChangeCalculations.delete(id));
+      this.snackBar.open(`${draftCalculations.length}件の月変計算結果を確定しました`, '閉じる', { duration: 3000 });
       await this.loadMonthlyChangeCalculations();
     } catch (error) {
       console.error('月変計算結果の確定に失敗しました:', error);
       this.snackBar.open('月変計算結果の確定に失敗しました', '閉じる', { duration: 3000 });
     }
+  }
+
+  // 選択された計算結果のうち、draftのものがあるかチェック（算定タブ）
+  hasSelectedDraftStandardCalculations(): boolean {
+    return this.standardRows.some(row => 
+      row.calculation?.id && 
+      this.selectedStandardCalculations.has(row.calculation.id) &&
+      row.calculation.status === 'draft'
+    );
+  }
+
+  // 選択された計算結果のうち、draftのものがあるかチェック（月変タブ）
+  hasSelectedDraftMonthlyChangeCalculations(): boolean {
+    return this.monthlyChangeRows.some(row => 
+      row.calculation?.id && 
+      this.selectedMonthlyChangeCalculations.has(row.calculation.id) &&
+      row.calculation.status === 'draft'
+    );
+  }
+
+  // 算定タブの一括ステータス変更
+  async changeStatusesForSelectedStandardCalculations(): Promise<void> {
+    const calculations = this.getSelectedStandardCalculationsForStatusChange();
+    
+    if (calculations.length === 0) {
+      return;
+    }
+
+    // すべての計算結果が同じステータスかチェック
+    const statuses = new Set(calculations.map(c => c.status));
+    const currentStatus = statuses.size === 1 ? Array.from(statuses)[0] : null;
+
+    if (!currentStatus || (currentStatus !== 'confirmed' && currentStatus !== 'applied' && currentStatus !== 'approved')) {
+      this.snackBar.open('ステータス変更可能な計算結果を選択してください', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser?.uid) {
+      this.snackBar.open('ユーザー情報が取得できませんでした', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(StatusChangeDialogComponent, {
+      width: '500px',
+      data: {
+        currentStatus: currentStatus as 'confirmed' | 'applied' | 'approved',
+        count: calculations.length
+      } as StatusChangeDialogData
+    });
+
+    dialogRef.afterClosed().subscribe(async (result: 'applied' | 'approved' | null) => {
+      if (result && result !== currentStatus) {
+        try {
+          const calculationIds = calculations.map(c => c.id!).filter((id): id is string => id !== undefined);
+          await this.calculationService.changeStatuses(calculationIds, result, currentUser.uid);
+          this.snackBar.open(`${calculations.length}件の計算結果のステータスを変更しました`, '閉じる', { duration: 3000 });
+          await this.loadStandardCalculations();
+        } catch (error: any) {
+          console.error('ステータス変更に失敗しました:', error);
+          this.snackBar.open(error.message || 'ステータス変更に失敗しました', '閉じる', { duration: 3000 });
+        }
+      }
+    });
+  }
+
+  // 月変タブの一括ステータス変更
+  async changeStatusesForSelectedMonthlyChangeCalculations(): Promise<void> {
+    const calculations = this.getSelectedMonthlyChangeCalculationsForStatusChange();
+    
+    if (calculations.length === 0) {
+      return;
+    }
+
+    // すべての計算結果が同じステータスかチェック
+    const statuses = new Set(calculations.map(c => c.status));
+    const currentStatus = statuses.size === 1 ? Array.from(statuses)[0] : null;
+
+    if (!currentStatus || (currentStatus !== 'confirmed' && currentStatus !== 'applied' && currentStatus !== 'approved')) {
+      this.snackBar.open('ステータス変更可能な計算結果を選択してください', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser?.uid) {
+      this.snackBar.open('ユーザー情報が取得できませんでした', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(StatusChangeDialogComponent, {
+      width: '500px',
+      data: {
+        currentStatus: currentStatus as 'confirmed' | 'applied' | 'approved',
+        count: calculations.length
+      } as StatusChangeDialogData
+    });
+
+    dialogRef.afterClosed().subscribe(async (result: 'applied' | 'approved' | null) => {
+      if (result && result !== currentStatus) {
+        try {
+          const calculationIds = calculations.map(c => c.id!).filter((id): id is string => id !== undefined);
+          await this.calculationService.changeStatuses(calculationIds, result, currentUser.uid);
+          this.snackBar.open(`${calculations.length}件の計算結果のステータスを変更しました`, '閉じる', { duration: 3000 });
+          await this.loadMonthlyChangeCalculations();
+        } catch (error: any) {
+          console.error('ステータス変更に失敗しました:', error);
+          this.snackBar.open(error.message || 'ステータス変更に失敗しました', '閉じる', { duration: 3000 });
+        }
+      }
+    });
   }
 }
 

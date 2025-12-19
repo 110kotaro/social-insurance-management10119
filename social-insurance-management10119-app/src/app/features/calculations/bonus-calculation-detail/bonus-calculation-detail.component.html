@@ -14,9 +14,13 @@
           <mat-icon>check_circle</mat-icon>
           確定
         </button>
+        <button *ngIf="!isNewCalculation && isAdmin() && calculation && (calculation.status === 'confirmed' || calculation.status === 'exported')" mat-raised-button color="accent" (click)="recalculateCalculationHistorical()">
+          <mat-icon>history</mat-icon>
+          再現計算（当時条件）
+        </button>
         <button *ngIf="!isNewCalculation && isAdmin() && calculation && (calculation.status === 'confirmed' || calculation.status === 'exported')" mat-raised-button color="accent" (click)="recalculateCalculation()">
           <mat-icon>refresh</mat-icon>
-          再計算
+          再計算（現在条件）
         </button>
         <button *ngIf="!isNewCalculation && isAdmin() && calculation && calculation.status === 'draft'" mat-raised-button color="warn" (click)="deleteCalculation()">
           <mat-icon>delete</mat-icon>
@@ -85,7 +89,7 @@
 
         <mat-list-item>
           <span matListItemTitle>部署</span>
-          <span matListItemLine>{{ calculation.departmentName || '-' }}</span>
+          <span matListItemLine>{{ departmentName || '-' }}</span>
         </mat-list-item>
         <mat-divider></mat-divider>
 
@@ -213,29 +217,71 @@
         </mat-card-header>
         <mat-card-content>
           <mat-list>
-            <mat-list-item>
-              <span matListItemTitle>健康保険料（介護保険料含む）（全額）</span>
-              <span matListItemLine>{{ formatCurrency(calculation.healthInsurancePremium) }}</span>
-            </mat-list-item>
-            <mat-divider></mat-divider>
+            <!-- 被扶養者がいる場合の表示 -->
+            <ng-container *ngIf="calculation.dependentInfo && calculation.dependentInfo.length > 0">
+              <mat-list-item>
+                <span matListItemTitle>被保険者健康保険料（介護保険料含む）（全額）</span>
+                <span matListItemLine>{{ formatCurrency(calculation.healthInsurancePremium) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
 
-            <mat-list-item>
-              <span matListItemTitle>厚生年金料（全額）</span>
-              <span matListItemLine>{{ formatCurrency(calculation.pensionInsurancePremium) }}</span>
-            </mat-list-item>
-            <mat-divider></mat-divider>
+              <mat-list-item>
+                <span matListItemTitle>被扶養者健康保険料（介護保険料含む）（全額）</span>
+                <span matListItemLine>{{ formatCurrency(calculation.dependentHealthInsurancePremium) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
 
-            <mat-list-item class="total-item">
-              <span matListItemTitle>合計保険料（全額）</span>
-              <span matListItemLine class="total-amount">
-                {{ formatCurrency(getTotalPremiumWithRetroactiveDeduction()) }}
-                <span *ngIf="hasRetroactiveDeduction()" 
-                      style="color: #666; font-size: 0.9em; margin-left: 8px;">
-                  （遡及控除額含む）
+              <mat-list-item>
+                <span matListItemTitle>被保険者厚生年金料（全額）</span>
+                <span matListItemLine>{{ formatCurrency(calculation.pensionInsurancePremium) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+
+              <mat-list-item>
+                <span matListItemTitle>被扶養者厚生年金料（全額）</span>
+                <span matListItemLine>{{ formatCurrency(calculation.dependentPensionInsurancePremium) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+
+              <mat-list-item class="total-item">
+                <span matListItemTitle>合計保険料（全額）</span>
+                <span matListItemLine class="total-amount">
+                  {{ formatCurrency(getTotalPremiumWithRetroactiveDeduction()) }}
+                  <span *ngIf="hasRetroactiveDeduction()" 
+                        style="color: #666; font-size: 0.9em; margin-left: 8px;">
+                    （遡及控除額含む）
+                  </span>
                 </span>
-              </span>
-            </mat-list-item>
-            <mat-divider></mat-divider>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+            </ng-container>
+
+            <!-- 被扶養者がいない場合の表示 -->
+            <ng-container *ngIf="!calculation.dependentInfo || calculation.dependentInfo.length === 0">
+              <mat-list-item>
+                <span matListItemTitle>健康保険料（介護保険料含む）（全額）</span>
+                <span matListItemLine>{{ formatCurrency(calculation.healthInsurancePremium) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+
+              <mat-list-item>
+                <span matListItemTitle>厚生年金料（全額）</span>
+                <span matListItemLine>{{ formatCurrency(calculation.pensionInsurancePremium) }}</span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+
+              <mat-list-item class="total-item">
+                <span matListItemTitle>合計保険料（全額）</span>
+                <span matListItemLine class="total-amount">
+                  {{ formatCurrency(getTotalPremiumWithRetroactiveDeduction()) }}
+                  <span *ngIf="hasRetroactiveDeduction()" 
+                        style="color: #666; font-size: 0.9em; margin-left: 8px;">
+                    （遡及控除額含む）
+                  </span>
+                </span>
+              </mat-list-item>
+              <mat-divider></mat-divider>
+            </ng-container>
 
             <mat-list-item>
               <span matListItemTitle>想定会社負担額（折半額）</span>
@@ -251,9 +297,13 @@
             <mat-list-item>
               <span matListItemTitle>従業員負担額（折半額）</span>
               <span matListItemLine>
-                <!-- 休職期間中の表示 -->
+                <!-- 休職期間中の表示（後払いあり） -->
                 <span *ngIf="calculation.isOnLeave && calculation.postpaidLeaveAmount">
                   {{ formatCurrency(0) }}（後払い分：{{ formatCurrency(calculation.postpaidLeaveAmount) }}）
+                </span>
+                <!-- 休職期間中の表示（申請承認済みで全額免除） -->
+                <span *ngIf="calculation.isOnLeave && !calculation.postpaidLeaveAmount && calculation.employeeShare === 0">
+                  {{ formatCurrency(0) }}
                 </span>
                 <!-- 復職月の表示（休職中未徴収分を追記） -->
                 <span *ngIf="calculation.postpaidLeaveTotal && calculation.postpaidLeaveTotal > 0">
@@ -278,6 +328,16 @@
               </span>
             </mat-list-item>
           </mat-list>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- 備考・注意事項 -->
+      <mat-card *ngIf="calculation.notes" class="notes-card">
+        <mat-card-header>
+          <mat-card-title>備考・注意事項</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p style="white-space: pre-line;">{{ calculation.notes }}</p>
         </mat-card-content>
       </mat-card>
 
@@ -423,17 +483,20 @@
       <!-- 再計算履歴 -->
       <mat-card *ngIf="calculation.recalculationHistory && calculation.recalculationHistory.length > 0" class="history-card">
         <mat-card-header>
-          <mat-card-title>再計算履歴</mat-card-title>
+          <mat-card-title>再計算履歴（再計算前の結果）</mat-card-title>
         </mat-card-header>
         <mat-card-content>
           <mat-accordion>
             <mat-expansion-panel *ngFor="let history of getSortedRecalculationHistory(); let i = index">
               <mat-expansion-panel-header>
                 <mat-panel-title>
-                  {{ i + 1 }}回目（{{ formatDate(history.recalculatedAt) }}）
+                  {{ i + 1 }}回目 - {{ getRecalculationTypeLabel(history.recalculationType) }}（{{ formatDate(history.recalculatedAt) }}）
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <div class="history-content">
+                <p style="color: #666; margin-bottom: 16px;">
+                  この履歴は、{{ formatDate(history.recalculatedAt) }}時点での再計算前の計算結果を表示しています。
+                </p>
                 <p *ngIf="history.reason"><strong>再計算理由:</strong> {{ history.reason }}</p>
                 <mat-list>
                   <mat-list-item *ngIf="history.dataSnapshot.standardBonusAmount">

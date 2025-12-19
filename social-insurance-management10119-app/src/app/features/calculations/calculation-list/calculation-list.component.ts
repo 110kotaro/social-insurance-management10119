@@ -293,7 +293,7 @@ export class CalculationListComponent implements OnInit {
           // 給与情報が確定済みかチェック
           const salaryData = await this.salaryDataService.getSalaryData(employeeId, year, month);
           if (!salaryData || !salaryData.isConfirmed) {
-            skippedEmployees.push(`${employee.employeeNumber}（給与未確定）`);
+            skippedEmployees.push(employee.employeeNumber);
             continue;
           }
 
@@ -327,7 +327,7 @@ export class CalculationListComponent implements OnInit {
       
       let message = `${calculations.length}件の計算が完了しました`;
       if (skippedEmployees.length > 0) {
-        message += `（${skippedEmployees.length}件は既に確定済みのためスキップ）`;
+        message += `（${skippedEmployees.length}件は一括計算の条件を満たしていないためスキップしました）`;
       }
       
       this.snackBar.open(message, '閉じる', { duration: 5000 });
@@ -1000,6 +1000,26 @@ export class CalculationListComponent implements OnInit {
   getTotalCompanyShare(): number {
     // 会社負担額総額 = 合計保険料（全額） - 社員負担額合計（折半額）
     return this.getTotalPremium() - this.getTotalEmployeeShare();
+  }
+
+  // 合計計算メソッド（賞与タブ用）
+  getTotalBonusPremium(): number {
+    // 想定合計保険料は端数切捨てで表示
+    const total = this.bonusFilteredRows
+      .filter(row => row.calculation !== null)
+      .reduce((sum, row) => sum + (row.calculation!.totalPremium || 0), 0);
+    return Math.floor(total);
+  }
+
+  getTotalBonusEmployeeShare(): number {
+    return this.bonusFilteredRows
+      .filter(row => row.calculation !== null)
+      .reduce((sum, row) => sum + (row.calculation!.employeeShare || 0), 0);
+  }
+
+  getTotalBonusCompanyShare(): number {
+    // 会社負担額総額 = 合計保険料（全額） - 社員負担額合計（折半額）
+    return this.getTotalBonusPremium() - this.getTotalBonusEmployeeShare();
   }
 
   toggleBonusSelection(row: BonusCalculationListRow): void {

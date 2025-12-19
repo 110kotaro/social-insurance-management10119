@@ -818,7 +818,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * 今月の概況を読み込む
+   * 今月の概況を読み込む（月次と賞与の両方を含む）
    */
   private async loadMonthlySummary(organizationId: string): Promise<void> {
     try {
@@ -833,20 +833,40 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       );
       this.currentMonthInsuredCount = insuredEmployees.length;
       
-      // 今月の保険料合計（確定済みの計算結果から）
-      const calculations = await this.calculationService.getCalculationsByMonth(
+      // 今月の保険料合計（月次と賞与の確定済み計算結果から）
+      // 月次計算結果を取得
+      const monthlyCalculations = await this.calculationService.getCalculationsByMonth(
         organizationId,
         currentYear,
         currentMonth
       );
       
-      const confirmedCalculations = calculations.filter((calc: MonthlyCalculation) => 
+      // 賞与計算結果を取得
+      const bonusCalculations = await this.calculationService.getBonusCalculationsByMonth(
+        organizationId,
+        currentYear,
+        currentMonth
+      );
+      
+      // 確定済みまたは出力済みの計算結果のみを集計
+      const confirmedMonthlyCalculations = monthlyCalculations.filter((calc: MonthlyCalculation) => 
         calc.status === 'confirmed' || calc.status === 'exported'
       );
       
-      this.currentMonthPremiumTotal = confirmedCalculations.reduce((sum: number, calc: MonthlyCalculation) => 
+      const confirmedBonusCalculations = bonusCalculations.filter((calc: BonusCalculation) => 
+        calc.status === 'confirmed' || calc.status === 'exported'
+      );
+      
+      // 月次と賞与を合算
+      const monthlyTotal = confirmedMonthlyCalculations.reduce((sum: number, calc: MonthlyCalculation) => 
         sum + (calc.totalPremium || 0), 0
       );
+      
+      const bonusTotal = confirmedBonusCalculations.reduce((sum: number, calc: BonusCalculation) => 
+        sum + (calc.totalPremium || 0), 0
+      );
+      
+      this.currentMonthPremiumTotal = monthlyTotal + bonusTotal;
     } catch (error) {
       console.error('今月の概況の読み込みに失敗しました:', error);
     }

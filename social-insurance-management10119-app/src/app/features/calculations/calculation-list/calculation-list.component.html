@@ -176,7 +176,7 @@
 
         <!-- 合計行 -->
         <div *ngIf="filteredRows.length > 0" class="summary-section" style="margin-top: 16px; padding: 16px; background-color: #f5f5f5; border-radius: 4px;">
-          <div style="font-weight: bold; margin-bottom: 8px;">合計（計算済みのみ）</div>
+          <div style="font-weight: bold; margin-bottom: 8px;">月次のみの合計（計算済みのみ）</div>
           <div style="display: flex; gap: 24px; flex-wrap: wrap;">
             <div>
               <span style="color: #666;">想定合計保険料（全額）:</span>
@@ -368,6 +368,25 @@
                 <tr mat-header-row *matHeaderRowDef="bonusDisplayedColumns"></tr>
                 <tr mat-row *matRowDef="let row; columns: bonusDisplayedColumns;"></tr>
               </table>
+
+              <!-- 合計行 -->
+              <div *ngIf="bonusFilteredRows.length > 0" class="summary-section" style="margin-top: 16px; padding: 16px; background-color: #f5f5f5; border-radius: 4px;">
+                <div style="font-weight: bold; margin-bottom: 8px;">賞与のみの合計（計算済みのみ）</div>
+                <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                  <div>
+                    <span style="color: #666;">想定合計保険料（全額）:</span>
+                    <span style="font-weight: bold; margin-left: 8px;">{{ formatCurrency(getTotalBonusPremium()) }}</span>
+                  </div>
+                  <div>
+                    <span style="color: #666;">社員負担額合計（折半額）:</span>
+                    <span style="font-weight: bold; margin-left: 8px;">{{ formatCurrency(getTotalBonusEmployeeShare()) }}</span>
+                  </div>
+                  <div>
+                    <span style="color: #666;">想定会社負担額総額（全額 - 社員負担額）:</span>
+                    <span style="font-weight: bold; margin-left: 8px; color: #1976d2;">{{ formatCurrency(getTotalBonusCompanyShare()) }}</span>
+                  </div>
+                </div>
+              </div>
 
               <!-- データがない場合 -->
               <div *ngIf="bonusFilteredRows.length === 0" class="no-data">

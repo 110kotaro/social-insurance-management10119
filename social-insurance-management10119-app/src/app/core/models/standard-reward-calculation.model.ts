@@ -7,6 +7,7 @@ export interface StandardRewardCalculationRecalculationHistory {
   recalculatedAt: Date | Timestamp; // 再計算日時
   recalculatedBy: string; // 再計算実行者のuserId
   reason?: string; // 再計算理由
+  recalculationType?: 'historical' | 'current'; // 再現計算（当時条件） or 再計算（現在条件）
   dataSnapshot: Partial<StandardRewardCalculation>; // 再計算前の計算データのスナップショット
 }
 
@@ -39,10 +40,11 @@ export interface StandardRewardCalculation {
   grade: number; // 決定された等級
   pensionGrade: number; // 決定された厚生年金等級
   standardReward: number; // 決定された標準報酬月額
-  previousGrade?: number; // 月変の場合の従前等級
+  previousGrade?: number; // 月変の場合の従前健康保険等級
+  previousPensionGrade?: number; // 月変の場合の従前厚生年金等級
   gradeChange?: number; // 等級変動（月変の場合）
   requiresApplication: boolean; // 申請が必要か（月変で2等級以上変動の場合）
-  status: 'draft' | 'applied' | 'approved'; // 計算履歴のステータス
+  status: 'draft' | 'confirmed' | 'applied' | 'approved'; // 計算履歴のステータス
   applicationId?: string; // 申請ID（申請時に紐付け）
   // 再計算履歴（月次計算と同様）
   recalculationHistory?: StandardRewardCalculationRecalculationHistory[];
@@ -61,5 +63,6 @@ export interface StandardRewardCalculationListRow {
   employeeName: string;
   departmentName?: string; // 部署名
   calculation: StandardRewardCalculation | null; // nullの場合は未計算
+  changeMonth?: { year: number; month: number }; // 変動月情報（月変タブ用）
 }
 
