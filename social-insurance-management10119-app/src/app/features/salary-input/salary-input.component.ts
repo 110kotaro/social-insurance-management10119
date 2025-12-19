@@ -26,6 +26,22 @@ import { Employee, SalaryData } from '../../core/models/employee.model';
 import { Department } from '../../core/models/department.model';
 import { SalarySampleDialogComponent } from '../external-integration/salary-import/salary-sample-dialog.component';
 
+interface ImportedSalaryData {
+  employeeNumber: string;
+  employeeName: string;
+  employeeId?: string;
+  year: number;
+  month: number;
+  baseDays: number;
+  fixedSalary: number;
+  totalPayment: number;
+  retroactivePayment: number;
+  bonus: number;
+  bonusPaymentDate?: Date | null;
+  errors?: string[];
+  selected?: boolean;
+}
+
 interface SalaryInputRow {
   employeeId: string;
   employeeNumber: string;
@@ -104,6 +120,15 @@ export class SalaryInputComponent implements OnInit {
   isLoading = false;
   isSaving = false;
   isConfirming = false;
+  isValidating = false;
+
+  // インポート関連
+  importedSalaryData: ImportedSalaryData[] = [];
+  importPreviewDataSource = new MatTableDataSource<ImportedSalaryData>([]);
+  importErrors: string[] = [];
+  importDisplayedColumns: string[] = ['select', 'employeeNumber', 'employeeName', 'year', 'month', 'baseDays', 'fixedSalary', 'totalPayment', 'retroactivePayment', 'bonus', 'errors'];
+  allSelected = false;
+  someSelected = false;
 
   constructor() {
     this.filterForm = this.fb.group({
@@ -161,6 +186,7 @@ export class SalaryInputComponent implements OnInit {
   async loadSalaryData(): Promise<void> {
     if (!this.organizationId) return;
     
+    this.isLoading = true;
     try {
       const rows: SalaryInputRow[] = [];
       
@@ -209,6 +235,7 @@ export class SalaryInputComponent implements OnInit {
   }
 
   onYearMonthChange(): void {
+    this.isLoading = true;
     this.loadSalaryData();
   }
 
@@ -378,106 +405,425 @@ export class SalaryInputComponent implements OnInit {
       const file = event.target.files[0];
       if (!file) return;
 
+      this.importErrors = [];
+      this.importedSalaryData = [];
+      this.allSelected = false;
+      this.someSelected = false;
+
       try {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        // CSV/Excelの列: 社員番号、社員名、年、月、基礎日数、固定賃金、総支給、遡及支払額、賞与、賞与支払日
-        const importedData: any[] = [];
-        for (const row of jsonData as any[]) {
-          const employeeNumber = String(row['社員番号'] || row['employeeNumber'] || '').trim();
-          if (!employeeNumber) continue;
-
-          const employee = this.employees.find(e => e.employeeNumber === employeeNumber);
-          if (!employee) continue;
-
-          // 賞与支払日をDateオブジェクトに変換
-          let bonusPaymentDate: Date | null = null;
-          const bonusPaymentDateStr = row['賞与支払日'] || row['bonusPaymentDate'];
-          if (bonusPaymentDateStr) {
-            // Excelの日付シリアル値（数値）の場合
-            if (typeof bonusPaymentDateStr === 'number') {
-              // Excelの日付シリアル値（1900年1月1日を1とする）をDateに変換
-              const excelEpoch = new Date(1899, 11, 30); // 1900年1月1日の前日
-              excelEpoch.setDate(excelEpoch.getDate() + bonusPaymentDateStr);
-              bonusPaymentDate = excelEpoch;
-            } else {
-              // 文字列の場合、様々な形式を試す
-              const dateStr = String(bonusPaymentDateStr).trim();
-              if (dateStr) {
-                // YYYY-MM-DD形式
-                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-                  bonusPaymentDate = new Date(dateStr);
-                }
-                // YYYY/MM/DD形式
-                else if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
-                  bonusPaymentDate = new Date(dateStr.replace(/\//g, '-'));
-                }
-                // その他の形式
-                else {
-                  const parsedDate = new Date(dateStr);
-                  if (!isNaN(parsedDate.getTime())) {
-                    bonusPaymentDate = parsedDate;
-                  }
-                }
-                
-                // 日付が無効な場合はnullに設定
-                if (bonusPaymentDate && isNaN(bonusPaymentDate.getTime())) {
-                  bonusPaymentDate = null;
-                }
-              }
-            }
-          }
-
-          importedData.push({
-            employeeId: employee.id!,
-            year: parseInt(row['年'] || row['year'] || this.selectedYear),
-            month: parseInt(row['月'] || row['month'] || this.selectedMonth),
-            baseDays: parseFloat(row['基礎日数'] || row['baseDays'] || 0),
-            fixedSalary: parseFloat(row['固定賃金'] || row['fixedSalary'] || 0),
-            totalPayment: parseFloat(row['総支給'] || row['totalPayment'] || 0),
-            retroactivePayment: parseFloat(row['遡及支払額'] || row['retroactivePayment'] || 0),
-            bonus: parseFloat(row['賞与'] || row['bonus'] || 0),
-            bonusPaymentDate: bonusPaymentDate
-          });
+        if (file.name.endsWith('.csv')) {
+          await this.parseCsvFile(file);
+        } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+          await this.parseExcelFile(file);
+        } else {
+          this.importErrors.push('CSVまたはExcelファイルを選択してください');
+          return;
         }
 
-        // 一括保存
-        for (const data of importedData) {
-          // 給与データを保存
-          await this.salaryDataService.saveSalaryData(data.employeeId, {
-            year: data.year,
-            month: data.month,
-            baseDays: data.baseDays,
-            fixedSalary: data.fixedSalary,
-            totalPayment: data.totalPayment,
-            retroactivePayment: data.retroactivePayment,
-            isConfirmed: false
-          });
+        // バリデーション
+        await this.validateImportedData();
 
-          // 賞与データを保存（賞与が入力されている場合、または賞与支払日が設定されている場合）
-          if (data.bonus > 0 || data.bonusPaymentDate) {
-            await this.bonusDataService.saveBonusData(data.employeeId, {
-              year: data.year,
-              month: data.month,
-              bonusAmount: data.bonus || 0,
-              bonusPaymentDate: data.bonusPaymentDate || undefined,
-              isConfirmed: false
-            });
-          }
-        }
-
-        this.snackBar.open(`${importedData.length}件の給与データをインポートしました`, '閉じる', { duration: 3000 });
-        await this.loadSalaryData();
-      } catch (error) {
-        console.error('Excel/CSVのインポートに失敗しました:', error);
-        this.snackBar.open('Excel/CSVのインポートに失敗しました', '閉じる', { duration: 3000 });
+        // データソースを更新
+        this.importPreviewDataSource.data = this.importedSalaryData;
+        this.updateSelectionState();
+      } catch (error: any) {
+        this.importErrors.push(`ファイルの読み込みに失敗しました: ${error.message}`);
       }
+
+      // ファイル入力をリセット
+      input.value = '';
     };
     input.click();
+  }
+
+  /**
+   * CSVファイルをパース
+   */
+  private async parseCsvFile(file: File): Promise<void> {
+    const text = await file.text();
+    const lines = text.split('\n').filter(line => line.trim());
+
+    if (lines.length < 2) {
+      this.importErrors.push('CSVファイルにデータが含まれていません');
+      return;
+    }
+
+    // ヘッダー行をスキップ（1行目）
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const row = this.parseCsvLine(line);
+      
+      // すべてのセルが空かチェック（空行をスキップ）
+      const isEmptyRow = row.every(cell => {
+        const value = String(cell || '').trim();
+        return value === '' || value === '0' || value === '-';
+      });
+      if (isEmptyRow) continue;
+
+      this.parseSalaryRow(row, i + 1);
+    }
+  }
+
+  /**
+   * CSV行をパース（引用符を考慮）
+   */
+  private parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  /**
+   * Excelファイルをパース
+   */
+  private async parseExcelFile(file: File): Promise<void> {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+
+    if (data.length < 2) {
+      this.importErrors.push('Excelファイルにデータが含まれていません');
+      return;
+    }
+
+    // ヘッダー行をスキップ（1行目）
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (!row || row.length === 0) continue;
+
+      // すべてのセルが空かチェック（空行をスキップ）
+      const isEmptyRow = row.every(cell => {
+        const value = String(cell || '').trim();
+        return value === '' || value === '0' || value === '-';
+      });
+      if (isEmptyRow) continue;
+
+      this.parseSalaryRow(row, i + 1);
+    }
+  }
+
+  /**
+   * 給与データ行をパース
+   */
+  private parseSalaryRow(row: any[], rowNumber: number): void {
+    const errors: string[] = [];
+
+    // 列数チェック（最低9列: 社員番号、社員名、年、月、基礎日数、固定賃金、総支給、遡及支払額、賞与）
+    if (row.length < 9) {
+      errors.push(`列数が不足しています（最低9列必要）`);
+      this.importedSalaryData.push({
+        employeeNumber: row[0] || '',
+        employeeName: row[1] || '',
+        year: 0,
+        month: 0,
+        baseDays: 0,
+        fixedSalary: 0,
+        totalPayment: 0,
+        retroactivePayment: 0,
+        bonus: 0,
+        errors,
+        selected: false
+      });
+      return;
+    }
+
+    // 配列のインデックスでアクセス
+    const employeeNumberRaw = row[0];
+    const employeeNameRaw = row[1];
+    const yearRaw = row[2];
+    const monthRaw = row[3];
+    const baseDaysRaw = row[4];
+    const fixedSalaryRaw = row[5];
+    const totalPaymentRaw = row[6];
+    const retroactivePaymentRaw = row[7];
+    const bonusRaw = row[8];
+    const bonusPaymentDateRaw = row[9];
+
+    const employeeNumber = String(employeeNumberRaw || '').trim();
+    const employeeName = String(employeeNameRaw || '').trim();
+
+    // 必須項目チェック
+    if (!employeeNumber) errors.push('社員番号が空です');
+    if (!employeeName) errors.push('社員名が空です');
+    if (yearRaw === undefined || yearRaw === null || yearRaw === '') errors.push('年が空です');
+    if (monthRaw === undefined || monthRaw === null || monthRaw === '') errors.push('月が空です');
+    if (baseDaysRaw === undefined || baseDaysRaw === null || baseDaysRaw === '') errors.push('基礎日数が空です');
+    if (fixedSalaryRaw === undefined || fixedSalaryRaw === null || fixedSalaryRaw === '') errors.push('固定賃金が空です');
+    if (totalPaymentRaw === undefined || totalPaymentRaw === null || totalPaymentRaw === '') errors.push('総支給が空です');
+
+    // 数値変換
+    const year = yearRaw ? parseInt(String(yearRaw), 10) : this.selectedYear;
+    const month = monthRaw ? parseInt(String(monthRaw), 10) : this.selectedMonth;
+    const baseDays = baseDaysRaw ? parseFloat(String(baseDaysRaw)) : 0;
+    const fixedSalary = fixedSalaryRaw ? parseFloat(String(fixedSalaryRaw)) : 0;
+    const totalPayment = totalPaymentRaw ? parseFloat(String(totalPaymentRaw)) : 0;
+    const retroactivePayment = retroactivePaymentRaw ? parseFloat(String(retroactivePaymentRaw)) : 0;
+    const bonus = bonusRaw ? parseFloat(String(bonusRaw)) : 0;
+
+    // バリデーション
+    if (year && (year < 2000 || year > 2100)) errors.push('年の値が不正です');
+    if (month && (month < 1 || month > 12)) errors.push('月の値が不正です（1-12の範囲）');
+    if (baseDays && (baseDays < 0 || baseDays > 31)) errors.push('基礎日数の値が不正です');
+    if (fixedSalary && fixedSalary < 0) errors.push('固定賃金が負の値です');
+    if (totalPayment && totalPayment < 0) errors.push('総支給が負の値です');
+    if (retroactivePayment && retroactivePayment < 0) errors.push('遡及支払額が負の値です');
+    if (bonus && bonus < 0) errors.push('賞与が負の値です');
+
+    // 社員IDを検索
+    const employee = this.employees.find(emp => emp.employeeNumber === employeeNumber);
+    const employeeId = employee?.id;
+
+    if (!employeeId && employeeNumber) {
+      errors.push(`社員番号「${employeeNumber}」の社員が見つかりません`);
+    }
+
+    // 賞与支払日をDateオブジェクトに変換
+    let bonusPaymentDate: Date | null = null;
+    if (bonusPaymentDateRaw) {
+      // Excelの日付シリアル値（数値）の場合
+      if (typeof bonusPaymentDateRaw === 'number') {
+        const excelEpoch = new Date(1899, 11, 30);
+        excelEpoch.setDate(excelEpoch.getDate() + bonusPaymentDateRaw);
+        bonusPaymentDate = excelEpoch;
+      } else {
+        const dateStr = String(bonusPaymentDateRaw).trim();
+        if (dateStr) {
+          // YYYY-MM-DD形式
+          if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            bonusPaymentDate = new Date(dateStr);
+          }
+          // YYYY/MM/DD形式
+          else if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
+            bonusPaymentDate = new Date(dateStr.replace(/\//g, '-'));
+          }
+          // その他の形式
+          else {
+            const parsedDate = new Date(dateStr);
+            if (!isNaN(parsedDate.getTime())) {
+              bonusPaymentDate = parsedDate;
+            }
+          }
+          
+          if (bonusPaymentDate && isNaN(bonusPaymentDate.getTime())) {
+            bonusPaymentDate = null;
+          }
+        }
+      }
+    }
+
+    this.importedSalaryData.push({
+      employeeNumber,
+      employeeName,
+      employeeId,
+      year,
+      month,
+      baseDays,
+      fixedSalary,
+      totalPayment,
+      retroactivePayment,
+      bonus,
+      bonusPaymentDate,
+      errors: errors.length > 0 ? errors : undefined,
+      selected: errors.length === 0
+    });
+  }
+
+  /**
+   * バリデーション
+   */
+  private async validateImportedData(): Promise<void> {
+    this.isValidating = true;
+
+    try {
+      // 重複チェック（社員番号、年月）
+      const keySet = new Set<string>();
+
+      this.importedSalaryData.forEach((data) => {
+        if (data.errors && data.errors.length > 0) return;
+
+        const key = `${data.employeeNumber}-${data.year}-${data.month}`;
+        if (keySet.has(key)) {
+          if (!data.errors) data.errors = [];
+          data.errors.push('同じ社員の同じ年月のデータが重複しています');
+        } else {
+          keySet.add(key);
+        }
+      });
+
+      // 確定済みデータのチェック
+      for (const data of this.importedSalaryData) {
+        if (data.errors && data.errors.length > 0) continue;
+        if (!data.employeeId) continue;
+
+        try {
+          const existingSalaryData = await this.salaryDataService.getSalaryData(
+            data.employeeId,
+            data.year,
+            data.month
+          );
+
+          if (existingSalaryData && existingSalaryData.isConfirmed) {
+            if (!data.errors) data.errors = [];
+            data.errors.push(`${data.year}年${data.month}月の給与データは既に確定済みです`);
+          }
+        } catch (error) {
+          console.error('確定済みデータのチェックに失敗しました:', error);
+        }
+      }
+    } finally {
+      this.isValidating = false;
+    }
+  }
+
+  /**
+   * 全選択/全解除
+   */
+  toggleAllSelection(): void {
+    this.allSelected = !this.allSelected;
+    this.importedSalaryData.forEach(data => {
+      if (!data.errors || data.errors.length === 0) {
+        data.selected = this.allSelected;
+      }
+    });
+    this.updateSelectionState();
+  }
+
+  /**
+   * 個別選択の切り替え
+   */
+  toggleSelection(data: ImportedSalaryData): void {
+    data.selected = !data.selected;
+    this.updateSelectionState();
+  }
+
+  /**
+   * 選択状態を更新
+   */
+  private updateSelectionState(): void {
+    const selectableData = this.importedSalaryData.filter(d => !d.errors || d.errors.length === 0);
+    const selectedCount = selectableData.filter(d => d.selected).length;
+    
+    this.allSelected = selectedCount > 0 && selectedCount === selectableData.length;
+    this.someSelected = selectedCount > 0 && selectedCount < selectableData.length;
+  }
+
+  /**
+   * 選択されているデータが存在するかチェック
+   */
+  hasSelectedData(): boolean {
+    return this.getSelectedCount() > 0;
+  }
+
+  /**
+   * 選択済み件数を取得
+   */
+  getSelectedCount(): number {
+    return this.importedSalaryData.filter(d => d.selected && (!d.errors || d.errors.length === 0)).length;
+  }
+
+  /**
+   * インポート実行
+   */
+  async executeImport(): Promise<void> {
+    // 選択されたデータを取得
+    const selectedData = this.importedSalaryData.filter(d => d.selected && (!d.errors || d.errors.length === 0));
+
+    if (selectedData.length === 0) {
+      this.snackBar.open('インポートするデータが選択されていません', '閉じる', { duration: 3000 });
+      return;
+    }
+
+    this.isLoading = true;
+
+    try {
+      // 確定済みデータの最終チェック
+      for (const data of selectedData) {
+        if (!data.employeeId) continue;
+        
+        const existingSalaryData = await this.salaryDataService.getSalaryData(
+          data.employeeId,
+          data.year,
+          data.month
+        );
+
+        if (existingSalaryData && existingSalaryData.isConfirmed) {
+          this.snackBar.open(`${data.employeeNumber}の${data.year}年${data.month}月の給与データは既に確定済みです`, '閉じる', { duration: 5000 });
+          return;
+        }
+      }
+
+      // 一括保存
+      for (const data of selectedData) {
+        if (!data.employeeId) continue;
+
+        // 給与データを保存
+        await this.salaryDataService.saveSalaryData(data.employeeId, {
+          year: data.year,
+          month: data.month,
+          baseDays: data.baseDays,
+          fixedSalary: data.fixedSalary,
+          totalPayment: data.totalPayment,
+          retroactivePayment: data.retroactivePayment,
+          isConfirmed: false
+        });
+
+        // 賞与データを保存（賞与が入力されている場合、または賞与支払日が設定されている場合）
+        if (data.bonus > 0 || data.bonusPaymentDate) {
+          await this.bonusDataService.saveBonusData(data.employeeId, {
+            year: data.year,
+            month: data.month,
+            bonusAmount: data.bonus || 0,
+            bonusPaymentDate: data.bonusPaymentDate || undefined,
+            isConfirmed: false
+          });
+        }
+      }
+
+      this.snackBar.open(`${selectedData.length}件の給与データをインポートしました`, '閉じる', { duration: 3000 });
+      
+      // データをクリア
+      this.importedSalaryData = [];
+      this.importPreviewDataSource.data = [];
+      this.importErrors = [];
+      this.updateSelectionState();
+      
+      await this.loadSalaryData();
+    } catch (error) {
+      console.error('給与データのインポートに失敗しました:', error);
+      this.snackBar.open('給与データのインポートに失敗しました', '閉じる', { duration: 3000 });
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  /**
+   * インポートキャンセル
+   */
+  cancelImport(): void {
+    this.importedSalaryData = [];
+    this.importPreviewDataSource.data = [];
+    this.importErrors = [];
+    this.allSelected = false;
+    this.someSelected = false;
   }
 
   exportToExcel(): void {

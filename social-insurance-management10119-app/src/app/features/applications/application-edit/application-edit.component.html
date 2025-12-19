@@ -2948,16 +2948,6 @@
                       </mat-form-field>
                     </div>
 
-                    <!-- 異動種別 -->
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>異動種別</mat-label>
-                      <mat-select formControlName="changeType" required>
-                        <mat-option *ngFor="let type of changeTypeOptions" [value]="type.value">
-                          {{ type.label }}
-                        </mat-option>
-                      </mat-select>
-                    </mat-form-field>
-
                     <!-- 異動種別「該当」の場合 -->
                     <div *ngIf="dependentChangeFormInternal.get('spouseDependent.changeType')?.value === 'applicable'">
                       <div class="form-section-title">被扶養者になった日</div>

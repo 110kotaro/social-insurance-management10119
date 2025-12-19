@@ -16,8 +16,10 @@ import { SampleDialogComponent } from './sample-dialog.component';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { InsuranceRateTableService } from '../../../core/services/insurance-rate-table.service';
 import { Employee, InsuranceInfo, OtherCompanyInfo, Address } from '../../../core/models/employee.model';
 import { Department } from '../../../core/models/department.model';
+import { InsuranceRateTable } from '../../../core/models/insurance-rate-table.model';
 
 interface ImportedEmployee {
   employeeNumber: string;
@@ -72,6 +74,7 @@ export class EmployeeImportComponent implements OnInit {
   private employeeService = inject(EmployeeService);
   private departmentService = inject(DepartmentService);
   private authService = inject(AuthService);
+  private insuranceRateTableService = inject(InsuranceRateTableService);
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
   private fb = inject(FormBuilder);
@@ -642,18 +645,39 @@ export class EmployeeImportComponent implements OnInit {
     this.isLoading = true;
 
     try {
-      const employeesToCreate: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>[] = validEmployees.map(emp => {
-        // 保険情報（undefinedを除外）
-        const insuranceInfo: InsuranceInfo | undefined = 
-          (emp.healthInsuranceNumber || emp.pensionNumber || emp.myNumber || emp.standardReward || emp.insuranceStartDate)
-            ? {
-                ...(emp.healthInsuranceNumber && { healthInsuranceNumber: emp.healthInsuranceNumber }),
-                ...(emp.pensionNumber && { pensionNumber: emp.pensionNumber }),
-                ...(emp.myNumber && { myNumber: emp.myNumber }),
-                ...(emp.standardReward !== undefined && { standardReward: emp.standardReward }),
-                ...(emp.insuranceStartDate && { insuranceStartDate: emp.insuranceStartDate })
-              }
-            : undefined;
+      // 等級表を取得（1回だけ取得して全社員で共有）
+      const allRateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId!);
+
+      const employeesToCreate: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>[] = await Promise.all(
+        validEmployees.map(async (emp) => {
+          // 標準報酬月額から等級を自動計算
+          let grade: number | undefined = undefined;
+          let pensionGrade: number | undefined = undefined;
+
+          if (emp.standardReward !== undefined) {
+            // 有効な等級表を取得（保険適用開始日または現在日付を使用）
+            const targetDate = emp.insuranceStartDate || new Date();
+            const validRateTables = this.getValidRateTables(allRateTables, targetDate);
+
+            if (validRateTables.length > 0) {
+              grade = this.getGradeFromStandardReward(emp.standardReward, validRateTables) || undefined;
+              pensionGrade = this.getPensionGradeFromStandardReward(emp.standardReward, validRateTables) || undefined;
+            }
+          }
+
+          // 保険情報（undefinedを除外）
+          const insuranceInfo: InsuranceInfo | undefined = 
+            (emp.healthInsuranceNumber || emp.pensionNumber || emp.myNumber || emp.standardReward || emp.insuranceStartDate || grade !== undefined || pensionGrade !== undefined)
+              ? {
+                  ...(emp.healthInsuranceNumber && { healthInsuranceNumber: emp.healthInsuranceNumber }),
+                  ...(emp.pensionNumber && { pensionNumber: emp.pensionNumber }),
+                  ...(emp.myNumber && { myNumber: emp.myNumber }),
+                  ...(emp.standardReward !== undefined && { standardReward: emp.standardReward }),
+                  ...(emp.insuranceStartDate && { insuranceStartDate: emp.insuranceStartDate }),
+                  ...(grade !== undefined && { grade }),
+                  ...(pensionGrade !== undefined && { pensionGrade })
+                }
+              : undefined;
 
         // 他社勤務情報（現在は使用しない）
         const otherCompanyInfo: OtherCompanyInfo[] | undefined = undefined;
@@ -686,7 +710,8 @@ export class EmployeeImportComponent implements OnInit {
           address,
           organizationId: this.organizationId!
         };
-      });
+        })
+      );
 
       await this.employeeService.createEmployees(employeesToCreate);
 
@@ -758,6 +783,56 @@ export class EmployeeImportComponent implements OnInit {
       maxWidth: '90vw',
       maxHeight: '90vh'
     });
+  }
+
+  /**
+   * 有効な等級表を取得（指定日付で有効な等級表をフィルタリング）
+   */
+  private getValidRateTables(rateTables: InsuranceRateTable[], targetDate: Date): InsuranceRateTable[] {
+    return rateTables.filter(table => {
+      const effectiveFrom = table.effectiveFrom instanceof Date 
+        ? table.effectiveFrom 
+        : new Date(table.effectiveFrom);
+      const effectiveTo = table.effectiveTo 
+        ? (table.effectiveTo instanceof Date ? table.effectiveTo : new Date(table.effectiveTo))
+        : null;
+      
+      const fromDate = new Date(effectiveFrom.getFullYear(), effectiveFrom.getMonth(), 1);
+      const toDate = effectiveTo ? new Date(effectiveTo.getFullYear(), effectiveTo.getMonth(), 1) : null;
+      const checkDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+      
+      return checkDate >= fromDate && (!toDate || checkDate <= toDate);
+    });
+  }
+
+  /**
+   * 標準報酬月額から等級を判定
+   */
+  private getGradeFromStandardReward(standardReward: number, rateTables: InsuranceRateTable[]): number | null {
+    for (const table of rateTables) {
+      const minOk = standardReward >= table.minAmount;
+      const maxOk = table.maxAmount === 0 || table.maxAmount === null || standardReward <= table.maxAmount;
+      if (minOk && maxOk) {
+        return table.grade;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 標準報酬月額から厚生年金等級を判定
+   */
+  private getPensionGradeFromStandardReward(standardReward: number, rateTables: InsuranceRateTable[]): number | null {
+    for (const table of rateTables) {
+      if (table.pensionGrade !== null && table.pensionGrade !== undefined) {
+        const minOk = standardReward >= table.minAmount;
+        const maxOk = table.maxAmount === 0 || table.maxAmount === null || standardReward <= table.maxAmount;
+        if (minOk && maxOk) {
+          return table.pensionGrade;
+        }
+      }
+    }
+    return null;
   }
 
   /**

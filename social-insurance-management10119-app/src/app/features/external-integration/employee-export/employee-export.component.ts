@@ -95,6 +95,7 @@ export class EmployeeExportComponent implements OnInit {
     { value: 'insurance', label: '保険情報', selected: true },
     { value: 'dependent', label: '扶養情報', selected: true },
     { value: 'otherCompany', label: '他社勤務情報', selected: true },
+    { value: 'leave', label: '休職情報', selected: true },
     { value: 'monthlyPremium', label: '保険料情報（月次）', selected: true },
     { value: 'bonusPremium', label: '保険料情報（賞与）', selected: true },
     { value: 'salary', label: '給与情報', selected: true }
@@ -386,6 +387,48 @@ export class EmployeeExportComponent implements OnInit {
         XLSX.utils.book_append_sheet(workbook, otherCompanySheet, '他社勤務情報');
       }
 
+      // 休職情報シート
+      if (selectedDataTypes.includes('leave')) {
+        const leaveData: any[] = [];
+        selectedEmployees.forEach(emp => {
+          if (emp.leaveInfo && emp.leaveInfo.length > 0) {
+            emp.leaveInfo.forEach(leave => {
+              const startDate = leave.startDate instanceof Date
+                ? leave.startDate
+                : (leave.startDate as any).toDate
+                ? (leave.startDate as any).toDate()
+                : null;
+              
+              const endDate = leave.endDate instanceof Date
+                ? leave.endDate
+                : (leave.endDate as any).toDate
+                ? (leave.endDate as any).toDate()
+                : null;
+              
+              leaveData.push({
+                '社員番号': emp.employeeNumber,
+                '社員名': `${emp.lastName} ${emp.firstName}`,
+                '休職種別': this.getLeaveTypeLabel(leave.type || ''),
+                '休職開始（予定）日': startDate ? this.formatDate(startDate) : '',
+                '休職終了（予定）日': endDate ? this.formatDate(endDate) : '',
+                '申請承認済み': leave.isApproved ? 'はい' : 'いいえ'
+              });
+            });
+          } else {
+            leaveData.push({
+              '社員番号': emp.employeeNumber,
+              '社員名': `${emp.lastName} ${emp.firstName}`,
+              '休職種別': '',
+              '休職開始（予定）日': '',
+              '休職終了（予定）日': '',
+              '申請承認済み': ''
+            });
+          }
+        });
+        const leaveSheet = XLSX.utils.json_to_sheet(leaveData);
+        XLSX.utils.book_append_sheet(workbook, leaveSheet, '休職情報');
+      }
+
       // 保険料情報（月次）シート
       if (selectedDataTypes.includes('monthlyPremium')) {
         const monthlyPremiumData: any[] = [];
@@ -406,7 +449,6 @@ export class EmployeeExportComponent implements OnInit {
               '健康保険等級': calculation.grade || '',
               '健康保険料（全額）': calculation.healthInsurancePremium || '',
               '厚生年金料（全額）': calculation.pensionInsurancePremium || '',
-              '介護保険料（全額）': calculation.careInsurancePremium || '',
               '合計保険料（全額）': calculation.totalPremium || '',
               '会社負担額（折半額）': calculation.companyShare || '',
               '従業員負担額（折半額）': calculation.employeeShare || '',
@@ -440,7 +482,6 @@ export class EmployeeExportComponent implements OnInit {
               '標準賞与額': calculation.standardBonusAmount || '',
               '健康保険料（全額）': calculation.healthInsurancePremium || '',
               '厚生年金料（全額）': calculation.pensionInsurancePremium || '',
-              '介護保険料（全額）': calculation.careInsurancePremium || '',
               '合計保険料（全額）': calculation.totalPremium || '',
               '会社負担額（折半額）': calculation.companyShare || '',
               '従業員負担額（折半額）': calculation.employeeShare || '',
@@ -464,6 +505,25 @@ export class EmployeeExportComponent implements OnInit {
             this.selectedYear,
             this.selectedMonth
           );
+          const bonus = await this.bonusDataService.getBonusData(
+            emp.id,
+            this.selectedYear,
+            this.selectedMonth
+          );
+          
+          // 賞与支払日をフォーマット
+          let bonusPaymentDateStr = '';
+          if (bonus?.bonusPaymentDate) {
+            const bonusPaymentDate = bonus.bonusPaymentDate instanceof Date
+              ? bonus.bonusPaymentDate
+              : (bonus.bonusPaymentDate as any).toDate
+              ? (bonus.bonusPaymentDate as any).toDate()
+              : null;
+            if (bonusPaymentDate) {
+              bonusPaymentDateStr = bonusPaymentDate.toISOString().slice(0, 10);
+            }
+          }
+          
           if (salary) {
             salaryData.push({
               '社員番号': emp.employeeNumber,
@@ -474,6 +534,8 @@ export class EmployeeExportComponent implements OnInit {
               '固定賃金': salary.fixedSalary || '',
               '総支給額': salary.totalPayment || '',
               '遡及支払額': salary.retroactivePayment || '',
+              '賞与': bonus?.bonusAmount || '',
+              '賞与支払日': bonusPaymentDateStr,
               '確定済み': salary.isConfirmed ? 'はい' : 'いいえ'
             });
           }
@@ -547,6 +609,17 @@ export class EmployeeExportComponent implements OnInit {
       'employee': '一般社員'
     };
     return roleMap[role] || role;
+  }
+
+  /**
+   * 休職種別の表示ラベルを取得
+   */
+  private getLeaveTypeLabel(type: string): string {
+    const labels: { [key: string]: string } = {
+      'maternity': '産前産後休業',
+      'childcare': '育児休業'
+    };
+    return labels[type] || type;
   }
 
   /**
@@ -699,6 +772,48 @@ export class EmployeeExportComponent implements OnInit {
         exportedCount++;
       }
 
+      // 休職情報CSV
+      if (selectedDataTypes.includes('leave')) {
+        const leaveData: any[] = [];
+        selectedEmployees.forEach(emp => {
+          if (emp.leaveInfo && emp.leaveInfo.length > 0) {
+            emp.leaveInfo.forEach(leave => {
+              const startDate = leave.startDate instanceof Date
+                ? leave.startDate
+                : (leave.startDate as any).toDate
+                ? (leave.startDate as any).toDate()
+                : null;
+              
+              const endDate = leave.endDate instanceof Date
+                ? leave.endDate
+                : (leave.endDate as any).toDate
+                ? (leave.endDate as any).toDate()
+                : null;
+              
+              leaveData.push({
+                '社員番号': emp.employeeNumber,
+                '社員名': `${emp.lastName} ${emp.firstName}`,
+                '休職種別': this.getLeaveTypeLabel(leave.type || ''),
+                '休職開始（予定）日': startDate ? this.formatDate(startDate) : '',
+                '休職終了（予定）日': endDate ? this.formatDate(endDate) : '',
+                '申請承認済み': leave.isApproved ? 'はい' : 'いいえ'
+              });
+            });
+          } else {
+            leaveData.push({
+              '社員番号': emp.employeeNumber,
+              '社員名': `${emp.lastName} ${emp.firstName}`,
+              '休職種別': '',
+              '休職開始（予定）日': '',
+              '休職終了（予定）日': '',
+              '申請承認済み': ''
+            });
+          }
+        });
+        this.downloadCsv(leaveData, `休職情報_${dateStr}.csv`);
+        exportedCount++;
+      }
+
       // 保険料情報（月次）CSV
       if (selectedDataTypes.includes('monthlyPremium')) {
         const monthlyPremiumData: any[] = [];
@@ -719,7 +834,6 @@ export class EmployeeExportComponent implements OnInit {
               '健康保険等級': calculation.grade || '',
               '健康保険料（全額）': calculation.healthInsurancePremium || '',
               '厚生年金料（全額）': calculation.pensionInsurancePremium || '',
-              '介護保険料（全額）': calculation.careInsurancePremium || '',
               '合計保険料（全額）': calculation.totalPremium || '',
               '会社負担額（折半額）': calculation.companyShare || '',
               '従業員負担額（折半額）': calculation.employeeShare || '',
@@ -753,7 +867,6 @@ export class EmployeeExportComponent implements OnInit {
               '標準賞与額': calculation.standardBonusAmount || '',
               '健康保険料（全額）': calculation.healthInsurancePremium || '',
               '厚生年金料（全額）': calculation.pensionInsurancePremium || '',
-              '介護保険料（全額）': calculation.careInsurancePremium || '',
               '合計保険料（全額）': calculation.totalPremium || '',
               '会社負担額（折半額）': calculation.companyShare || '',
               '従業員負担額（折半額）': calculation.employeeShare || '',
@@ -777,6 +890,25 @@ export class EmployeeExportComponent implements OnInit {
             this.selectedYear,
             this.selectedMonth
           );
+          const bonus = await this.bonusDataService.getBonusData(
+            emp.id,
+            this.selectedYear,
+            this.selectedMonth
+          );
+          
+          // 賞与支払日をフォーマット
+          let bonusPaymentDateStr = '';
+          if (bonus?.bonusPaymentDate) {
+            const bonusPaymentDate = bonus.bonusPaymentDate instanceof Date
+              ? bonus.bonusPaymentDate
+              : (bonus.bonusPaymentDate as any).toDate
+              ? (bonus.bonusPaymentDate as any).toDate()
+              : null;
+            if (bonusPaymentDate) {
+              bonusPaymentDateStr = bonusPaymentDate.toISOString().slice(0, 10);
+            }
+          }
+          
           if (salary) {
             salaryData.push({
               '社員番号': emp.employeeNumber,
@@ -787,6 +919,8 @@ export class EmployeeExportComponent implements OnInit {
               '固定賃金': salary.fixedSalary || '',
               '総支給額': salary.totalPayment || '',
               '遡及支払額': salary.retroactivePayment || '',
+              '賞与': bonus?.bonusAmount || '',
+              '賞与支払日': bonusPaymentDateStr,
               '確定済み': salary.isConfirmed ? 'はい' : 'いいえ'
             });
           }

@@ -653,10 +653,6 @@
                   <!-- 内部申請セクション -->
                   <div class="application-type-section">
                     <h3>内部申請（社員から管理者）</h3>
-                    <button mat-raised-button color="primary" (click)="addInternalApplicationType()" [disabled]="editingApplicationType !== null">
-                      <mat-icon>add</mat-icon>
-                      新規追加
-                    </button>
                     
                     <div class="application-type-list">
                       <div *ngFor="let type of getInternalApplicationTypes(); let i = index" class="application-type-item">
@@ -665,14 +661,10 @@
                             <span class="application-type-name">{{ type.name }}</span>
                             <!-- 申請種別コードは表示しない -->
                             <!-- <span class="application-type-code">（{{ type.code }}）</span> -->
-                            <mat-checkbox [(ngModel)]="type.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
                           </div>
                           <div class="application-type-actions">
                             <button mat-icon-button color="primary" (click)="editApplicationType(getInternalApplicationTypes().indexOf(type))" [disabled]="editingApplicationType !== null">
                               <mat-icon>edit</mat-icon>
-                            </button>
-                            <button *ngIf="type.isDeletable" mat-icon-button color="warn" (click)="deleteApplicationType(getInternalApplicationTypes().indexOf(type))" [disabled]="editingApplicationType !== null">
-                              <mat-icon>delete</mat-icon>
                             </button>
                           </div>
                         </div>
@@ -691,7 +683,6 @@
                             <mat-label>説明文</mat-label>
                             <textarea matInput [(ngModel)]="editingApplicationType.description" [ngModelOptions]="{standalone: true}" rows="3"></textarea>
                           </mat-form-field> -->
-                          <mat-checkbox [(ngModel)]="editingApplicationType.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
                           <div class="edit-actions">
                             <button mat-raised-button color="primary" (click)="saveApplicationType()">保存</button>
                             <button mat-button (click)="cancelApplicationTypeEdit()">キャンセル</button>
@@ -711,7 +702,6 @@
                             <span class="application-type-name">{{ type.name }}</span>
                             <!-- 申請種別コードは表示しない -->
                             <!-- <span class="application-type-code">（{{ type.code }}）</span> -->
-                            <mat-checkbox [(ngModel)]="type.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
                           </div>
                           <div class="application-type-actions">
                             <button mat-icon-button color="primary" (click)="editApplicationType(getInternalApplicationTypes().length + i)" [disabled]="editingApplicationType !== null">
@@ -734,7 +724,6 @@
                             <mat-label>説明文</mat-label>
                             <textarea matInput [(ngModel)]="editingApplicationType.description" [ngModelOptions]="{standalone: true}" rows="3"></textarea>
                           </mat-form-field> -->
-                          <mat-checkbox [(ngModel)]="editingApplicationType.enabled" [ngModelOptions]="{standalone: true}">有効</mat-checkbox>
                           <div class="edit-actions">
                             <button mat-raised-button color="primary" (click)="saveApplicationType()">保存</button>
                             <button mat-button (click)="cancelApplicationTypeEdit()">キャンセル</button>

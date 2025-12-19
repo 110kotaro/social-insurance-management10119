@@ -38,6 +38,23 @@
   margin-top: 16px;
 }
 
+.employee-name-display {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.employee-name-display p {
+  margin: 0;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.employee-name-display strong {
+  font-weight: 500;
+  margin-right: 8px;
+}
+
 .form-section {
   margin-bottom: 24px;
 }

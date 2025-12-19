@@ -380,14 +380,20 @@ export class ApplicationReturnHistoryViewComponent {
         if (sd.spouseIncome !== null && sd.spouseIncome !== undefined) {
           sdItems.push({ label: '配偶者の収入（年収）', value: `${sd.spouseIncome.toLocaleString()}円`, isEmpty: false });
         }
+        // 提出日を追加（businessOwnerReceiptDateまたはsubmissionDateから取得）
+        if (data['businessOwnerReceiptDate']) {
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
+        } else if (data['submissionDate']) {
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
+        }
       } else {
         sdItems.push({ label: '異動種別', value: this.formatChangeType(sd.changeType), isEmpty: !sd.changeType });
         
         // 提出日を追加（businessOwnerReceiptDateまたはsubmissionDateから取得）
         if (data['businessOwnerReceiptDate']) {
-          sdItems.push({ label: '提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
         } else if (data['submissionDate']) {
-          sdItems.push({ label: '提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
         }
         
         if (sd.changeType === 'change') {

@@ -70,6 +70,38 @@
                 </span>
               </mat-list-item>
             </mat-list>
+            <div class="leave-info-section" style="margin-top: 24px;">
+              <h3 style="margin-bottom: 16px;">休職情報</h3>
+              <div *ngIf="employee.leaveInfo && employee.leaveInfo.length > 0; else noLeaveInfo">
+                <mat-list>
+                  <mat-list-item *ngFor="let leave of employee.leaveInfo; let i = index">
+                    <div class="leave-item" style="width: 100%;">
+                      <h4 style="margin-bottom: 8px;">休職情報 {{ i + 1 }}</h4>
+                      <mat-list>
+                        <mat-list-item>
+                          <span matListItemTitle>休職種別</span>
+                          <span matListItemLine>{{ getLeaveTypeLabel(leave.type) }}</span>
+                        </mat-list-item>
+                        <mat-divider></mat-divider>
+                        <mat-list-item>
+                          <span matListItemTitle>休職開始（予定）日</span>
+                          <span matListItemLine>{{ formatDate(leave.startDate) }}</span>
+                        </mat-list-item>
+                        <mat-divider></mat-divider>
+                        <mat-list-item>
+                          <span matListItemTitle>休職終了（予定）日</span>
+                          <span matListItemLine>{{ formatDate(leave.endDate) || '未設定' }}</span>
+                        </mat-list-item>
+                      </mat-list>
+                    </div>
+                    <mat-divider *ngIf="i < employee.leaveInfo!.length - 1" style="margin-top: 16px;"></mat-divider>
+                  </mat-list-item>
+                </mat-list>
+              </div>
+              <ng-template #noLeaveInfo>
+                <p class="no-data">休職情報が登録されていません</p>
+              </ng-template>
+            </div>
           </div>
         </mat-tab>
 

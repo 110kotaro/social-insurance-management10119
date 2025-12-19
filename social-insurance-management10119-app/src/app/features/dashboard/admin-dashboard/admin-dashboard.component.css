@@ -65,6 +65,16 @@ mat-list-item {
   padding: 8px 0;
 }
 
+/* 最近の動きのメッセージを折り返して表示 */
+.activity-card mat-list-item [matListItemTitle] {
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
 .task-label {
   margin-left: 8px;
   font-size: 14px;

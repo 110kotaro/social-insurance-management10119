@@ -1421,6 +1421,10 @@ export class SetupWizardComponent implements OnInit {
     this.successMessage = '';
 
     try {
+      // 適用開始日・終了日を最新の値に更新
+      this.updateEffectiveFromDate();
+      this.updateEffectiveToDate();
+
       // 既存データを全削除
       await this.insuranceRateTableService.deleteAllByOrganization(this.savedOrganizationId);
       
@@ -1483,6 +1487,10 @@ export class SetupWizardComponent implements OnInit {
     this.successMessage = '';
 
     try {
+      // 適用開始日・終了日を最新の値に更新
+      this.updateEffectiveFromDate();
+      this.updateEffectiveToDate();
+
       // 既存データを全削除
       await this.insuranceRateTableService.deleteAllByOrganization(this.savedOrganizationId);
       
@@ -1533,24 +1541,6 @@ export class SetupWizardComponent implements OnInit {
         id: `external_${index + 1}`
       });
     });
-  }
-
-  /**
-   * 内部申請種別を追加
-   */
-  addInternalApplicationType(): void {
-    const newType: ApplicationType = {
-      id: `custom_${Date.now()}`,
-      name: '',
-      code: '',
-      category: 'internal',
-      enabled: true,
-      isCustom: true,
-      isDeletable: true,
-      description: ''
-    };
-    this.applicationTypes.push(newType);
-    this.editApplicationType(this.applicationTypes.length - 1);
   }
 
   /**

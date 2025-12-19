@@ -14,6 +14,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { OtherCompanySalaryDataService } from '../../../core/services/other-company-salary-data.service';
 import { OtherCompanySalaryData, OtherCompanyInfo } from '../../../core/models/employee.model';
@@ -48,7 +49,8 @@ interface OtherCompanySalaryInputRow {
     MatCheckboxModule,
     MatDatepickerModule,
     MatNativeDateModule,
-    MatChipsModule
+    MatChipsModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './other-company-salary-input.component.html',
   styleUrl: './other-company-salary-input.component.css'
@@ -72,6 +74,8 @@ export class OtherCompanySalaryInputComponent implements OnInit {
   // テーブル
   dataSource = new MatTableDataSource<OtherCompanySalaryInputRow>([]);
   salaryRows: OtherCompanySalaryInputRow[] = [];
+
+  isLoading = false;
 
   ngOnInit(): void {
     this.employeeId = this.route.snapshot.paramMap.get('id');
@@ -221,6 +225,8 @@ export class OtherCompanySalaryInputComponent implements OnInit {
     } catch (error) {
       console.error('[他社給与入力] loadSalaryDataエラー:', error);
       throw error;
+    } finally {
+      this.isLoading = false;
     }
   }
 

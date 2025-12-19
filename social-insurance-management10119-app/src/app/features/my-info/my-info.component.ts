@@ -160,4 +160,16 @@ export class MyInfoComponent implements OnInit {
     return `¥${amount.toLocaleString()}`;
   }
 
+  /**
+   * 休職種別の表示ラベルを取得
+   */
+  getLeaveTypeLabel(type: string): string {
+    const labels: { [key: string]: string } = {
+      'maternity': '産前産後休業',
+      'childcare': '育児休業',
+      'other': 'その他'
+    };
+    return labels[type] || type;
+  }
+
 }

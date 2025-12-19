@@ -8,7 +8,8 @@ export interface DependentInfo {
   lastNameKana?: string; // 氏カナ（オプショナル、後方互換性のため）
   firstNameKana?: string; // 名カナ（オプショナル、後方互換性のため）
   birthDate: Date | Timestamp;
-  relationship: string; // 続柄（配偶者、子など）
+  relationship: string; // 続柄（husband, wife, child, parentなど）
+  relationshipOther?: string; // 続柄が「その他」の場合の詳細入力
   income?: number; // 年収
   livingTogether: boolean; // 同一世帯
   dependentId?: string; // その他被扶養者の識別子（個人番号または基礎年金番号、またはUUID）

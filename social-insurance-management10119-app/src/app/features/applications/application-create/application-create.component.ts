@@ -31,7 +31,7 @@ import { StandardRewardCalculationService } from '../../../core/services/standar
 import { DeadlineCalculationService } from '../../../core/services/deadline-calculation.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { StandardRewardCalculation } from '../../../core/models/standard-reward-calculation.model';
-import { Application, ApplicationStatus, ApplicationCategory } from '../../../core/models/application.model';
+import { Application, ApplicationStatus, ApplicationCategory, Attachment } from '../../../core/models/application.model';
 import { Organization } from '../../../core/models/organization.model';
 import { ApplicationType } from '../../../core/models/application-flow.model';
 import { Employee, DependentInfo } from '../../../core/models/employee.model';
@@ -95,6 +95,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
   // ステップ3: 添付ファイル
   attachments: File[] = [];
+  existingAttachments: Attachment[] = []; // 内部申請から引き継ぐ添付ファイル
   filePreviewUrls: Map<string, string> = new Map(); // ファイルプレビュー用URL（メモリリーク防止のため）
 
   organization: Organization | null = null;
@@ -1005,6 +1006,13 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         : (employee.joinDate instanceof Timestamp ? employee.joinDate.toDate() : new Date(employee.joinDate));
       const joinDateInfo = this.convertToEraDate(joinDate);
       personGroup.get('acquisitionDate')?.patchValue(joinDateInfo);
+    }
+
+    // 被扶養者の自動選択（社員情報に被扶養者が登録されている場合は「あり」を選択）
+    if (employee.dependentInfo && employee.dependentInfo.length > 0) {
+      personGroup.patchValue({
+        hasDependents: 'yes'
+      });
     }
   }
 
@@ -2150,6 +2158,14 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     const dependentEndDateGroup = spouseGroup.get('dependentEndDate');
     const dependentEndReasonControl = spouseGroup.get('dependentEndReason');
     const deathDateGroup = spouseGroup.get('deathDate');
+    const overseasExceptionControl = spouseGroup.get('overseasException');
+    const overseasExceptionStartDateGroup = spouseGroup.get('overseasExceptionStartDate');
+    const overseasExceptionStartReasonControl = spouseGroup.get('overseasExceptionStartReason');
+    const overseasExceptionStartReasonOtherControl = spouseGroup.get('overseasExceptionStartReasonOther');
+    const overseasExceptionEndDateGroup = spouseGroup.get('overseasExceptionEndDate');
+    const overseasExceptionEndReasonControl = spouseGroup.get('overseasExceptionEndReason');
+    const overseasExceptionEndReasonOtherControl = spouseGroup.get('overseasExceptionEndReasonOther');
+    const domesticTransferDateGroup = spouseGroup.get('domesticTransferDate');
 
     if (changeType === 'no_change') {
       // 異動無しの場合：すべてのフィールドの必須を解除（年収も不要）
@@ -2238,6 +2254,48 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         deathDateGroup.get('month')?.clearValidators();
         deathDateGroup.get('day')?.clearValidators();
         deathDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      // 海外特例要件関連フィールドの必須を解除
+      if (overseasExceptionControl) {
+        overseasExceptionControl.clearValidators();
+        overseasExceptionControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartDateGroup) {
+        overseasExceptionStartDateGroup.get('era')?.clearValidators();
+        overseasExceptionStartDateGroup.get('year')?.clearValidators();
+        overseasExceptionStartDateGroup.get('month')?.clearValidators();
+        overseasExceptionStartDateGroup.get('day')?.clearValidators();
+        overseasExceptionStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonControl) {
+        overseasExceptionStartReasonControl.clearValidators();
+        overseasExceptionStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonOtherControl) {
+        overseasExceptionStartReasonOtherControl.clearValidators();
+        overseasExceptionStartReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndDateGroup) {
+        overseasExceptionEndDateGroup.get('era')?.clearValidators();
+        overseasExceptionEndDateGroup.get('year')?.clearValidators();
+        overseasExceptionEndDateGroup.get('month')?.clearValidators();
+        overseasExceptionEndDateGroup.get('day')?.clearValidators();
+        overseasExceptionEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonControl) {
+        overseasExceptionEndReasonControl.clearValidators();
+        overseasExceptionEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonOtherControl) {
+        overseasExceptionEndReasonOtherControl.clearValidators();
+        overseasExceptionEndReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (domesticTransferDateGroup) {
+        domesticTransferDateGroup.get('era')?.clearValidators();
+        domesticTransferDateGroup.get('year')?.clearValidators();
+        domesticTransferDateGroup.get('month')?.clearValidators();
+        domesticTransferDateGroup.get('day')?.clearValidators();
+        domesticTransferDateGroup.updateValueAndValidity({ emitEvent: false });
       }
     } else {
       // 異動無し以外の場合：spouseIncomeの必須を解除
@@ -2278,6 +2336,14 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     const dependentEndDateGroup = spouseGroup.get('dependentEndDate');
     const dependentEndReasonControl = spouseGroup.get('dependentEndReason');
     const deathDateGroup = spouseGroup.get('deathDate');
+    const overseasExceptionControl = spouseGroup.get('overseasException');
+    const overseasExceptionStartDateGroup = spouseGroup.get('overseasExceptionStartDate');
+    const overseasExceptionStartReasonControl = spouseGroup.get('overseasExceptionStartReason');
+    const overseasExceptionStartReasonOtherControl = spouseGroup.get('overseasExceptionStartReasonOther');
+    const overseasExceptionEndDateGroup = spouseGroup.get('overseasExceptionEndDate');
+    const overseasExceptionEndReasonControl = spouseGroup.get('overseasExceptionEndReason');
+    const overseasExceptionEndReasonOtherControl = spouseGroup.get('overseasExceptionEndReasonOther');
+    const domesticTransferDateGroup = spouseGroup.get('domesticTransferDate');
 
     if (changeType === 'no_change') {
       // 異動無しの場合：すべてのフィールドの必須を解除（年収も不要）
@@ -2366,6 +2432,48 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         deathDateGroup.get('month')?.clearValidators();
         deathDateGroup.get('day')?.clearValidators();
         deathDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      // 海外特例要件関連フィールドの必須を解除
+      if (overseasExceptionControl) {
+        overseasExceptionControl.clearValidators();
+        overseasExceptionControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartDateGroup) {
+        overseasExceptionStartDateGroup.get('era')?.clearValidators();
+        overseasExceptionStartDateGroup.get('year')?.clearValidators();
+        overseasExceptionStartDateGroup.get('month')?.clearValidators();
+        overseasExceptionStartDateGroup.get('day')?.clearValidators();
+        overseasExceptionStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonControl) {
+        overseasExceptionStartReasonControl.clearValidators();
+        overseasExceptionStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonOtherControl) {
+        overseasExceptionStartReasonOtherControl.clearValidators();
+        overseasExceptionStartReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndDateGroup) {
+        overseasExceptionEndDateGroup.get('era')?.clearValidators();
+        overseasExceptionEndDateGroup.get('year')?.clearValidators();
+        overseasExceptionEndDateGroup.get('month')?.clearValidators();
+        overseasExceptionEndDateGroup.get('day')?.clearValidators();
+        overseasExceptionEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonControl) {
+        overseasExceptionEndReasonControl.clearValidators();
+        overseasExceptionEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonOtherControl) {
+        overseasExceptionEndReasonOtherControl.clearValidators();
+        overseasExceptionEndReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (domesticTransferDateGroup) {
+        domesticTransferDateGroup.get('era')?.clearValidators();
+        domesticTransferDateGroup.get('year')?.clearValidators();
+        domesticTransferDateGroup.get('month')?.clearValidators();
+        domesticTransferDateGroup.get('day')?.clearValidators();
+        domesticTransferDateGroup.updateValueAndValidity({ emitEvent: false });
       }
     } else {
       // 異動無し以外の場合：spouseIncomeの必須を解除
@@ -2620,7 +2728,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
     // 被扶養配偶者の情報を自動転記
     if (employee.dependentInfo && employee.dependentInfo.length > 0) {
-      const spouse = employee.dependentInfo.find(dep => dep.relationship === '配偶者');
+      const spouse = employee.dependentInfo.find(dep => this.isSpouseRelationship(dep.relationship));
       if (spouse) {
         // 配偶者の氏名を設定（lastName/firstNameまたはnameから取得）
         const spouseLastName = spouse.lastName || (spouse.name ? spouse.name.split(' ')[0] : '');
@@ -2845,7 +2953,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
     // 被扶養配偶者の情報を自動転記
     if (employee.dependentInfo && employee.dependentInfo.length > 0) {
-      const spouse = employee.dependentInfo.find(dep => dep.relationship === '配偶者');
+      const spouse = employee.dependentInfo.find(dep => this.isSpouseRelationship(dep.relationship));
       if (spouse) {
         // 配偶者の氏名を設定（lastName/firstNameまたはnameから取得）
         const spouseLastName = spouse.lastName || (spouse.name ? spouse.name.split(' ')[0] : '');
@@ -3930,13 +4038,21 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
               firstMonth: latestCalculation.changeMonth.month
             });
 
-            // 改定年月も設定
-            const changeDate = new Date(latestCalculation.changeMonth.year, latestCalculation.changeMonth.month - 1, 1);
+            // 改定年月も設定（変動月から4か月目）
+            // 変動月から4か月目を計算（変動月 + 3か月 = 4か月目）
+            let targetYear = latestCalculation.changeMonth.year;
+            let targetMonth = latestCalculation.changeMonth.month + 3;
+            if (targetMonth > 12) {
+              targetMonth -= 12;
+              targetYear++;
+            }
+            
+            const changeDate = new Date(targetYear, targetMonth - 1, 1);
             const changeDateInfo = this.convertToEraDate(changeDate);
             personGroup.get('changeDate')?.patchValue({
               era: changeDateInfo.era,
               year: changeDateInfo.year,
-              month: changeDateInfo.month
+              month: targetMonth
             });
           }
         }
@@ -4487,6 +4603,14 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     const dependentEndReasonOtherControl = dependentGroup.get('dependentEndReasonOther');
     const deathDateGroup = dependentGroup.get('deathDate');
     const remarksControl = dependentGroup.get('remarks');
+    const overseasExceptionControl = dependentGroup.get('overseasException');
+    const overseasExceptionStartDateGroup = dependentGroup.get('overseasExceptionStartDate');
+    const overseasExceptionStartReasonControl = dependentGroup.get('overseasExceptionStartReason');
+    const overseasExceptionStartReasonOtherControl = dependentGroup.get('overseasExceptionStartReasonOther');
+    const overseasExceptionEndDateGroup = dependentGroup.get('overseasExceptionEndDate');
+    const overseasExceptionEndReasonControl = dependentGroup.get('overseasExceptionEndReason');
+    const overseasExceptionEndReasonOtherControl = dependentGroup.get('overseasExceptionEndReasonOther');
+    const domesticTransferDateGroup = dependentGroup.get('domesticTransferDate');
 
     if (changeType === 'no_change') {
       // 異動無しの場合：すべてのフィールドの必須を解除
@@ -4594,6 +4718,48 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         remarksControl.clearValidators();
         remarksControl.updateValueAndValidity({ emitEvent: false });
       }
+      // 海外特例要件関連フィールドの必須を解除
+      if (overseasExceptionControl) {
+        overseasExceptionControl.clearValidators();
+        overseasExceptionControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartDateGroup) {
+        overseasExceptionStartDateGroup.get('era')?.clearValidators();
+        overseasExceptionStartDateGroup.get('year')?.clearValidators();
+        overseasExceptionStartDateGroup.get('month')?.clearValidators();
+        overseasExceptionStartDateGroup.get('day')?.clearValidators();
+        overseasExceptionStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonControl) {
+        overseasExceptionStartReasonControl.clearValidators();
+        overseasExceptionStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonOtherControl) {
+        overseasExceptionStartReasonOtherControl.clearValidators();
+        overseasExceptionStartReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndDateGroup) {
+        overseasExceptionEndDateGroup.get('era')?.clearValidators();
+        overseasExceptionEndDateGroup.get('year')?.clearValidators();
+        overseasExceptionEndDateGroup.get('month')?.clearValidators();
+        overseasExceptionEndDateGroup.get('day')?.clearValidators();
+        overseasExceptionEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonControl) {
+        overseasExceptionEndReasonControl.clearValidators();
+        overseasExceptionEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonOtherControl) {
+        overseasExceptionEndReasonOtherControl.clearValidators();
+        overseasExceptionEndReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (domesticTransferDateGroup) {
+        domesticTransferDateGroup.get('era')?.clearValidators();
+        domesticTransferDateGroup.get('year')?.clearValidators();
+        domesticTransferDateGroup.get('month')?.clearValidators();
+        domesticTransferDateGroup.get('day')?.clearValidators();
+        domesticTransferDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
     } else if (changeType === 'change') {
       // 「変更」の場合：基本フィールドの必須を解除
       if (lastNameControl) {
@@ -4626,6 +4792,48 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       if (relationshipControl) {
         relationshipControl.clearValidators();
         relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
+      // 海外特例要件関連フィールドの必須を解除
+      if (overseasExceptionControl) {
+        overseasExceptionControl.clearValidators();
+        overseasExceptionControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartDateGroup) {
+        overseasExceptionStartDateGroup.get('era')?.clearValidators();
+        overseasExceptionStartDateGroup.get('year')?.clearValidators();
+        overseasExceptionStartDateGroup.get('month')?.clearValidators();
+        overseasExceptionStartDateGroup.get('day')?.clearValidators();
+        overseasExceptionStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonControl) {
+        overseasExceptionStartReasonControl.clearValidators();
+        overseasExceptionStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonOtherControl) {
+        overseasExceptionStartReasonOtherControl.clearValidators();
+        overseasExceptionStartReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndDateGroup) {
+        overseasExceptionEndDateGroup.get('era')?.clearValidators();
+        overseasExceptionEndDateGroup.get('year')?.clearValidators();
+        overseasExceptionEndDateGroup.get('month')?.clearValidators();
+        overseasExceptionEndDateGroup.get('day')?.clearValidators();
+        overseasExceptionEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonControl) {
+        overseasExceptionEndReasonControl.clearValidators();
+        overseasExceptionEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonOtherControl) {
+        overseasExceptionEndReasonOtherControl.clearValidators();
+        overseasExceptionEndReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (domesticTransferDateGroup) {
+        domesticTransferDateGroup.get('era')?.clearValidators();
+        domesticTransferDateGroup.get('year')?.clearValidators();
+        domesticTransferDateGroup.get('month')?.clearValidators();
+        domesticTransferDateGroup.get('day')?.clearValidators();
+        domesticTransferDateGroup.updateValueAndValidity({ emitEvent: false });
       }
     } else {
       // 「該当」「非該当」の場合：基本フィールドの必須を設定
@@ -4698,6 +4906,14 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     const dependentEndReasonOtherControl = dependentGroup.get('dependentEndReasonOther');
     const deathDateGroup = dependentGroup.get('deathDate');
     const remarksControl = dependentGroup.get('remarks');
+    const overseasExceptionControl = dependentGroup.get('overseasException');
+    const overseasExceptionStartDateGroup = dependentGroup.get('overseasExceptionStartDate');
+    const overseasExceptionStartReasonControl = dependentGroup.get('overseasExceptionStartReason');
+    const overseasExceptionStartReasonOtherControl = dependentGroup.get('overseasExceptionStartReasonOther');
+    const overseasExceptionEndDateGroup = dependentGroup.get('overseasExceptionEndDate');
+    const overseasExceptionEndReasonControl = dependentGroup.get('overseasExceptionEndReason');
+    const overseasExceptionEndReasonOtherControl = dependentGroup.get('overseasExceptionEndReasonOther');
+    const domesticTransferDateGroup = dependentGroup.get('domesticTransferDate');
 
     if (changeType === 'no_change') {
       // 異動無しの場合：すべてのフィールドの必須を解除
@@ -4805,6 +5021,48 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         remarksControl.clearValidators();
         remarksControl.updateValueAndValidity({ emitEvent: false });
       }
+      // 海外特例要件関連フィールドの必須を解除
+      if (overseasExceptionControl) {
+        overseasExceptionControl.clearValidators();
+        overseasExceptionControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartDateGroup) {
+        overseasExceptionStartDateGroup.get('era')?.clearValidators();
+        overseasExceptionStartDateGroup.get('year')?.clearValidators();
+        overseasExceptionStartDateGroup.get('month')?.clearValidators();
+        overseasExceptionStartDateGroup.get('day')?.clearValidators();
+        overseasExceptionStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonControl) {
+        overseasExceptionStartReasonControl.clearValidators();
+        overseasExceptionStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonOtherControl) {
+        overseasExceptionStartReasonOtherControl.clearValidators();
+        overseasExceptionStartReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndDateGroup) {
+        overseasExceptionEndDateGroup.get('era')?.clearValidators();
+        overseasExceptionEndDateGroup.get('year')?.clearValidators();
+        overseasExceptionEndDateGroup.get('month')?.clearValidators();
+        overseasExceptionEndDateGroup.get('day')?.clearValidators();
+        overseasExceptionEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonControl) {
+        overseasExceptionEndReasonControl.clearValidators();
+        overseasExceptionEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonOtherControl) {
+        overseasExceptionEndReasonOtherControl.clearValidators();
+        overseasExceptionEndReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (domesticTransferDateGroup) {
+        domesticTransferDateGroup.get('era')?.clearValidators();
+        domesticTransferDateGroup.get('year')?.clearValidators();
+        domesticTransferDateGroup.get('month')?.clearValidators();
+        domesticTransferDateGroup.get('day')?.clearValidators();
+        domesticTransferDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
     } else if (changeType === 'change') {
       // 「変更」の場合：基本フィールドの必須を解除
       if (lastNameControl) {
@@ -4837,6 +5095,48 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       if (relationshipControl) {
         relationshipControl.clearValidators();
         relationshipControl.updateValueAndValidity({ emitEvent: false });
+      }
+      // 海外特例要件関連フィールドの必須を解除
+      if (overseasExceptionControl) {
+        overseasExceptionControl.clearValidators();
+        overseasExceptionControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartDateGroup) {
+        overseasExceptionStartDateGroup.get('era')?.clearValidators();
+        overseasExceptionStartDateGroup.get('year')?.clearValidators();
+        overseasExceptionStartDateGroup.get('month')?.clearValidators();
+        overseasExceptionStartDateGroup.get('day')?.clearValidators();
+        overseasExceptionStartDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonControl) {
+        overseasExceptionStartReasonControl.clearValidators();
+        overseasExceptionStartReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionStartReasonOtherControl) {
+        overseasExceptionStartReasonOtherControl.clearValidators();
+        overseasExceptionStartReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndDateGroup) {
+        overseasExceptionEndDateGroup.get('era')?.clearValidators();
+        overseasExceptionEndDateGroup.get('year')?.clearValidators();
+        overseasExceptionEndDateGroup.get('month')?.clearValidators();
+        overseasExceptionEndDateGroup.get('day')?.clearValidators();
+        overseasExceptionEndDateGroup.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonControl) {
+        overseasExceptionEndReasonControl.clearValidators();
+        overseasExceptionEndReasonControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (overseasExceptionEndReasonOtherControl) {
+        overseasExceptionEndReasonOtherControl.clearValidators();
+        overseasExceptionEndReasonOtherControl.updateValueAndValidity({ emitEvent: false });
+      }
+      if (domesticTransferDateGroup) {
+        domesticTransferDateGroup.get('era')?.clearValidators();
+        domesticTransferDateGroup.get('year')?.clearValidators();
+        domesticTransferDateGroup.get('month')?.clearValidators();
+        domesticTransferDateGroup.get('day')?.clearValidators();
+        domesticTransferDateGroup.updateValueAndValidity({ emitEvent: false });
       }
     } else {
       // 「該当」「非該当」の場合：基本フィールドの必須を設定
@@ -5282,6 +5582,15 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     try {
       // 添付ファイルをアップロード
       const uploadedAttachments = [];
+      
+      // 既存の添付ファイル（内部申請から引き継いだもの）を追加
+      if (this.existingAttachments.length > 0) {
+        for (const attachment of this.existingAttachments) {
+          uploadedAttachments.push(attachment);
+        }
+      }
+      
+      // 新規に選択したファイルをアップロード
       if (this.attachments.length > 0 && this.organizationId) {
         const tempApplicationId = 'temp_' + Date.now();
         for (const file of this.attachments) {
@@ -5329,6 +5638,40 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         }
       } else if (this.isRewardChangeForm && this.rewardChangeForm) {
         applicationData = this.rewardChangeForm.value;
+        
+        // 報酬月額変更届の場合、改定年月から変動月を逆算して設定
+        // 改定年月 = 変動月 + 3か月 なので、変動月 = 改定年月 - 3か月
+        const persons = applicationData['rewardChangePersons'] || applicationData['insuredPersons'];
+        if (persons && Array.isArray(persons) && persons.length > 0) {
+          const firstPerson = persons[0];
+          if (firstPerson.changeDate && typeof firstPerson.changeDate === 'object' && firstPerson.changeDate.era) {
+            // 改定年月（年号形式）を西暦に変換
+            let changeYear = parseInt(firstPerson.changeDate.year);
+            if (firstPerson.changeDate.era === 'reiwa') {
+              changeYear = changeYear + 2018;
+            } else if (firstPerson.changeDate.era === 'heisei') {
+              changeYear = changeYear + 1988;
+            } else if (firstPerson.changeDate.era === 'showa') {
+              changeYear = changeYear + 1925;
+            } else if (firstPerson.changeDate.era === 'taisho') {
+              changeYear = changeYear + 1911;
+            }
+            
+            let changeMonth = parseInt(firstPerson.changeDate.month);
+            
+            // 変動月を計算（改定年月 - 3か月）
+            let targetYear = changeYear;
+            let targetMonth = changeMonth - 3;
+            if (targetMonth < 1) {
+              targetMonth += 12;
+              targetYear--;
+            }
+            
+            // 申請データに変動月を設定（期限計算用）
+            applicationData['changeMonth'] = targetMonth;
+            applicationData['changeYear'] = targetYear;
+          }
+        }
       } else if (this.isBonusPaymentForm && this.bonusPaymentForm) {
         applicationData = this.bonusPaymentForm.value;
         // commonBonusPaymentDate（年号形式）をDate形式に変換
@@ -5390,10 +5733,11 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       }
 
       // 期限を計算（各被保険者ごとに期限を計算してdata内に保存）
+      let applicationDeadline: Date | null | undefined = undefined;
       if (this.selectedApplicationType.category === 'external') {
         // 外部申請：法定期限を計算してdata内に保存
         // employeeIdがnullの場合はundefinedを渡す（オーナー権限などで社員として登録されていない場合）
-        await this.deadlineCalculationService.calculateLegalDeadline(
+        const calculatedDeadline = await this.deadlineCalculationService.calculateLegalDeadline(
           {
             type: this.selectedApplicationType.id,
             category: 'external',
@@ -5406,7 +5750,12 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           },
           this.selectedApplicationType
         );
-        // 各被保険者ごとに期限を保存するため、Application.deadlineは設定しない
+        
+        // 被扶養者異動届の場合のみ、申請全体の期限を設定
+        if (this.selectedApplicationType.code === 'DEPENDENT_CHANGE_EXTERNAL') {
+          applicationDeadline = calculatedDeadline;
+        }
+        // その他の外部申請は各被保険者ごとに期限を保存するため、Application.deadlineは設定しない
         }
         // 内部申請：期限設定なし
 
@@ -5419,7 +5768,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         status: status,
         data: applicationData,
         attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
-        deadline: undefined, // 各被保険者ごとに期限を保存するため、申請全体の期限は設定しない
+        deadline: applicationDeadline,
         relatedInternalApplicationIds: this.selectedInternalApplicationId ? [this.selectedInternalApplicationId] : undefined
       };
 
@@ -5693,11 +6042,203 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           });
         }
       }
+      
+      // 内部申請の送信年月日を提出日に自動転記
+      if (relatedApp && relatedApp.submissionDate) {
+        const submissionDate = relatedApp.submissionDate instanceof Date 
+          ? relatedApp.submissionDate 
+          : (relatedApp.submissionDate instanceof Timestamp 
+            ? relatedApp.submissionDate.toDate() 
+            : new Date(relatedApp.submissionDate));
+        const eraDate = this.convertToEraDate(submissionDate);
+        const submissionDateGroup = this.dependentChangeForm.get('submissionDate') as FormGroup;
+        if (submissionDateGroup) {
+          submissionDateGroup.patchValue(eraDate);
+        }
+      }
+      
+      // 内部申請の添付ファイルを引き継ぐ
+      if (relatedApp && relatedApp.attachments && relatedApp.attachments.length > 0) {
+        console.log('内部申請の添付ファイルを引き継ぎ:', relatedApp.attachments.length, '件');
+        this.existingAttachments = relatedApp.attachments.map(att => ({
+          fileName: att.fileName,
+          fileUrl: att.fileUrl,
+          uploadedAt: att.uploadedAt instanceof Date 
+            ? att.uploadedAt 
+            : (att.uploadedAt instanceof Timestamp 
+              ? att.uploadedAt.toDate() 
+              : new Date(att.uploadedAt))
+        }));
+      }
     }
 
     for (const app of dependentChangeApps) {
       const data = app.data;
       console.log('内部申請のデータ:', data);
+      
+      // 被保険者情報を自動入力
+      if (data && data['insuredPerson']) {
+        console.log('被保険者情報を自動入力:', data['insuredPerson']);
+        const insuredPersonGroup = this.dependentChangeForm.get('insuredPerson') as FormGroup;
+        if (insuredPersonGroup) {
+          const insuredPersonData = data['insuredPerson'];
+          
+          // 内部申請から外部申請を作成する場合、employeeIdを設定（社員選択を固定化）
+          if (this.isFromInternalApplication && app.employeeId) {
+            insuredPersonGroup.patchValue({ employeeId: app.employeeId });
+          }
+          
+          // employeeIdを除外して設定（内部申請から作成する場合は上記で設定済み）
+          const { employeeId, ...insuredPersonWithoutEmployeeId } = insuredPersonData;
+          
+          // ネストされたFormGroup（birthDate, acquisitionDate, address）を個別に処理
+          const birthDate = insuredPersonData['birthDate'];
+          const acquisitionDate = insuredPersonData['acquisitionDate'];
+          const address = insuredPersonData['address'];
+          
+          // employeeIdを除外したデータでpatchValue
+          const patchData: any = { ...insuredPersonWithoutEmployeeId };
+          delete patchData['birthDate'];
+          delete patchData['acquisitionDate'];
+          delete patchData['address'];
+          
+          insuredPersonGroup.patchValue(patchData);
+          
+          // 生年月日を設定
+          if (birthDate) {
+            insuredPersonGroup.get('birthDate')?.patchValue(birthDate);
+          }
+          
+          // 取得年月日を設定
+          if (acquisitionDate) {
+            insuredPersonGroup.get('acquisitionDate')?.patchValue(acquisitionDate);
+          }
+          
+          // 住所を設定
+          if (address) {
+            insuredPersonGroup.get('address')?.patchValue(address);
+          }
+        }
+      }
+      
+      // 配偶者情報を自動入力
+      if (data && data['spouseDependent']) {
+        console.log('配偶者情報を自動入力:', data['spouseDependent']);
+        const spouseDependentGroup = this.dependentChangeForm.get('spouseDependent') as FormGroup;
+        if (spouseDependentGroup) {
+          const spouseDependentData = data['spouseDependent'];
+          
+          // ネストされたFormGroup（birthDate, address, phoneNumber, dependentStartDate, dependentEndDate, deathDate, changeAfter, overseasExceptionStartDate, overseasExceptionEndDate, domesticTransferDate）を個別に処理
+          const birthDate = spouseDependentData['birthDate'];
+          const address = spouseDependentData['address'];
+          const phoneNumber = spouseDependentData['phoneNumber'];
+          const dependentStartDate = spouseDependentData['dependentStartDate'];
+          const dependentEndDate = spouseDependentData['dependentEndDate'];
+          const deathDate = spouseDependentData['deathDate'];
+          const changeAfter = spouseDependentData['changeAfter'];
+          const overseasExceptionStartDate = spouseDependentData['overseasExceptionStartDate'];
+          const overseasExceptionEndDate = spouseDependentData['overseasExceptionEndDate'];
+          const domesticTransferDate = spouseDependentData['domesticTransferDate'];
+          
+          // ネストされたFormGroupを除外したデータでpatchValue
+          const patchData: any = { ...spouseDependentData };
+          delete patchData['birthDate'];
+          delete patchData['address'];
+          delete patchData['phoneNumber'];
+          delete patchData['dependentStartDate'];
+          delete patchData['dependentEndDate'];
+          delete patchData['deathDate'];
+          delete patchData['changeAfter'];
+          delete patchData['overseasExceptionStartDate'];
+          delete patchData['overseasExceptionEndDate'];
+          delete patchData['domesticTransferDate'];
+          
+          spouseDependentGroup.patchValue(patchData);
+          
+          // 生年月日を設定
+          if (birthDate) {
+            spouseDependentGroup.get('birthDate')?.patchValue(birthDate);
+          }
+          
+          // 住所を設定
+          if (address) {
+            spouseDependentGroup.get('address')?.patchValue(address);
+          }
+          
+          // 電話番号を設定
+          if (phoneNumber) {
+            spouseDependentGroup.get('phoneNumber')?.patchValue(phoneNumber);
+          }
+          
+          // 異動種別「該当」の場合の情報を設定
+          if (dependentStartDate) {
+            spouseDependentGroup.get('dependentStartDate')?.patchValue(dependentStartDate);
+          }
+          
+          // 異動種別「非該当」の場合の情報を設定
+          if (dependentEndDate) {
+            spouseDependentGroup.get('dependentEndDate')?.patchValue(dependentEndDate);
+          }
+          
+          // 死亡日を設定
+          if (deathDate) {
+            spouseDependentGroup.get('deathDate')?.patchValue(deathDate);
+          }
+          
+          // 異動種別「変更」の場合の変更後情報を設定
+          if (changeAfter) {
+            const changeAfterGroup = spouseDependentGroup.get('changeAfter') as FormGroup;
+            if (changeAfterGroup) {
+              const changeAfterBirthDate = changeAfter['birthDate'];
+              const changeAfterAddress = changeAfter['address'];
+              const changeAfterPhoneNumber = changeAfter['phoneNumber'];
+              const changeAfterOverseasExceptionStartDate = changeAfter['overseasExceptionStartDate'];
+              const changeAfterOverseasExceptionEndDate = changeAfter['overseasExceptionEndDate'];
+              const changeAfterDomesticTransferDate = changeAfter['domesticTransferDate'];
+              
+              const changeAfterPatchData: any = { ...changeAfter };
+              delete changeAfterPatchData['birthDate'];
+              delete changeAfterPatchData['address'];
+              delete changeAfterPatchData['phoneNumber'];
+              delete changeAfterPatchData['overseasExceptionStartDate'];
+              delete changeAfterPatchData['overseasExceptionEndDate'];
+              delete changeAfterPatchData['domesticTransferDate'];
+              
+              changeAfterGroup.patchValue(changeAfterPatchData);
+              
+              if (changeAfterBirthDate) {
+                changeAfterGroup.get('birthDate')?.patchValue(changeAfterBirthDate);
+              }
+              if (changeAfterAddress) {
+                changeAfterGroup.get('address')?.patchValue(changeAfterAddress);
+              }
+              if (changeAfterPhoneNumber) {
+                changeAfterGroup.get('phoneNumber')?.patchValue(changeAfterPhoneNumber);
+              }
+              if (changeAfterOverseasExceptionStartDate) {
+                changeAfterGroup.get('overseasExceptionStartDate')?.patchValue(changeAfterOverseasExceptionStartDate);
+              }
+              if (changeAfterOverseasExceptionEndDate) {
+                changeAfterGroup.get('overseasExceptionEndDate')?.patchValue(changeAfterOverseasExceptionEndDate);
+              }
+              if (changeAfterDomesticTransferDate) {
+                changeAfterGroup.get('domesticTransferDate')?.patchValue(changeAfterDomesticTransferDate);
+              }
+            }
+          }
+          
+          // 海外特例要件の情報を設定
+          if (overseasExceptionStartDate) {
+            spouseDependentGroup.get('overseasExceptionStartDate')?.patchValue(overseasExceptionStartDate);
+          }
+          if (overseasExceptionEndDate) {
+            spouseDependentGroup.get('overseasExceptionEndDate')?.patchValue(overseasExceptionEndDate);
+          }
+          if (domesticTransferDate) {
+            spouseDependentGroup.get('domesticTransferDate')?.patchValue(domesticTransferDate);
+          }
+        }
+      }
       
       // otherDependentsを確認
       if (data && data['otherDependents'] && Array.isArray(data['otherDependents'])) {
@@ -5732,38 +6273,234 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
     console.log('被扶養者情報を追加中:', dependent);
 
     // 内部申請のデータ構造に合わせて値を取得
-    const lastName = dependent.changeAfter?.lastName || dependent.lastName || '';
-    const firstName = dependent.changeAfter?.firstName || dependent.firstName || '';
-    const lastNameKana = dependent.changeAfter?.lastNameKana || dependent.lastNameKana || '';
-    const firstNameKana = dependent.changeAfter?.firstNameKana || dependent.firstNameKana || '';
-    const birthDate = dependent.changeAfter?.birthDate || dependent.birthDate || {};
+    // 変更前情報（異動種別が「変更」の場合、changeAfterが存在しない場合は元の値を使用）
+    const lastName = dependent.lastName || '';
+    const firstName = dependent.firstName || '';
+    const lastNameKana = dependent.lastNameKana || '';
+    const firstNameKana = dependent.firstNameKana || '';
+    const birthDate = dependent.birthDate || {};
     const relationship = dependent.relationship || '';
-    const changeDate = dependent.changeDate || dependent.dependentStartDate || '';
-    const startReason = dependent.startReason || dependent.dependentStartReason || '';
-    const startReasonOther = dependent.startReasonOther || dependent.dependentStartReasonOther || '';
-    const endReason = dependent.endReason || dependent.dependentEndReason || '';
-    const endReasonOther = dependent.endReasonOther || dependent.dependentEndReasonOther || '';
+    const gender = dependent.gender || '';
+    const personalNumber = dependent.personalNumber || '';
+    const income = dependent.income || null;
+    const occupation = dependent.occupation || '';
+    const occupationOther = dependent.occupationOther || '';
+    const remarks = dependent.remarks || '';
+    
+    // 異動種別を取得（内部申請データから）
+    const changeType = dependent.changeType || '';
+    
+    // 変更後情報（changeAfterが存在する場合）
+    const changeAfter = dependent.changeAfter || null;
+    
+    // 住所情報
+    const address = dependent.address || {};
+    const livingTogether = dependent.address?.livingTogether || '';
+    
+    // 異動種別「該当」の場合の情報
+    const dependentStartDate = dependent.dependentStartDate || {};
+    const dependentStartReason = dependent.dependentStartReason || '';
+    const dependentStartReasonOther = dependent.dependentStartReasonOther || '';
+    const studentYear = dependent.studentYear || '';
+    
+    // 異動種別「非該当」の場合の情報
+    const dependentEndDate = dependent.dependentEndDate || {};
+    const dependentEndReason = dependent.dependentEndReason || '';
+    const dependentEndReasonOther = dependent.dependentEndReasonOther || '';
+    const deathDate = dependent.deathDate || {};
+    
+    // 海外特例要件
+    const overseasException = dependent.overseasException || '';
+    const overseasExceptionStartDate = dependent.overseasExceptionStartDate || {};
+    const overseasExceptionStartReason = dependent.overseasExceptionStartReason || '';
+    const overseasExceptionStartReasonOther = dependent.overseasExceptionStartReasonOther || '';
+    const overseasExceptionEndDate = dependent.overseasExceptionEndDate || {};
+    const overseasExceptionEndReason = dependent.overseasExceptionEndReason || '';
+    const overseasExceptionEndReasonOther = dependent.overseasExceptionEndReasonOther || '';
+    const domesticTransferDate = dependent.domesticTransferDate || {};
 
+    // 外部申請フォーム構造に合わせたFormGroupを作成
     const dependentGroup = this.fb.group({
-      lastName: [lastName],
-      firstName: [firstName],
-      lastNameKana: [lastNameKana],
-      firstNameKana: [firstNameKana],
+      lastName: [lastName, [Validators.required]],
+      firstName: [firstName, [Validators.required]],
+      lastNameKana: [lastNameKana, [Validators.required]],
+      firstNameKana: [firstNameKana, [Validators.required]],
       birthDate: this.fb.group({
-        era: [birthDate.era || 'reiwa'],
-        year: [birthDate.year || ''],
-        month: [birthDate.month || ''],
-        day: [birthDate.day || '']
+        era: [birthDate.era || 'reiwa', [Validators.required]],
+        year: [birthDate.year || '', [Validators.required]],
+        month: [birthDate.month || '', [Validators.required]],
+        day: [birthDate.day || '', [Validators.required]]
       }),
-      relationship: [relationship],
-      changeDate: [changeDate],
-      startReason: [startReason],
-      startReasonOther: [startReasonOther],
-      endReason: [endReason],
-      endReasonOther: [endReasonOther]
+      gender: [gender, changeType === 'change' ? [] : [Validators.required]],
+      relationship: [relationship, [Validators.required]],
+      relationshipOther: [dependent.relationshipOther || ''],
+      personalNumber: [personalNumber],
+      address: this.fb.group({
+        postalCode: [address.postalCode || ''],
+        prefecture: [address.prefecture || ''],
+        city: [address.city || ''],
+        street: [address.street || ''],
+        building: [address.building || ''],
+        addressKana: [address.addressKana || ''],
+        livingTogether: [livingTogether]
+      }),
+      overseasException: [overseasException],
+      overseasExceptionStartDate: this.fb.group({
+        era: [overseasExceptionStartDate.era || 'reiwa'],
+        year: [overseasExceptionStartDate.year || ''],
+        month: [overseasExceptionStartDate.month || ''],
+        day: [overseasExceptionStartDate.day || '']
+      }),
+      overseasExceptionStartReason: [overseasExceptionStartReason],
+      overseasExceptionStartReasonOther: [overseasExceptionStartReasonOther],
+      overseasExceptionEndDate: this.fb.group({
+        era: [overseasExceptionEndDate.era || 'reiwa'],
+        year: [overseasExceptionEndDate.year || ''],
+        month: [overseasExceptionEndDate.month || ''],
+        day: [overseasExceptionEndDate.day || '']
+      }),
+      overseasExceptionEndReason: [overseasExceptionEndReason],
+      overseasExceptionEndReasonOther: [overseasExceptionEndReasonOther],
+      domesticTransferDate: this.fb.group({
+        era: [domesticTransferDate.era || 'reiwa'],
+        year: [domesticTransferDate.year || ''],
+        month: [domesticTransferDate.month || ''],
+        day: [domesticTransferDate.day || '']
+      }),
+      changeType: [changeType, [Validators.required]],
+      // 異動種別「該当」の場合
+      dependentStartDate: this.fb.group({
+        era: [dependentStartDate.era || 'reiwa'],
+        year: [dependentStartDate.year || ''],
+        month: [dependentStartDate.month || ''],
+        day: [dependentStartDate.day || '']
+      }),
+      occupation: [occupation],
+      occupationOther: [occupationOther],
+      studentYear: [studentYear],
+      income: [income],
+      dependentStartReason: [dependentStartReason],
+      dependentStartReasonOther: [dependentStartReasonOther],
+      // 異動種別「非該当」の場合
+      dependentEndDate: this.fb.group({
+        era: [dependentEndDate.era || 'reiwa'],
+        year: [dependentEndDate.year || ''],
+        month: [dependentEndDate.month || ''],
+        day: [dependentEndDate.day || '']
+      }),
+      dependentEndReason: [dependentEndReason],
+      dependentEndReasonOther: [dependentEndReasonOther],
+      deathDate: this.fb.group({
+        era: [deathDate.era || 'reiwa'],
+        year: [deathDate.year || ''],
+        month: [deathDate.month || ''],
+        day: [deathDate.day || '']
+      }),
+      remarks: [remarks],
+      // 異動種別「変更」の場合の変更後情報
+      changeAfter: this.fb.group({
+        lastName: [changeAfter?.lastName || ''],
+        firstName: [changeAfter?.firstName || ''],
+        lastNameKana: [changeAfter?.lastNameKana || ''],
+        firstNameKana: [changeAfter?.firstNameKana || ''],
+        birthDate: this.fb.group({
+          era: [changeAfter?.birthDate?.era || 'reiwa'],
+          year: [changeAfter?.birthDate?.year || ''],
+          month: [changeAfter?.birthDate?.month || ''],
+          day: [changeAfter?.birthDate?.day || '']
+        }),
+        gender: [changeAfter?.gender || ''],
+        relationship: [changeAfter?.relationship || ''],
+        relationshipOther: [changeAfter?.relationshipOther || ''],
+        address: this.fb.group({
+          postalCode: [changeAfter?.address?.postalCode || ''],
+          prefecture: [changeAfter?.address?.prefecture || ''],
+          city: [changeAfter?.address?.city || ''],
+          street: [changeAfter?.address?.street || ''],
+          building: [changeAfter?.address?.building || ''],
+          addressKana: [changeAfter?.address?.addressKana || ''],
+          livingTogether: [changeAfter?.address?.livingTogether || '']
+        }),
+        occupation: [changeAfter?.occupation || ''],
+        occupationOther: [changeAfter?.occupationOther || ''],
+        income: [changeAfter?.income || null],
+        remarks: [changeAfter?.remarks || ''],
+        overseasException: [changeAfter?.overseasException || ''],
+        overseasExceptionStartDate: this.fb.group({
+          era: [changeAfter?.overseasExceptionStartDate?.era || 'reiwa'],
+          year: [changeAfter?.overseasExceptionStartDate?.year || ''],
+          month: [changeAfter?.overseasExceptionStartDate?.month || ''],
+          day: [changeAfter?.overseasExceptionStartDate?.day || '']
+        }),
+        overseasExceptionStartReason: [changeAfter?.overseasExceptionStartReason || ''],
+        overseasExceptionStartReasonOther: [changeAfter?.overseasExceptionStartReasonOther || ''],
+        overseasExceptionEndDate: this.fb.group({
+          era: [changeAfter?.overseasExceptionEndDate?.era || 'reiwa'],
+          year: [changeAfter?.overseasExceptionEndDate?.year || ''],
+          month: [changeAfter?.overseasExceptionEndDate?.month || ''],
+          day: [changeAfter?.overseasExceptionEndDate?.day || '']
+        }),
+        overseasExceptionEndReason: [changeAfter?.overseasExceptionEndReason || ''],
+        overseasExceptionEndReasonOther: [changeAfter?.overseasExceptionEndReasonOther || ''],
+        domesticTransferDate: this.fb.group({
+          era: [changeAfter?.domesticTransferDate?.era || 'reiwa'],
+          year: [changeAfter?.domesticTransferDate?.year || ''],
+          month: [changeAfter?.domesticTransferDate?.month || ''],
+          day: [changeAfter?.domesticTransferDate?.day || '']
+        })
+      }),
+      certificateRequired: [dependent.certificateRequired || false]
     });
 
+    // 作成したFormGroupを追加
+    const newIndex = this.otherDependentsFormArray.length;
     this.otherDependentsFormArray.push(dependentGroup);
+    
+    // 新しく追加された被扶養者のchangeTypeの監視を設定（addDependentsFromEmployeeと同様）
+    const changeTypeControl = dependentGroup.get('changeType');
+    if (changeTypeControl) {
+      changeTypeControl.valueChanges.subscribe((changeType: string | null) => {
+        // 外部申請の場合、バリデーションを動的に更新
+        if (this.isDependentChangeForm && this.dependentChangeForm) {
+          this.updateOtherDependentValidationExternal(newIndex, changeType || '');
+        }
+        
+        // genderフィールドのバリデーションを動的に設定
+        const genderControl = dependentGroup.get('gender');
+        if (genderControl) {
+          if (changeType === 'change') {
+            // 「変更」の場合は必須バリデーションを無効化
+            genderControl.clearValidators();
+            genderControl.updateValueAndValidity({ emitEvent: false });
+          } else {
+            // 「変更」以外の場合は必須バリデーションを有効化
+            genderControl.setValidators([Validators.required]);
+            genderControl.updateValueAndValidity({ emitEvent: false });
+          }
+        }
+        
+        if (changeType === 'change') {
+          // 現在のフォーム値を変更前情報として保存
+          this.saveOtherDependentChangeBeforeInfo(newIndex);
+        } else {
+          // 「変更」以外に戻った場合は変更前情報をクリア
+          this.otherDependentsChangeBeforeInfo.delete(newIndex);
+        }
+      });
+      
+      // 初期値がある場合も処理
+      const initialChangeType = changeTypeControl.value;
+      if (initialChangeType) {
+        // 外部申請の場合、バリデーションを動的に更新
+        if (this.isDependentChangeForm && this.dependentChangeForm) {
+          this.updateOtherDependentValidationExternal(newIndex, initialChangeType);
+        }
+        if (initialChangeType === 'change') {
+          this.saveOtherDependentChangeBeforeInfo(newIndex);
+        }
+      }
+    }
+    
     console.log('被扶養者情報を追加しました');
   }
 
@@ -5778,7 +6515,11 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       return false;
     }
     const normalizedRelationship = relationship.toLowerCase().trim();
-    const spouseKeywords = ['spouse', '配偶者', '夫', '妻', '夫（未届）', '妻（未届）', '夫(未届)', '妻(未届)'];
+    const spouseKeywords = [
+      'spouse', '配偶者', 
+      '夫', '妻', '夫（未届）', '妻（未届）', '夫(未届)', '妻(未届)',
+      'husband', 'wife', 'husband_unregistered', 'wife_unregistered'
+    ];
     return spouseKeywords.some(keyword => normalizedRelationship.includes(keyword.toLowerCase()));
   }
 
@@ -6150,6 +6891,14 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       const data = app.data;
       console.log('内部申請のデータ:', data);
       
+      // 内部申請から外部申請を作成する場合、employeeIdを設定（社員選択を固定化）
+      if (this.isFromInternalApplication && app.employeeId) {
+        const insuredPersonGroup = this.addressChangeForm.get('insuredPerson') as FormGroup;
+        if (insuredPersonGroup) {
+          insuredPersonGroup.patchValue({ employeeId: app.employeeId });
+        }
+      }
+      
       if (data) {
         const oldAddress = data['oldAddress'] || '';
         const newAddress = data['newAddress'] || '';
@@ -6164,6 +6913,20 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         });
         
         console.log('住所情報を設定しました');
+      }
+      
+      // 内部申請の添付ファイルを引き継ぐ
+      if (app.attachments && app.attachments.length > 0) {
+        console.log('内部申請の添付ファイルを引き継ぎ:', app.attachments.length, '件');
+        this.existingAttachments = app.attachments.map(att => ({
+          fileName: att.fileName,
+          fileUrl: att.fileUrl,
+          uploadedAt: att.uploadedAt instanceof Date 
+            ? att.uploadedAt 
+            : (att.uploadedAt instanceof Timestamp 
+              ? att.uploadedAt.toDate() 
+              : new Date(att.uploadedAt))
+        }));
       }
     }
   }
@@ -6195,6 +6958,14 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       const app = nameChangeApps[0]; // 最初の申請を使用
       const data = app.data;
       console.log('内部申請のデータ（全体）:', JSON.stringify(data, null, 2));
+      
+      // 内部申請から外部申請を作成する場合、employeeIdを設定（社員選択を固定化）
+      if (this.isFromInternalApplication && app.employeeId) {
+        const insuredPersonGroup = this.nameChangeForm.get('insuredPerson') as FormGroup;
+        if (insuredPersonGroup) {
+          insuredPersonGroup.patchValue({ employeeId: app.employeeId });
+        }
+      }
       
       if (data) {
         // 内部申請のデータ構造を確認：insuredPersonの中にデータがあるか、ルートに直接あるか
@@ -6553,14 +7324,20 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         if (sd.spouseIncome !== null && sd.spouseIncome !== undefined) {
           sdItems.push({ label: '配偶者の収入（年収）', value: `${sd.spouseIncome.toLocaleString()}円`, isEmpty: false });
         }
+        // 提出日を追加（businessOwnerReceiptDateまたはsubmissionDateから取得）
+        if (data['businessOwnerReceiptDate']) {
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
+        } else if (data['submissionDate']) {
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
+        }
       } else {
         sdItems.push({ label: '異動種別', value: this.formatChangeType(sd.changeType), isEmpty: !sd.changeType });
         
         // 提出日を追加（businessOwnerReceiptDateまたはsubmissionDateから取得）
         if (data['businessOwnerReceiptDate']) {
-          sdItems.push({ label: '提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
         } else if (data['submissionDate']) {
-          sdItems.push({ label: '提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
         }
         
         if (sd.changeType === 'change') {
@@ -7824,6 +8601,20 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
 
   // ヘルパーメソッド（申請詳細画面と同じ実装）
   
+  /**
+   * 日付をフォーマット（添付ファイルのアップロード日表示用）
+   */
+  formatDate(date: Date | Timestamp | undefined | null): string {
+    if (!date) return '';
+    if (date instanceof Date) {
+      return date.toLocaleDateString('ja-JP');
+    }
+    if (date instanceof Timestamp) {
+      return date.toDate().toLocaleDateString('ja-JP');
+    }
+    return '';
+  }
+
   private formatDateValue(date: any): string {
     if (!date) return '';
     if (date instanceof Date) {
@@ -8341,17 +9132,25 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       });
     }
 
-    // 変更年月を設定
+    // 変更年月を設定（変動月から4か月目）
     if (calculation.changeMonth) {
-      const changeDate = new Date(calculation.changeMonth.year, calculation.changeMonth.month - 1, 1);
-      const era = this.getEraFromDate(changeDate);
+      // 変動月から4か月目を計算（変動月 + 3か月 = 4か月目）
+      let targetYear = calculation.changeMonth.year;
+      let targetMonth = calculation.changeMonth.month + 3;
+      if (targetMonth > 12) {
+        targetMonth -= 12;
+        targetYear++;
+      }
+      
+      const changeDate = new Date(targetYear, targetMonth - 1, 1);
+      const changeDateInfo = this.convertToEraDate(changeDate);
       personGroup.get('changeDate')?.patchValue({
-        era: era.era,
-        year: era.year,
-        month: calculation.changeMonth.month
+        era: changeDateInfo.era,
+        year: changeDateInfo.year,
+        month: changeDateInfo.month
       });
       
-      // 初月を設定
+      // 初月を設定（変動月のまま）
       personGroup.patchValue({
         firstMonth: calculation.changeMonth.month
       });

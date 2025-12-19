@@ -56,9 +56,6 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
     '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
   ];
 
-  // 給与支払日の選択肢（1-31日）
-  payrollDates = Array.from({ length: 31 }, (_, i) => i + 1);
-
   constructor() {
     this.organizationForm = this.fb.group({
       name: ['', [Validators.required]],
@@ -74,8 +71,6 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
       ownerName: [''], // 事業主氏名（修正17）
       email: ['', [Validators.email]],
       industry: [''],
-      payrollDate: [null, [Validators.min(1), Validators.max(31)]],
-      monthlyCalculationTargetMonthNext: [false], // デフォルト: false（当月モード）
       leaveInsuranceCollectionMethod: ['postpaid'] // デフォルト: 後払い
     });
   }
@@ -148,8 +143,6 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
         ownerName: formValue.ownerName?.trim() || undefined, // 事業主氏名（修正17）
         email: formValue.email?.trim() || undefined,
         industry: formValue.industry?.trim() || undefined,
-        payrollDate: formValue.payrollDate || undefined,
-        monthlyCalculationTargetMonth: formValue.monthlyCalculationTargetMonthNext ? 'next' : 'current',
         leaveInsuranceCollectionMethod: formValue.leaveInsuranceCollectionMethod || 'postpaid'
       };
 

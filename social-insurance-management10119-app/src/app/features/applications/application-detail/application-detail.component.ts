@@ -779,14 +779,20 @@ export class ApplicationDetailComponent implements OnInit, OnDestroy {
         if (sd.spouseIncome !== null && sd.spouseIncome !== undefined) {
           sdItems.push({ label: '配偶者の収入（年収）', value: `${sd.spouseIncome.toLocaleString()}円`, isEmpty: false });
         }
+        // 提出日を追加（businessOwnerReceiptDateまたはsubmissionDateから取得）
+        if (data['businessOwnerReceiptDate']) {
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
+        } else if (data['submissionDate']) {
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
+        }
       } else {
         sdItems.push({ label: '異動種別', value: this.formatChangeType(sd.changeType), isEmpty: !sd.changeType });
         
         // 提出日を追加（businessOwnerReceiptDateまたはsubmissionDateから取得）
         if (data['businessOwnerReceiptDate']) {
-          sdItems.push({ label: '提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['businessOwnerReceiptDate']), isEmpty: !data['businessOwnerReceiptDate'] });
         } else if (data['submissionDate']) {
-          sdItems.push({ label: '提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
+          sdItems.push({ label: '社員提出日', value: this.formatEraDate(data['submissionDate']), isEmpty: !data['submissionDate'] });
         }
         
         if (sd.changeType === 'change') {
@@ -2904,19 +2910,15 @@ export class ApplicationDetailComponent implements OnInit, OnDestroy {
           selectedStatus,
           this.currentUserId
         );
-        
-        // 外部申請が承認された場合、社員データに反映
-        if (selectedStatus === 'approved' && this.application.category === 'external' && this.application.employeeId) {
-          try {
-            await this.reflectApplicationDataToEmployee(this.application);
-          } catch (error) {
-            console.error('社員データへの反映に失敗しました:', error);
-            this.snackBar.open('申請ステータスは変更されましたが、社員データへの反映に失敗しました。手動で更新してください。', '閉じる', { duration: 5000 });
-          }
-        }
       }
       
       this.snackBar.open('申請ステータスを変更しました', '閉じる', { duration: 3000 });
+      
+      // 外部申請が承認された場合、社員情報更新のメッセージを追加表示
+      if (selectedStatus === 'approved' && this.application.category === 'external') {
+        this.snackBar.open('社員情報を更新してください', '閉じる', { duration: 5000 });
+      }
+      
       await this.loadApplication(this.application.id);
     } catch (error) {
       console.error('申請ステータスの変更に失敗しました:', error);

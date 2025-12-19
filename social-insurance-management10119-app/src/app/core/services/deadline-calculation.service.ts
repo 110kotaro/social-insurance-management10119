@@ -175,19 +175,89 @@ export class DeadlineCalculationService {
   /**
    * 被扶養者（異動）届の法定期限を計算
    * 事実発生から5日以内
+   * 各被扶養者の異動日から最も早い日を事実発生日として使用
+   * 異動種別が「変更」の場合は社員提出日を使用
    */
   private calculateDependentChangeDeadline(application: Application): Date | null {
-    // 申請データから事実発生日を取得
-    const factDate = application.data?.['factDate'];
-    if (!factDate) {
+    const data = application.data || {};
+    let earliestDate: Date | null = null;
+
+    // 社員提出日を取得（businessOwnerReceiptDateを優先、なければsubmissionDate）
+    const submissionDateEra = data['businessOwnerReceiptDate'] || data['submissionDate'];
+    let submissionDate: Date | null = null;
+    if (submissionDateEra) {
+      submissionDate = this.convertEraDateToDate(submissionDateEra);
+    }
+
+    // 日付を比較して最も早い日を設定するヘルパー関数
+    const updateEarliestDate = (date: Date | null): void => {
+      if (!date) {
+        return;
+      }
+      if (earliestDate === null) {
+        earliestDate = date;
+      } else {
+        const currentEarliest: Date = earliestDate;
+        if (date < currentEarliest) {
+          earliestDate = date;
+        }
+      }
+    };
+
+    // 配偶者の異動日を確認
+    const spouseDependent = data['spouseDependent'];
+    if (spouseDependent) {
+      const spouseChangeType = spouseDependent.changeType;
+      
+      // 異動種別「変更」の場合：社員提出日を使用
+      if (spouseChangeType === 'change' && submissionDate) {
+        updateEarliestDate(submissionDate);
+      }
+      
+      // 異動種別「該当」の場合：被扶養者になった日
+      if (spouseChangeType === 'applicable' && spouseDependent.dependentStartDate) {
+        const startDate = this.convertEraDateToDate(spouseDependent.dependentStartDate);
+        updateEarliestDate(startDate);
+      }
+      
+      // 異動種別「非該当」の場合：被扶養者でなくなった日
+      if (spouseChangeType === 'not_applicable' && spouseDependent.dependentEndDate) {
+        const endDate = this.convertEraDateToDate(spouseDependent.dependentEndDate);
+        updateEarliestDate(endDate);
+      }
+    }
+
+    // その他被扶養者の異動日を確認
+    const otherDependents = data['otherDependents'];
+    if (otherDependents && Array.isArray(otherDependents)) {
+      for (const dependent of otherDependents) {
+        const changeType = dependent.changeType;
+        
+        // 異動種別「変更」の場合：社員提出日を使用
+        if (changeType === 'change' && submissionDate) {
+          updateEarliestDate(submissionDate);
+        }
+        
+        // 異動種別「該当」の場合：被扶養者になった日
+        if (changeType === 'applicable' && dependent.dependentStartDate) {
+          const startDate = this.convertEraDateToDate(dependent.dependentStartDate);
+          updateEarliestDate(startDate);
+        }
+        
+        // 異動種別「非該当」の場合：被扶養者でなくなった日
+        if (changeType === 'not_applicable' && dependent.dependentEndDate) {
+          const endDate = this.convertEraDateToDate(dependent.dependentEndDate);
+          updateEarliestDate(endDate);
+        }
+      }
+    }
+
+    if (!earliestDate) {
       return null;
     }
 
-    const factDateObj = factDate instanceof Date 
-      ? factDate 
-      : new Date(factDate);
-    
-    const deadline = new Date(factDateObj);
+    // 事実発生日 + 5日を期限として計算
+    const deadline = new Date(earliestDate);
     deadline.setDate(deadline.getDate() + 5);
     
     return this.adjustForBusinessDay(deadline);
@@ -248,20 +318,53 @@ export class DeadlineCalculationService {
 
   /**
    * 報酬月額変更届の法定期限を計算
-   * 速やかに届け出る（設定画面で期限設定可能、デフォルトは変動月から4か月目の月末）
+   * 速やかに届け出る（設定画面で期限設定可能、デフォルトは改定年月から1か月目の月末）
+   * 改定年月 = 変動月 + 3か月、期限 = 変動月 + 4か月目の月末 = 改定年月 + 1か月目の月末
    */
   private calculateRewardChangeDeadline(application: Application): Date | null {
-    // 申請データから変動月を取得
-    const changeMonth = application.data?.['changeMonth'];
-    const changeYear = application.data?.['changeYear'];
-    
-    if (!changeMonth || !changeYear) {
+    // 申請データから改定年月を取得（各被保険者のchangeDateから）
+    const rewardChangePersons = application.data?.['rewardChangePersons'] || application.data?.['insuredPersons'];
+    if (!rewardChangePersons || !Array.isArray(rewardChangePersons) || rewardChangePersons.length === 0) {
       return null;
     }
 
-    // 変動月から4か月目の月末
+    // 最初の被保険者の改定年月を使用
+    const firstPerson = rewardChangePersons[0];
+    const changeDate = firstPerson.changeDate;
+    if (!changeDate) {
+      return null;
+    }
+
+    // 改定年月（年号形式）を西暦に変換
+    let changeYear: number | null = null;
+    let changeMonth: number | null = null;
+
+    if (changeDate instanceof Date) {
+      changeYear = changeDate.getFullYear();
+      changeMonth = changeDate.getMonth() + 1;
+    } else if (changeDate && typeof changeDate === 'object' && changeDate.era) {
+      // 年号形式 {era, year, month}
+      let year = parseInt(changeDate.year);
+      if (changeDate.era === 'reiwa') {
+        year = year + 2018; // 令和年 + 2018 = 西暦
+      } else if (changeDate.era === 'heisei') {
+        year = year + 1988; // 平成年 + 1988 = 西暦
+      } else if (changeDate.era === 'showa') {
+        year = year + 1925; // 昭和平年 + 1925 = 西暦
+      } else if (changeDate.era === 'taisho') {
+        year = year + 1911; // 大正年 + 1911 = 西暦
+      }
+      changeYear = year;
+      changeMonth = parseInt(changeDate.month);
+    }
+
+    if (!changeYear || !changeMonth) {
+      return null;
+    }
+
+    // 改定年月から1か月後の月末を計算
     let targetYear = changeYear;
-    let targetMonth = changeMonth + 3;
+    let targetMonth = changeMonth + 1;
     if (targetMonth > 12) {
       targetMonth -= 12;
       targetYear++;
@@ -377,6 +480,9 @@ export class DeadlineCalculationService {
       year = year + 1925; // 昭和平年 + 1925 = 西暦
     } else if (eraDate.era === 'taisho') {
       year = year + 1911; // 大正年 + 1911 = 西暦
+    } else {
+      // 未知の年号の場合は null を返す
+      return null;
     }
     
     return new Date(year, parseInt(eraDate.month) - 1, parseInt(eraDate.day));

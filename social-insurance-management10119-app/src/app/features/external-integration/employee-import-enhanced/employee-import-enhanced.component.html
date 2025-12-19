@@ -10,8 +10,8 @@
       <!-- ファイル選択 -->
       <div class="file-selection">
         <div class="file-input-wrapper">
-          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" style="display: none;" [disabled]="isValidating">
-          <label for="fileInput" class="file-label" [class.disabled]="isValidating">
+          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" style="display: none;">
+          <label for="fileInput" class="file-label">
             <mat-icon>attach_file</mat-icon>
             CSV/Excelファイルを選択
           </label>
@@ -23,14 +23,8 @@
           </a>
         </div>
         <p class="file-hint">
-          CSV/Excelファイル形式: 基本情報（社員番号, 氏名, 氏名カナ, メールアドレス, 部署名, 入社日(yyyy-MM-dd), 生年月日，ステータス(在籍/休職/退職/未入社)，権限），住所情報は必須項目です。
+          CSV/Excelファイル形式: 基本情報（社員番号, 氏, 名, 氏（カナ）, 名（カナ）, メールアドレス, 部署名, 入社日(yyyy-MM-dd), 生年月日，ステータス(在籍/休職/退職/未入社)，権限），住所情報は必須項目です。
         </p>
-      </div>
-
-      <!-- バリデーション中 -->
-      <div *ngIf="isValidating" class="validating-section">
-        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
-        <p>競合を検出中...</p>
       </div>
 
       <!-- エラーメッセージ -->
@@ -41,74 +35,39 @@
         </ul>
       </div>
 
-      <!-- 競合解決設定 -->
-      <div *ngIf="importedEmployees.length > 0 && !isValidating" class="conflict-resolution-section">
-        <h3>競合解決設定</h3>
-        <div class="resolution-controls">
-          <mat-form-field>
-            <mat-label>デフォルトの競合解決方法</mat-label>
-            <mat-select [(ngModel)]="defaultConflictResolution" (selectionChange)="applyDefaultResolution()">
-              <mat-option value="overwrite">上書き</mat-option>
-              <mat-option value="merge">マージ</mat-option>
-              <mat-option value="skip">スキップ</mat-option>
-              <mat-option value="individual">個別選択</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <button mat-button (click)="applyDefaultResolution()">
-            <mat-icon>refresh</mat-icon>
-            設定を適用
-          </button>
-        </div>
-      </div>
-
       <!-- インポートプレビュー -->
-      <div *ngIf="importedEmployees.length > 0 && !isValidating" class="preview-section">
-        <div class="preview-header">
-          <h3>インポートプレビュー ({{ importedEmployees.length }}件)</h3>
-          <div class="selection-info">
-            <span>選択済み: {{ getSelectedCount() }}件</span>
-            <span *ngIf="getConflictCount() > 0">
-              競合: {{ getConflictCount() }}件
-            </span>
-          </div>
-        </div>
+      <div *ngIf="importedEmployees.length > 0" class="preview-section">
+        <h3>インポートプレビュー ({{ importedEmployees.length }}件)</h3>
         <div class="table-container">
           <table mat-table [dataSource]="dataSource" class="import-table">
-            <!-- 選択チェックボックス -->
-            <ng-container matColumnDef="select">
-              <th mat-header-cell *matHeaderCellDef>
-                <mat-checkbox
-                  [checked]="allSelected"
-                  [indeterminate]="someSelected"
-                  (change)="toggleAllSelection()"
-                  [disabled]="isLoading">
-                </mat-checkbox>
-              </th>
-              <td mat-cell *matCellDef="let emp">
-                <mat-checkbox
-                  [(ngModel)]="emp.selected"
-                  (change)="toggleSelection(emp)"
-                  [disabled]="isLoading || (emp.errors && emp.errors.length > 0)">
-                </mat-checkbox>
-              </td>
-            </ng-container>
-
             <!-- 社員番号 -->
             <ng-container matColumnDef="employeeNumber">
               <th mat-header-cell *matHeaderCellDef>社員番号</th>
               <td mat-cell *matCellDef="let emp">{{ emp.employeeNumber }}</td>
             </ng-container>
 
-            <!-- 氏名 -->
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>氏名</th>
-              <td mat-cell *matCellDef="let emp">{{ emp.lastName }} {{ emp.firstName }}</td>
+            <!-- 氏（姓） -->
+            <ng-container matColumnDef="lastName">
+              <th mat-header-cell *matHeaderCellDef>氏</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.lastName }}</td>
             </ng-container>
 
-            <!-- 氏名カナ -->
-            <ng-container matColumnDef="nameKana">
-              <th mat-header-cell *matHeaderCellDef>氏名カナ</th>
-              <td mat-cell *matCellDef="let emp">{{ emp.lastNameKana }} {{ emp.firstNameKana }}</td>
+            <!-- 名 -->
+            <ng-container matColumnDef="firstName">
+              <th mat-header-cell *matHeaderCellDef>名</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.firstName }}</td>
+            </ng-container>
+
+            <!-- 氏（カナ） -->
+            <ng-container matColumnDef="lastNameKana">
+              <th mat-header-cell *matHeaderCellDef>氏（カナ）</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.lastNameKana }}</td>
+            </ng-container>
+
+            <!-- 名（カナ） -->
+            <ng-container matColumnDef="firstNameKana">
+              <th mat-header-cell *matHeaderCellDef>名（カナ）</th>
+              <td mat-cell *matCellDef="let emp">{{ emp.firstNameKana }}</td>
             </ng-container>
 
             <!-- メールアドレス -->
@@ -123,46 +82,107 @@
               <td mat-cell *matCellDef="let emp">{{ emp.departmentName }}</td>
             </ng-container>
 
-            <!-- 競合 -->
-            <ng-container matColumnDef="conflict">
-              <th mat-header-cell *matHeaderCellDef>競合</th>
+            <!-- 入社日 -->
+            <ng-container matColumnDef="joinDate">
+              <th mat-header-cell *matHeaderCellDef>入社日</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDate(emp.joinDate) }}</td>
+            </ng-container>
+
+            <!-- 生年月日 -->
+            <ng-container matColumnDef="birthDate">
+              <th mat-header-cell *matHeaderCellDef>生年月日</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDate(emp.birthDate) }}</td>
+            </ng-container>
+
+            <!-- ステータス -->
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>ステータス</th>
               <td mat-cell *matCellDef="let emp">
-                <span *ngIf="emp.conflictType" [class]="'conflict-badge conflict-' + emp.conflictType">
-                  {{ getConflictTypeLabel(emp.conflictType) }}
+                <span [class.error-status]="emp.errors">
+                  {{ getStatusLabel(emp.status) }}
                 </span>
-                <span *ngIf="!emp.conflictType">-</span>
               </td>
             </ng-container>
 
-            <!-- 解決方法 -->
-            <ng-container matColumnDef="resolution">
-              <th mat-header-cell *matHeaderCellDef>解決方法</th>
-              <td mat-cell *matCellDef="let emp">
-                <span *ngIf="emp.conflictResolution">{{ getResolutionLabel(emp.conflictResolution) }}</span>
-                <span *ngIf="!emp.conflictResolution">-</span>
-              </td>
+            <!-- 権限 -->
+            <ng-container matColumnDef="role">
+              <th mat-header-cell *matHeaderCellDef>権限</th>
+              <td mat-cell *matCellDef="let emp">{{ getRoleLabel(emp.role) }}</td>
             </ng-container>
 
-            <!-- アクション -->
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef>操作</th>
+            <!-- 健康保険被保険者番号 -->
+            <ng-container matColumnDef="healthInsuranceNumber">
+              <th mat-header-cell *matHeaderCellDef>健康保険被保険者番号</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.healthInsuranceNumber) }}</td>
+            </ng-container>
+
+            <!-- 厚生年金被保険者番号 -->
+            <ng-container matColumnDef="pensionNumber">
+              <th mat-header-cell *matHeaderCellDef>厚生年金被保険者番号</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.pensionNumber) }}</td>
+            </ng-container>
+
+            <!-- マイナンバー -->
+            <ng-container matColumnDef="myNumber">
+              <th mat-header-cell *matHeaderCellDef>マイナンバー</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.myNumber) }}</td>
+            </ng-container>
+
+            <!-- 標準報酬月額 -->
+            <ng-container matColumnDef="standardReward">
+              <th mat-header-cell *matHeaderCellDef>標準報酬月額</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.standardReward) }}</td>
+            </ng-container>
+
+            <!-- 保険適用開始日 -->
+            <ng-container matColumnDef="insuranceStartDate">
+              <th mat-header-cell *matHeaderCellDef>保険適用開始日</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDate(emp.insuranceStartDate) }}</td>
+            </ng-container>
+
+            <!-- 郵便番号 -->
+            <ng-container matColumnDef="postalCode">
+              <th mat-header-cell *matHeaderCellDef>郵便番号</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.postalCode) }}</td>
+            </ng-container>
+
+            <!-- 都道府県 -->
+            <ng-container matColumnDef="prefecture">
+              <th mat-header-cell *matHeaderCellDef>都道府県</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.prefecture) }}</td>
+            </ng-container>
+
+            <!-- 市区町村 -->
+            <ng-container matColumnDef="city">
+              <th mat-header-cell *matHeaderCellDef>市区町村</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.city) }}</td>
+            </ng-container>
+
+            <!-- 町名・番地 -->
+            <ng-container matColumnDef="street">
+              <th mat-header-cell *matHeaderCellDef>町名・番地</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.street) }}</td>
+            </ng-container>
+
+            <!-- 建物名・部屋番号 -->
+            <ng-container matColumnDef="building">
+              <th mat-header-cell *matHeaderCellDef>建物名・部屋番号</th>
+              <td mat-cell *matCellDef="let emp">{{ formatDisplayValue(emp.building) }}</td>
+            </ng-container>
+
+            <!-- エラー -->
+            <ng-container matColumnDef="errors">
+              <th mat-header-cell *matHeaderCellDef>エラー</th>
               <td mat-cell *matCellDef="let emp">
-                <button
-                  *ngIf="emp.conflictType === 'existing' && emp.existingEmployee"
-                  mat-icon-button
-                  (click)="openConflictResolutionDialog(emp)"
-                  [disabled]="isLoading"
-                  matTooltip="競合解決">
-                  <mat-icon>compare_arrows</mat-icon>
-                </button>
+                <div *ngIf="emp.errors && emp.errors.length > 0" class="error-list">
+                  <span *ngFor="let error of emp.errors" class="error-item">{{ error }}</span>
+                </div>
+                <span *ngIf="!emp.errors || emp.errors.length === 0" class="no-error">✓</span>
               </td>
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;" 
-                [class.error-row]="row.errors && row.errors.length > 0"
-                [class.conflict-row]="row.conflictType === 'existing'">
-            </tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.error-row]="row.errors && row.errors.length > 0"></tr>
           </table>
         </div>
       </div>
@@ -176,7 +196,7 @@
           mat-raised-button 
           color="primary" 
           (click)="executeImport()" 
-          [disabled]="isLoading || importedEmployees.length === 0 || !hasSelectedEmployees()">
+          [disabled]="isLoading || importedEmployees.length === 0 || hasOnlyErrors()">
           <mat-icon *ngIf="isLoading">hourglass_empty</mat-icon>
           {{ isLoading ? 'インポート中...' : 'インポート実行' }}
         </button>

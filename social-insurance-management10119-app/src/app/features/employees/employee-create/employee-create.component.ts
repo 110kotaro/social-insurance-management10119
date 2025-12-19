@@ -78,6 +78,24 @@ export class EmployeeCreateComponent implements OnInit {
   organizationId: string | null = null;
   isLoading = false;
 
+  // 続柄の選択肢（申請フォームと統一）
+  relationshipOptions = [
+    { value: 'husband', label: '夫' },
+    { value: 'wife', label: '妻' },
+    { value: 'husband_unregistered', label: '夫（未届）' },
+    { value: 'wife_unregistered', label: '妻（未届）' },
+    { value: 'child', label: '実子・養子' },
+    { value: 'other_child', label: '実子・養子以外の子' },
+    { value: 'parent', label: '父母・養父母' },
+    { value: 'parent_in_law', label: '義父母' },
+    { value: 'sibling', label: '弟妹' },
+    { value: 'elder_sibling', label: '兄姉' },
+    { value: 'grandparent', label: '祖父母' },
+    { value: 'great_grandparent', label: '曽祖父母' },
+    { value: 'grandchild', label: '孫' },
+    { value: 'other', label: 'その他' }
+  ];
+
   constructor() {
     // ステップ1: 基本情報
     this.basicInfoForm = this.fb.group({
@@ -204,8 +222,10 @@ export class EmployeeCreateComponent implements OnInit {
       firstNameKana: ['', [Validators.required]],
       birthDate: [null, [Validators.required]],
       relationship: ['', [Validators.required]],
+      relationshipOther: [''], // その他の場合の詳細入力
       income: [null],
-      livingTogether: [true]
+      livingTogether: [true],
+      becameDependentDate: [null] // 被扶養者になった年月日
     });
     this.dependentsFormArray.push(dependentGroup);
   }
@@ -391,8 +411,10 @@ export class EmployeeCreateComponent implements OnInit {
                 firstNameKana: dep.firstNameKana,
                 birthDate: dep.birthDate,
                 relationship: dep.relationship,
+                ...(dep.relationshipOther && { relationshipOther: dep.relationshipOther }),
                 ...(dep.income && { income: dep.income }),
-                livingTogether: dep.livingTogether
+                livingTogether: dep.livingTogether,
+                ...(dep.becameDependentDate && { becameDependentDate: dep.becameDependentDate })
               };
             })
           : undefined;
@@ -539,7 +561,9 @@ export class EmployeeCreateComponent implements OnInit {
 
     try {
       const rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId);
-      const validRateTables = this.filterValidRateTables(rateTables);
+      // 等級・標準報酬月額適用年月日を優先して使用
+      const effectiveDate = this.insuranceInfoForm.get('gradeAndStandardRewardEffectiveDate')?.value || undefined;
+      const validRateTables = this.filterValidRateTables(rateTables, effectiveDate);
 
       if (validRateTables.length === 0) {
         return;
@@ -570,7 +594,9 @@ export class EmployeeCreateComponent implements OnInit {
 
     try {
       const rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.organizationId);
-      const validRateTables = this.filterValidRateTables(rateTables);
+      // 等級・標準報酬月額適用年月日を優先して使用
+      const effectiveDate = this.insuranceInfoForm.get('gradeAndStandardRewardEffectiveDate')?.value || undefined;
+      const validRateTables = this.filterValidRateTables(rateTables, effectiveDate);
 
       if (validRateTables.length === 0) {
         return;
@@ -579,7 +605,8 @@ export class EmployeeCreateComponent implements OnInit {
       const rateTable = validRateTables.find(t => t.grade === grade);
       if (rateTable) {
         this.insuranceInfoForm.patchValue({
-          standardReward: rateTable.standardRewardAmount
+          standardReward: rateTable.standardRewardAmount,
+          pensionGrade: rateTable.pensionGrade || null
         }, { emitEvent: false });
       }
     } catch (error) {
@@ -589,9 +616,11 @@ export class EmployeeCreateComponent implements OnInit {
 
   /**
    * 有効な保険料率テーブルをフィルタリング
+   * @param rateTables 等級表の配列
+   * @param targetDate 有効日付（指定しない場合は現在日付）
    */
-  private filterValidRateTables(rateTables: InsuranceRateTable[]): InsuranceRateTable[] {
-    const now = new Date();
+  private filterValidRateTables(rateTables: InsuranceRateTable[], targetDate?: Date): InsuranceRateTable[] {
+    const checkDate = targetDate || new Date();
     return rateTables.filter(table => {
       const effectiveFrom = this.convertToDate(table.effectiveFrom);
       const effectiveTo = table.effectiveTo ? this.convertToDate(table.effectiveTo) : null;
@@ -602,8 +631,9 @@ export class EmployeeCreateComponent implements OnInit {
       
       const fromDate = new Date(effectiveFrom.getFullYear(), effectiveFrom.getMonth(), 1);
       const toDate = effectiveTo ? new Date(effectiveTo.getFullYear(), effectiveTo.getMonth(), 1) : null;
+      const checkDateMonth = new Date(checkDate.getFullYear(), checkDate.getMonth(), 1);
       
-      return now >= fromDate && (!toDate || now <= toDate);
+      return checkDateMonth >= fromDate && (!toDate || checkDateMonth <= toDate);
     });
   }
 

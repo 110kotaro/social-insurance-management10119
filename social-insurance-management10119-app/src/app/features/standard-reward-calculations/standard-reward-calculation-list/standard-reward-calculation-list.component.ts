@@ -15,6 +15,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../../core/auth/auth.service';
 import { StandardRewardCalculationService } from '../../../core/services/standard-reward-calculation.service';
 import { EmployeeService } from '../../../core/services/employee.service';
@@ -43,7 +44,8 @@ import { StatusChangeDialogComponent, StatusChangeDialogData } from '../standard
     MatSnackBarModule,
     MatDialogModule,
     MatCheckboxModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './standard-reward-calculation-list.component.html',
   styleUrl: './standard-reward-calculation-list.component.css'

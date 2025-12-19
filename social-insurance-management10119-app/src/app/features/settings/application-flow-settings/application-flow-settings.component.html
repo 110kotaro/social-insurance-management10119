@@ -11,13 +11,6 @@
       <mat-tab label="申請種別">
         <ng-template matTabContent>
           <div class="tab-content">
-            <div class="action-buttons">
-              <button mat-raised-button color="primary" (click)="openApplicationTypeEditDialog(undefined, 'internal')">
-                <mat-icon>add</mat-icon>
-                内部申請種別を追加
-              </button>
-            </div>
-
             <h3>内部申請種別</h3>
             <div class="table-container">
               <table mat-table [dataSource]="internalDataSource" class="application-type-table">
@@ -31,15 +24,6 @@
                   <td mat-cell *matCellDef="let type">{{ type.code }}</td>
                 </ng-container>
 
-                <ng-container matColumnDef="enabled">
-                  <th mat-header-cell *matHeaderCellDef>有効</th>
-                  <td mat-cell *matCellDef="let type">
-                    <mat-icon [color]="type.enabled ? 'primary' : ''">
-                      {{ type.enabled ? 'check_circle' : 'cancel' }}
-                    </mat-icon>
-                  </td>
-                </ng-container>
-
                 <ng-container matColumnDef="description">
                   <th mat-header-cell *matHeaderCellDef>説明</th>
                   <td mat-cell *matCellDef="let type">{{ type.description || '-' }}</td>
@@ -50,12 +34,6 @@
                   <td mat-cell *matCellDef="let type">
                     <button mat-icon-button (click)="openApplicationTypeEditDialog(type)" matTooltip="編集">
                       <mat-icon>edit</mat-icon>
-                    </button>
-                    <button mat-icon-button (click)="deleteApplicationType(type)" 
-                            [disabled]="!type.isDeletable" 
-                            matTooltip="削除" 
-                            color="warn">
-                      <mat-icon>delete</mat-icon>
                     </button>
                   </td>
                 </ng-container>
@@ -78,15 +56,6 @@
                   <th mat-header-cell *matHeaderCellDef>コード</th>
                   <td mat-cell *matCellDef="let type">{{ type.code }}</td>
                 </ng-container> -->
-
-                <ng-container matColumnDef="enabled">
-                  <th mat-header-cell *matHeaderCellDef>有効</th>
-                  <td mat-cell *matCellDef="let type">
-                    <mat-icon [color]="type.enabled ? 'primary' : ''">
-                      {{ type.enabled ? 'check_circle' : 'cancel' }}
-                    </mat-icon>
-                  </td>
-                </ng-container>
 
                 <!-- 説明列は表示しない -->
                 <!-- <ng-container matColumnDef="description">

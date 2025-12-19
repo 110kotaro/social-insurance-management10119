@@ -292,7 +292,15 @@
 
                         <mat-form-field appearance="outline" class="form-field">
                           <mat-label>続柄</mat-label>
-                          <input matInput formControlName="relationship" placeholder="例: 配偶者、子" required>
+                          <mat-select formControlName="relationship" required>
+                            <mat-option *ngFor="let rel of relationshipOptions" [value]="rel.value">
+                              {{ rel.label }}
+                            </mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field *ngIf="dependent.get('relationship')?.value === 'other'" appearance="outline" class="form-field">
+                          <mat-label>続柄（その他）</mat-label>
+                          <textarea matInput formControlName="relationshipOther" rows="2" required></textarea>
                         </mat-form-field>
                       </div>
 

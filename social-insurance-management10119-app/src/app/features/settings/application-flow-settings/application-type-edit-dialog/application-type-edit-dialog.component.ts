@@ -53,7 +53,6 @@ export class ApplicationTypeEditDialogComponent implements OnInit {
     this.applicationTypeForm = this.fb.group({
       name: ['', [Validators.required]],
       code: ['', [Validators.required]],
-      enabled: [true],
       description: ['']
     });
   }
@@ -99,7 +98,7 @@ export class ApplicationTypeEditDialogComponent implements OnInit {
       name: formValue.name,
       code: formValue.code,
       category: this.data.category,
-      enabled: formValue.enabled,
+      enabled: true, // UIから削除したため、常にtrueを設定
       isCustom: this.data.applicationType?.isCustom ?? (this.data.category === 'internal'),
       isDeletable: this.data.applicationType?.isDeletable ?? (this.data.category === 'internal'),
       description: formValue.description || undefined

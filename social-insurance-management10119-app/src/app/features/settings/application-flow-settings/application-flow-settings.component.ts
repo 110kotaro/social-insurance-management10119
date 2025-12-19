@@ -63,8 +63,8 @@ export class ApplicationFlowSettingsComponent implements OnInit, OnChanges {
   externalDataSource = new MatTableDataSource<ApplicationType>([]);
   attachmentDataSource = new MatTableDataSource<AttachmentSetting>([]);
   
-  internalDisplayedColumns: string[] = ['name', 'enabled', 'actions'];
-  externalDisplayedColumns: string[] = ['name', 'enabled', 'actions'];
+  internalDisplayedColumns: string[] = ['name', 'actions'];
+  externalDisplayedColumns: string[] = ['name', 'actions'];
   attachmentDisplayedColumns: string[] = ['applicationType', 'allowedFormats', 'maxFileSize', 'description', 'actions'];
 
   isLoading = false;

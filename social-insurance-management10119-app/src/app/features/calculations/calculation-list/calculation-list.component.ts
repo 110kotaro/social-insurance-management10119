@@ -15,6 +15,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../../core/auth/auth.service';
 import { CalculationService } from '../../../core/services/calculation.service';
 import { EmployeeService } from '../../../core/services/employee.service';
@@ -43,7 +44,8 @@ import { BonusDataService } from '../../../core/services/bonus-data.service';
     MatTooltipModule,
     MatSnackBarModule,
     MatCheckboxModule,
-    MatTabsModule
+    MatTabsModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './calculation-list.component.html',
   styleUrl: './calculation-list.component.css'
@@ -97,6 +99,8 @@ export class CalculationListComponent implements OnInit {
   years: number[] = [];
   months: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
+  isLoading = false;
+
   constructor() {
     // 過去5年から未来1年まで
     for (let i = this.currentYear - 5; i <= this.currentYear + 1; i++) {
@@ -132,6 +136,7 @@ export class CalculationListComponent implements OnInit {
       return;
     }
 
+    this.isLoading = true;
     const year = this.searchForm.value.year || this.currentYear;
     const month = this.searchForm.value.month || this.currentMonth;
 
@@ -179,6 +184,8 @@ export class CalculationListComponent implements OnInit {
     } catch (error) {
       console.error('計算履歴の取得に失敗しました:', error);
       this.snackBar.open('計算履歴の取得に失敗しました', '閉じる', { duration: 3000 });
+    } finally {
+      this.isLoading = false;
     }
   }
 
@@ -653,6 +660,7 @@ export class CalculationListComponent implements OnInit {
       return;
     }
 
+    this.isLoading = true;
     const year = this.bonusSearchForm.value.year || this.currentYear;
     const month = this.bonusSearchForm.value.month || this.currentMonth;
 
@@ -700,6 +708,8 @@ export class CalculationListComponent implements OnInit {
     } catch (error) {
       console.error('賞与計算履歴の取得に失敗しました:', error);
       this.snackBar.open('賞与計算履歴の取得に失敗しました', '閉じる', { duration: 3000 });
+    } finally {
+      this.isLoading = false;
     }
   }
 

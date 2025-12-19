@@ -27,8 +27,14 @@
         <p>表示されていない過去分は内部で保持されます。</p>
       </div>
 
+      <!-- 読み込み中 -->
+      <div *ngIf="isLoading" class="loading-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px;">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p style="margin-top: 16px;">読み込み中...</p>
+      </div>
+
       <!-- テーブル -->
-      <div class="table-container">
+      <div class="table-container" *ngIf="!isLoading">
         <table mat-table [dataSource]="dataSource" class="salary-table">
           <!-- 年 -->
           <ng-container matColumnDef="year">

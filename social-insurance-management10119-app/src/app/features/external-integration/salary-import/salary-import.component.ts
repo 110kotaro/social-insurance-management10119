@@ -176,6 +176,14 @@ export class SalaryImportComponent implements OnInit {
       if (!line) continue;
 
       const row = this.parseCsvLine(line);
+      
+      // すべてのセルが空かチェック（空行をスキップ）
+      const isEmptyRow = row.every(cell => {
+        const value = String(cell || '').trim();
+        return value === '' || value === '0' || value === '-';
+      });
+      if (isEmptyRow) continue;
+
       this.parseSalaryRow(row, i + 1);
     }
   }
@@ -223,6 +231,13 @@ export class SalaryImportComponent implements OnInit {
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       if (!row || row.length === 0) continue;
+
+      // すべてのセルが空かチェック（空行をスキップ）
+      const isEmptyRow = row.every(cell => {
+        const value = String(cell || '').trim();
+        return value === '' || value === '0' || value === '-';
+      });
+      if (isEmptyRow) continue;
 
       this.parseSalaryRow(row, i + 1);
     }
@@ -336,6 +351,27 @@ export class SalaryImportComponent implements OnInit {
           keySet.add(key);
         }
       });
+
+      // 確定済みデータのチェック
+      for (const data of this.importedSalaryData) {
+        if (data.errors && data.errors.length > 0) continue;
+        if (!data.employeeId) continue;
+
+        try {
+          const existingSalaryData = await this.salaryDataService.getSalaryData(
+            data.employeeId,
+            data.year,
+            data.month
+          );
+
+          if (existingSalaryData && existingSalaryData.isConfirmed) {
+            if (!data.errors) data.errors = [];
+            data.errors.push(`${data.year}年${data.month}月の給与データは既に確定済みです`);
+          }
+        } catch (error) {
+          console.error('確定済みデータのチェックに失敗しました:', error);
+        }
+      }
     } finally {
       this.isValidating = false;
     }
@@ -393,6 +429,22 @@ export class SalaryImportComponent implements OnInit {
     this.isLoading = true;
 
     try {
+      // 確定済みデータの最終チェック
+      for (const data of selectedData) {
+        if (!data.employeeId) continue;
+        
+        const existingSalaryData = await this.salaryDataService.getSalaryData(
+          data.employeeId,
+          data.year,
+          data.month
+        );
+
+        if (existingSalaryData && existingSalaryData.isConfirmed) {
+          this.snackBar.open(`${data.employeeNumber}の${data.year}年${data.month}月の給与データは既に確定済みです`, '閉じる', { duration: 5000 });
+          return;
+        }
+      }
+
       // 社員IDごとにグループ化
       const groupedByEmployee = new Map<string, ImportedSalaryData[]>();
       selectedData.forEach(data => {
@@ -473,5 +525,17 @@ export class SalaryImportComponent implements OnInit {
       maxWidth: '90vw',
       maxHeight: '90vh'
     });
+  }
+
+  /**
+   * キャンセル（プレビューをクリア）
+   */
+  cancel(): void {
+    // インポートデータをクリア
+    this.importedSalaryData = [];
+    this.dataSource.data = [];
+    this.importErrors = [];
+    this.allSelected = false;
+    this.someSelected = false;
   }
 }

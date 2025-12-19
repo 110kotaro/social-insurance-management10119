@@ -845,17 +845,22 @@
                   <mat-card-title>被保険者情報</mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
-                  <!-- 社員選択 -->
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>社員を選択（情報を自動入力）</mat-label>
-                    <mat-select (selectionChange)="onEmployeeSelectForAddressChange($event.value)" [value]="null">
-                      <mat-option value="">選択してください</mat-option>
-                      <mat-option *ngFor="let employee of employees" [value]="employee.id">
-                        {{ getEmployeeDisplayName(employee) }}
-                      </mat-option>
-                    </mat-select>
-                    <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
-                  </mat-form-field>
+                  <!-- 社員選択（内部申請から作成する場合は固定表示、それ以外は選択可能） -->
+                  <div *ngIf="isFromInternalApplication && addressChangeForm?.get('insuredPerson.employeeId')?.value" class="employee-name-display">
+                    <p><strong>社員:</strong> {{ getEmployeeDisplayNameById(addressChangeForm.get('insuredPerson.employeeId')?.value) }}</p>
+                  </div>
+                  <div *ngIf="!isFromInternalApplication || !addressChangeForm?.get('insuredPerson.employeeId')?.value">
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>社員を選択（情報を自動入力）</mat-label>
+                      <mat-select (selectionChange)="onEmployeeSelectForAddressChange($event.value)" [value]="null">
+                        <mat-option value="">選択してください</mat-option>
+                        <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                          {{ getEmployeeDisplayName(employee) }}
+                        </mat-option>
+                      </mat-select>
+                      <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
+                    </mat-form-field>
+                  </div>
 
                   <mat-divider style="margin: 16px 0;"></mat-divider>
 
@@ -1199,17 +1204,22 @@
                   <mat-card-title>被保険者情報</mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
-                  <!-- 社員選択 -->
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>社員を選択（情報を自動入力）</mat-label>
-                    <mat-select (selectionChange)="onEmployeeSelectForNameChange($event.value)" [value]="null">
-                      <mat-option value="">選択してください</mat-option>
-                      <mat-option *ngFor="let employee of employees" [value]="employee.id">
-                        {{ getEmployeeDisplayName(employee) }}
-                      </mat-option>
-                    </mat-select>
-                    <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
-                  </mat-form-field>
+                  <!-- 社員選択（内部申請から作成する場合は固定表示、それ以外は選択可能） -->
+                  <div *ngIf="isFromInternalApplication && nameChangeForm?.get('insuredPerson.employeeId')?.value" class="employee-name-display">
+                    <p><strong>社員:</strong> {{ getEmployeeDisplayNameById(nameChangeForm.get('insuredPerson.employeeId')?.value) }}</p>
+                  </div>
+                  <div *ngIf="!isFromInternalApplication || !nameChangeForm?.get('insuredPerson.employeeId')?.value">
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>社員を選択（情報を自動入力）</mat-label>
+                      <mat-select (selectionChange)="onEmployeeSelectForNameChange($event.value)" [value]="null">
+                        <mat-option value="">選択してください</mat-option>
+                        <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                          {{ getEmployeeDisplayName(employee) }}
+                        </mat-option>
+                      </mat-select>
+                      <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
+                    </mat-form-field>
+                  </div>
 
                   <mat-divider style="margin: 16px 0;"></mat-divider>
 
@@ -1417,19 +1427,24 @@
                   <mat-card-title>被保険者情報</mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
-                  <!-- 社員選択 -->
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>社員を選択（情報を自動入力）</mat-label>
-                    <mat-select 
-                      (selectionChange)="onEmployeeSelectForDependentChange($event.value)"
-                      [value]="(dependentChangeForm && dependentChangeForm.get('insuredPerson.employeeId')?.value) || (dependentChangeFormInternal && dependentChangeFormInternal.get('insuredPerson.employeeId')?.value) || null">
-                      <mat-option value="">選択してください</mat-option>
-                      <mat-option *ngFor="let employee of employees" [value]="employee.id">
-                        {{ getEmployeeDisplayName(employee) }}
-                      </mat-option>
-                    </mat-select>
-                    <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
-                  </mat-form-field>
+                  <!-- 社員選択（内部申請から作成する場合は固定表示、それ以外は選択可能） -->
+                  <div *ngIf="isFromInternalApplication && dependentChangeForm?.get('insuredPerson.employeeId')?.value" class="employee-name-display">
+                    <p><strong>社員:</strong> {{ getEmployeeDisplayNameById(dependentChangeForm.get('insuredPerson.employeeId')?.value) }}</p>
+                  </div>
+                  <div *ngIf="!isFromInternalApplication || !dependentChangeForm?.get('insuredPerson.employeeId')?.value">
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>社員を選択（情報を自動入力）</mat-label>
+                      <mat-select 
+                        (selectionChange)="onEmployeeSelectForDependentChange($event.value)"
+                        [value]="(dependentChangeForm && dependentChangeForm.get('insuredPerson.employeeId')?.value) || (dependentChangeFormInternal && dependentChangeFormInternal.get('insuredPerson.employeeId')?.value) || null">
+                        <mat-option value="">選択してください</mat-option>
+                        <mat-option *ngFor="let employee of employees" [value]="employee.id">
+                          {{ getEmployeeDisplayName(employee) }}
+                        </mat-option>
+                      </mat-select>
+                      <mat-hint>社員を選択すると、氏名・生年月日などの情報が自動入力されます</mat-hint>
+                    </mat-form-field>
+                  </div>
 
                   <mat-divider style="margin: 16px 0;"></mat-divider>
 
@@ -5955,7 +5970,25 @@
         <mat-step>
           <ng-template matStepLabel>添付ファイル</ng-template>
           <div class="step-content">
+            <!-- 既存の添付ファイル（内部申請から引き継いだもの） -->
+            <div class="existing-files-section" *ngIf="existingAttachments.length > 0">
+              <h3>既存の添付ファイル（内部申請から引き継ぎ）</h3>
+              <mat-list>
+                <mat-list-item *ngFor="let attachment of existingAttachments">
+                  <mat-icon matListItemIcon>attach_file</mat-icon>
+                  <span matListItemTitle>{{ attachment.fileName }}</span>
+                  <span matListItemLine>アップロード日: {{ formatDate(attachment.uploadedAt) }}</span>
+                  <a mat-button [href]="attachment.fileUrl" target="_blank" rel="noopener noreferrer" matListItemMeta>
+                    <mat-icon>open_in_new</mat-icon>
+                    開く
+                  </a>
+                </mat-list-item>
+              </mat-list>
+            </div>
+
+            <!-- 新規ファイルの追加 -->
             <div class="file-upload-section">
+              <h3 *ngIf="existingAttachments.length > 0">新規ファイルを追加</h3>
               <input type="file" #fileInput multiple (change)="onFileSelected($event)" style="display: none;">
               <button mat-raised-button (click)="fileInput.click()">
                 <mat-icon>attach_file</mat-icon>
@@ -5976,7 +6009,7 @@
               </mat-list>
             </div>
 
-            <p *ngIf="attachments.length === 0" class="no-files">添付ファイルはありません</p>
+            <p *ngIf="existingAttachments.length === 0 && attachments.length === 0" class="no-files">添付ファイルはありません</p>
           </div>
 
           <div class="step-actions">
@@ -6015,13 +6048,27 @@
             </div>
 
             <!-- 添付ファイルの確認 -->
-            <div class="attachments-section" *ngIf="attachments.length > 0">
+            <div class="attachments-section" *ngIf="existingAttachments.length > 0 || attachments.length > 0">
               <mat-card>
                 <mat-card-header>
                   <mat-card-title>添付ファイル</mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
-                  <mat-list>
+                  <!-- 既存の添付ファイル（内部申請から引き継いだもの） -->
+                  <mat-list *ngIf="existingAttachments.length > 0">
+                    <mat-list-item *ngFor="let attachment of existingAttachments">
+                      <mat-icon matListItemIcon>attach_file</mat-icon>
+                      <span matListItemTitle>{{ attachment.fileName }}</span>
+                      <span matListItemLine>アップロード日: {{ formatDate(attachment.uploadedAt) }}</span>
+                      <a mat-button [href]="attachment.fileUrl" target="_blank" rel="noopener noreferrer" matListItemMeta>
+                        <mat-icon>open_in_new</mat-icon>
+                        開く
+                      </a>
+                    </mat-list-item>
+                  </mat-list>
+                  
+                  <!-- 新規に追加したファイル -->
+                  <mat-list *ngIf="attachments.length > 0">
                     <mat-list-item *ngFor="let file of attachments">
                       <mat-icon matListItemIcon>description</mat-icon>
                       <span matListItemTitle>{{ file.name }}</span>

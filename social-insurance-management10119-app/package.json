@@ -5,10 +5,14 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "build:prod": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "emulators": "firebase emulators:start",
-    "emulators:auth": "firebase emulators:start --only auth,firestore"
+    "emulators:auth": "firebase emulators:start --only auth,firestore",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
+    "deploy:hosting": "firebase deploy --only hosting",
+    "deploy:all": "firebase deploy"
   },
   "private": true,
   "dependencies": {
