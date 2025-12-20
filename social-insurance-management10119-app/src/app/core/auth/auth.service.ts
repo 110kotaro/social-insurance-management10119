@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Auth, User as FirebaseUser, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, updateProfile } from '@angular/fire/auth';
+import { Auth, User as FirebaseUser, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, updateProfile, ActionCodeSettings } from '@angular/fire/auth';
 import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe, updateDoc } from '@angular/fire/firestore';
 import { Observable, BehaviorSubject, from, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
@@ -98,8 +98,12 @@ export class AuthService {
       // プロフィール更新
       await updateProfile(user, { displayName });
 
-      // メール認証送信
-      await sendEmailVerification(user);
+      // メール認証送信（認証後にアプリにリダイレクト）
+      const actionCodeSettings: ActionCodeSettings = {
+        url: `${window.location.origin}/email-verification`,
+        handleCodeInApp: false
+      };
+      await sendEmailVerification(user, actionCodeSettings);
 
       // Firestoreにユーザー情報を保存（初回登録時はrole: 'owner'）
       await this.createUserDocument(user.uid, {
@@ -177,7 +181,11 @@ export class AuthService {
    */
   async sendPasswordReset(email: string): Promise<void> {
     try {
-      await sendPasswordResetEmail(this.auth, email);
+      const actionCodeSettings: ActionCodeSettings = {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: false
+      };
+      await sendPasswordResetEmail(this.auth, email, actionCodeSettings);
     } catch (error: any) {
       throw this.handleAuthError(error);
     }
@@ -204,7 +212,11 @@ export class AuthService {
       }
 
       // パスワードリセットメールを送信（これが招待メールの役割）
-      await sendPasswordResetEmail(this.auth, email);
+      const actionCodeSettings: ActionCodeSettings = {
+        url: `${window.location.origin}/password-setup`,
+        handleCodeInApp: false
+      };
+      await sendPasswordResetEmail(this.auth, email, actionCodeSettings);
 
       // アカウント作成後、現在のユーザーを再設定（onAuthStateChangedの誤動作を防ぐ）
       if (currentLoggedInUserId) {
@@ -219,7 +231,11 @@ export class AuthService {
       // 既にアカウントが存在する場合、パスワードリセットメールのみ送信
       if (error.code === 'auth/email-already-in-use') {
         // 既存のユーザーにパスワードリセットメールを送信
-        await sendPasswordResetEmail(this.auth, email);
+        const actionCodeSettings: ActionCodeSettings = {
+          url: `${window.location.origin}/password-setup`,
+          handleCodeInApp: false
+        };
+        await sendPasswordResetEmail(this.auth, email, actionCodeSettings);
         
         // Firestoreのユーザー情報を更新（存在する場合のみ）
         const userQuery = query(
@@ -271,7 +287,12 @@ export class AuthService {
       throw new Error('ユーザーがログインしていません');
     }
     try {
-      await sendEmailVerification(user);
+      // メール認証再送信（認証後にアプリにリダイレクト）
+      const actionCodeSettings: ActionCodeSettings = {
+        url: `${window.location.origin}/email-verification`,
+        handleCodeInApp: false
+      };
+      await sendEmailVerification(user, actionCodeSettings);
     } catch (error: any) {
       throw this.handleAuthError(error);
     }
@@ -451,18 +472,39 @@ export class AuthService {
    * Firestoreにユーザードキュメントを作成（パブリックメソッド）
    */
   async createUserDocumentForEmployee(uid: string, userData: Partial<User>): Promise<void> {
-    await this.createUserDocument(uid, userData);
+    console.log('[AuthService] createUserDocumentForEmployee開始:', { uid, userData });
+    try {
+      await this.createUserDocument(uid, userData);
+      console.log('[AuthService] createUserDocumentForEmployee成功');
+      
+      // 書き込み後、実際にデータが作成されたか確認
+      const userDocRef = doc(this.firestore, `${environment.firestorePrefix}users`, uid);
+      const verifyDoc = await getDoc(userDocRef);
+      console.log('[AuthService] createUserDocumentForEmployee確認:', { exists: verifyDoc.exists(), data: verifyDoc.exists() ? verifyDoc.data() : null });
+    } catch (error: any) {
+      console.error('[AuthService] createUserDocumentForEmployee失敗:', error);
+      throw error;
+    }
   }
 
   /**
    * Firestoreにユーザードキュメントを作成
    */
   private async createUserDocument(uid: string, userData: Partial<User>): Promise<void> {
+    console.log('[AuthService] createUserDocument開始:', { uid, userData });
     const userDocRef = doc(this.firestore, `${environment.firestorePrefix}users`, uid);
-    await setDoc(userDocRef, {
+    const dataToWrite = {
       ...userData,
       createdAt: new Date()
-    }, { merge: true });
+    };
+    console.log('[AuthService] createUserDocument書き込みデータ:', dataToWrite);
+    try {
+      await setDoc(userDocRef, dataToWrite, { merge: true });
+      console.log('[AuthService] createUserDocument書き込み成功');
+    } catch (error: any) {
+      console.error('[AuthService] createUserDocument書き込み失敗:', error);
+      throw error;
+    }
   }
 
   /**

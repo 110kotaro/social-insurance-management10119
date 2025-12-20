@@ -16,10 +16,22 @@ export const authGuard: CanActivateFn = (
 
   // まず現在のユーザーを同期的に取得
   const currentUser = authService.getCurrentUser();
+  console.log('[AuthGuard] 同期currentUser取得:', { 
+    url: state.url,
+    currentUser: currentUser ? {
+      uid: currentUser.uid,
+      email: currentUser.email,
+      emailVerified: currentUser.emailVerified,
+      organizationId: currentUser.organizationId,
+      isActive: currentUser.isActive
+    } : null
+  });
+  
   if (currentUser && currentUser.isActive) {
     // メール認証が必要なルート（組織作成画面など）では、メール認証済みかチェック
     if (state.url.includes('/organization/create') || state.url.includes('/setup')) {
       if (!currentUser.emailVerified) {
+        console.log('[AuthGuard] メール認証未完了 - email-verificationにリダイレクト');
         router.navigate(['/email-verification']);
         return of(false);
       }
@@ -29,6 +41,7 @@ export const authGuard: CanActivateFn = (
     if (!currentUser.emailVerified && !currentUser.organizationId) {
       // email-verification画面へのアクセスは許可（無限ループを防ぐ）
       if (!state.url.includes('/email-verification')) {
+        console.log('[AuthGuard] メール認証未完了かつ組織未作成 - email-verificationにリダイレクト');
         router.navigate(['/email-verification']);
         return of(false);
       }
@@ -36,24 +49,39 @@ export const authGuard: CanActivateFn = (
     // ダッシュボードへのアクセス時もメール認証チェック（初回アカウント作成時の問題を防ぐ）
     if (state.url.includes('/dashboard')) {
       if (!currentUser.emailVerified && !currentUser.organizationId) {
+        console.log('[AuthGuard] ダッシュボードアクセス - メール認証未完了かつ組織未作成 - email-verificationにリダイレクト');
         router.navigate(['/email-verification']);
         return of(false);
       }
     }
     // 既にユーザーが存在する場合は即座に許可（キャンセル操作後の問題を解決）
+    console.log('[AuthGuard] アクセス許可');
     return of(true);
   }
 
   // nullの場合は、currentUser$を待つ（入力内容が多い場合の認証状態復帰を待つため、タイムアウトを延長）
+  console.log('[AuthGuard] currentUser$を待機開始');
   return authService.currentUser$.pipe(
     filter(user => user !== null), // nullを除外
     take(1),
     timeout(3000), // 3秒でタイムアウト（入力内容が多い場合でも認証状態の復帰を待てるように延長）
     map(user => {
+      console.log('[AuthGuard] currentUser$から取得:', {
+        url: state.url,
+        user: user ? {
+          uid: user.uid,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          organizationId: user.organizationId,
+          isActive: user.isActive
+        } : null
+      });
+      
       if (user && user.isActive) {
         // メール認証が必要なルート（組織作成画面など）では、メール認証済みかチェック
         if (state.url.includes('/organization/create') || state.url.includes('/setup')) {
           if (!user.emailVerified) {
+            console.log('[AuthGuard] メール認証未完了 - email-verificationにリダイレクト');
             router.navigate(['/email-verification']);
             return false;
           }
@@ -63,6 +91,7 @@ export const authGuard: CanActivateFn = (
         if (!user.emailVerified && !user.organizationId) {
           // email-verification画面へのアクセスは許可（無限ループを防ぐ）
           if (!state.url.includes('/email-verification')) {
+            console.log('[AuthGuard] メール認証未完了かつ組織未作成 - email-verificationにリダイレクト');
             router.navigate(['/email-verification']);
             return false;
           }
@@ -70,18 +99,22 @@ export const authGuard: CanActivateFn = (
         // ダッシュボードへのアクセス時もメール認証チェック（初回アカウント作成時の問題を防ぐ）
         if (state.url.includes('/dashboard')) {
           if (!user.emailVerified && !user.organizationId) {
+            console.log('[AuthGuard] ダッシュボードアクセス - メール認証未完了かつ組織未作成 - email-verificationにリダイレクト');
             router.navigate(['/email-verification']);
             return false;
           }
         }
+        console.log('[AuthGuard] アクセス許可');
         return true;
       } else {
+        console.log('[AuthGuard] ユーザーが存在しないか無効 - loginにリダイレクト');
         router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
         return false;
       }
     }),
-    catchError(() => {
+    catchError((error) => {
       // タイムアウトまたはエラーの場合、ログイン画面にリダイレクト
+      console.error('[AuthGuard] currentUser$待機エラー:', error);
       router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
       return of(false);
     })

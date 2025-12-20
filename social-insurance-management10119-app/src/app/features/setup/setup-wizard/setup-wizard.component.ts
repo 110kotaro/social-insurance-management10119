@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ViewChild } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -55,7 +55,7 @@ import { ConfirmDialogComponent } from './confirm-dialog.component';
   templateUrl: './setup-wizard.component.html',
   styleUrl: './setup-wizard.component.css'
 })
-export class SetupWizardComponent implements OnInit {
+export class SetupWizardComponent implements OnInit, AfterViewInit {
   @ViewChild('stepper') stepper!: MatStepper;
   
   private fb = inject(FormBuilder);
@@ -65,6 +65,7 @@ export class SetupWizardComponent implements OnInit {
   private insuranceRateTableService = inject(InsuranceRateTableService);
   private authService = inject(AuthService);
   private dialog = inject(MatDialog);
+  private cdr = inject(ChangeDetectorRef);
 
   // ステップ1: 組織情報
   organizationForm: FormGroup;
@@ -129,13 +130,13 @@ export class SetupWizardComponent implements OnInit {
   // ステップ4: 料率・標準報酬等級テーブル
   rateTableForm: FormGroup;
   rateTables: InsuranceRateTable[] = [];
-  // テーブル全体の適用期間
-  tableEffectiveFrom: Date = new Date();
-  tableEffectiveTo: Date | null = null;
-  
   // 月単位の日付入力用
   effectiveFromYear: number = new Date().getFullYear();
   effectiveFromMonth: number = new Date().getMonth() + 1;
+  
+  // テーブル全体の適用期間（年月から生成）
+  tableEffectiveFrom: Date = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  tableEffectiveTo: Date | null = null;
   effectiveToYear: number | null = null;
   effectiveToMonth: number | null = null;
   // ヘッダー行の料率（共通値）
@@ -160,6 +161,7 @@ export class SetupWizardComponent implements OnInit {
   isAddingNew: boolean = false;
 
   isLoading = false;
+  isLoadingData = true; // データ読み込み中フラグ（初期値はtrue）
   errorMessage = '';
   successMessage = '';
 
@@ -238,27 +240,47 @@ export class SetupWizardComponent implements OnInit {
     // 既にセットアップが完了している場合はダッシュボードにリダイレクト
     // TODO: セットアップ状態をチェック
     
-    // 組織情報を読み込んでフォームに反映
-    const currentUser = this.authService.getCurrentUser();
-    if (currentUser?.organizationId) {
-      await this.loadOrganizationData(currentUser.organizationId);
-      // 完了項目をチェックして、最初の未完了ステップに移動
-      await this.navigateToFirstIncompleteStep();
-    } else {
-      // 組織が未作成の場合は、新規登録時の会社名とメールアドレスをデフォルト値として設定
-      if (currentUser) {
-        if (currentUser.displayName) {
-          this.organizationForm.patchValue({
-            name: currentUser.displayName
-          });
-        }
-        if (currentUser.email) {
-          this.organizationForm.patchValue({
-            email: currentUser.email
-          });
+    this.isLoadingData = true;
+    try {
+      // 組織情報を読み込んでフォームに反映
+      const currentUser = this.authService.getCurrentUser();
+      
+      if (currentUser?.organizationId) {
+        await this.loadOrganizationData(currentUser.organizationId);
+        // 完了項目をチェックして、最初の未完了ステップに移動
+        await this.navigateToFirstIncompleteStep();
+      } else {
+        // 組織が未作成の場合は、新規登録時の会社名とメールアドレスをデフォルト値として設定
+        if (currentUser) {
+          if (currentUser.displayName) {
+            this.organizationForm.patchValue({
+              name: currentUser.displayName
+            });
+          }
+          if (currentUser.email) {
+            this.organizationForm.patchValue({
+              email: currentUser.email
+            });
+          }
         }
       }
+    } catch (error) {
+      console.error('Error in ngOnInit:', error);
+      throw error;
     }
+    // 注意: isLoadingDataはAfterViewInitでfalseにする
+  }
+
+  ngAfterViewInit(): void {
+    // 次のchange detectionサイクルまで待ってからisLoadingDataをfalseにする
+    // これにより、mat-stepperが完全に初期化されるまで待つ
+    setTimeout(() => {
+      // フォームが存在することを確認してからisLoadingDataをfalseにする
+      if (this.organizationForm && this.insuranceForm) {
+        this.isLoadingData = false;
+        this.cdr.detectChanges(); // change detectionを明示的に実行
+      }
+    }, 0);
   }
 
   /**
@@ -280,6 +302,7 @@ export class SetupWizardComponent implements OnInit {
                            orgFormValue.street;
       
       if (!step1Complete) {
+        console.log('[適用期間] navigateToFirstIncompleteStep: ステップ1が未完了のため終了');
         // ステップ1が未完了の場合は、ステップ1から開始
         return;
       }
@@ -316,6 +339,7 @@ export class SetupWizardComponent implements OnInit {
 
       // ステップ4: 料率テーブルが存在するかチェック
       const rateTables = await this.insuranceRateTableService.getRateTablesByOrganization(this.savedOrganizationId);
+      
       if (rateTables.length === 0) {
         // ステップ4が未完了の場合は、ステップ4に移動
         setTimeout(() => {
@@ -323,7 +347,9 @@ export class SetupWizardComponent implements OnInit {
         }, 100);
         return;
       }
-      this.rateTables = rateTables;
+      
+      // 料率テーブルが存在する場合は、loadRateTables()を呼ぶ（適用期間も設定される）
+      await this.loadRateTables();
 
       // ステップ5以降は、組織情報から設定を読み込んでチェック
       const organization = await this.organizationService.getOrganization(this.savedOrganizationId);
@@ -351,6 +377,7 @@ export class SetupWizardComponent implements OnInit {
       }, 100);
     } catch (error) {
       console.error('Error checking incomplete steps:', error);
+      throw error;
     }
   }
 
@@ -374,7 +401,8 @@ export class SetupWizardComponent implements OnInit {
           phoneNumber: organization.phoneNumber || '',
           ownerName: organization.ownerName || '', // 事業主氏名（修正17）
           email: organization.email || currentUser?.email || '', // 組織のメールアドレスがない場合はユーザーのメールアドレスを使用
-          industry: organization.industry || ''
+          industry: organization.industry || '',
+          leaveInsuranceCollectionMethod: organization.leaveInsuranceCollectionMethod || 'postpaid' // 休職中の保険料徴収方法
         });
         this.savedOrganizationId = orgId;
 
@@ -397,6 +425,7 @@ export class SetupWizardComponent implements OnInit {
       }
     } catch (error) {
       console.error('Error loading organization data:', error);
+      throw error;
     }
   }
 
@@ -627,6 +656,25 @@ export class SetupWizardComponent implements OnInit {
         this.headerRates.healthWithoutCare = firstRow.healthInsuranceWithoutCare.rate;
         this.headerRates.healthWithCare = firstRow.healthInsuranceWithCare.rate;
         this.headerRates.pension = firstRow.pensionInsurance.rate;
+        
+        // 適用開始日・終了日を設定
+        if (firstRow.effectiveFrom) {
+          const { year, month } = this.getYearMonthFromDate(firstRow.effectiveFrom);
+          this.effectiveFromYear = year;
+          this.effectiveFromMonth = month;
+          this.updateEffectiveFromDate();
+        }
+        
+        if (firstRow.effectiveTo) {
+          const { year, month } = this.getYearMonthFromDate(firstRow.effectiveTo);
+          this.effectiveToYear = year;
+          this.effectiveToMonth = month;
+          this.updateEffectiveToDate();
+        } else {
+          this.effectiveToYear = null;
+          this.effectiveToMonth = null;
+          this.tableEffectiveTo = null;
+        }
       }
     } catch (error: any) {
       console.error('Error loading rate tables:', error);
@@ -1163,19 +1211,55 @@ export class SetupWizardComponent implements OnInit {
     };
   }
 
-  onEffectiveFromYearChange(): void {
+  onEffectiveFromYearChange(event?: Event): void {
+    if (event) {
+      const input = event.target as HTMLInputElement;
+      const inputValue = input.value ? parseInt(input.value, 10) : null;
+      // イベントから直接値を取得して更新
+      if (inputValue !== null) {
+        this.effectiveFromYear = inputValue;
+      }
+    }
     this.updateEffectiveFromDate();
   }
 
-  onEffectiveFromMonthChange(): void {
+  onEffectiveFromMonthChange(event?: Event): void {
+    if (event) {
+      const input = event.target as HTMLInputElement;
+      const inputValue = input.value ? parseInt(input.value, 10) : null;
+      // イベントから直接値を取得して更新
+      if (inputValue !== null) {
+        this.effectiveFromMonth = inputValue;
+      }
+    }
     this.updateEffectiveFromDate();
   }
 
-  onEffectiveToYearChange(): void {
+  onEffectiveToYearChange(event?: Event): void {
+    if (event) {
+      const input = event.target as HTMLInputElement;
+      const inputValue = input.value ? parseInt(input.value, 10) : null;
+      // イベントから直接値を取得して更新
+      if (inputValue !== null) {
+        this.effectiveToYear = inputValue;
+      } else {
+        this.effectiveToYear = null;
+      }
+    }
     this.updateEffectiveToDate();
   }
 
-  onEffectiveToMonthChange(): void {
+  onEffectiveToMonthChange(event?: Event): void {
+    if (event) {
+      const input = event.target as HTMLInputElement;
+      const inputValue = input.value ? parseInt(input.value, 10) : null;
+      // イベントから直接値を取得して更新
+      if (inputValue !== null) {
+        this.effectiveToMonth = inputValue;
+      } else {
+        this.effectiveToMonth = null;
+      }
+    }
     this.updateEffectiveToDate();
   }
 
@@ -1831,7 +1915,8 @@ export class SetupWizardComponent implements OnInit {
         ownerName: orgFormValue.ownerName || '未入力', // 事業主氏名を追加
         phoneNumber: orgFormValue.phoneNumber || '未入力',
         email: orgFormValue.email || '未入力',
-        industry: orgFormValue.industry || '未入力'
+        industry: orgFormValue.industry || '未入力',
+        leaveInsuranceCollectionMethod: this.getLeaveInsuranceCollectionMethodLabel(orgFormValue.leaveInsuranceCollectionMethod || 'postpaid')
       },
       step2: {
         departmentCount: this.departments.length,
@@ -1848,13 +1933,15 @@ export class SetupWizardComponent implements OnInit {
       step4: {
         rateTableCount: this.rateTables.length,
         importedCount: this.importedCount,
-        effectiveFrom: this.tableEffectiveFrom ? this.formatDate(this.tableEffectiveFrom) : '未設定',
-        effectiveTo: this.tableEffectiveTo ? this.formatDate(this.tableEffectiveTo) : '未設定（現在有効）'
+        effectiveFrom: this.formatYearMonth(this.effectiveFromYear, this.effectiveFromMonth), // 年月のみの表示
+        effectiveTo: this.effectiveToYear && this.effectiveToMonth 
+          ? this.formatYearMonth(this.effectiveToYear, this.effectiveToMonth) 
+          : '未設定（現在有効）'
       },
       step5: {
-        applicationTypeCount: this.applicationTypes.length,
-        internalApplicationTypes: this.applicationTypes.filter(a => a.category === 'internal').length,
-        externalApplicationTypes: this.applicationTypes.filter(a => a.category === 'external').length,
+        applicationTypeCount: this.getInternalApplicationTypes().length + this.getExternalApplicationTypes().length, // 表示可能な申請種別のみをカウント
+        internalApplicationTypes: this.getInternalApplicationTypes().length, // 内部申請種別（3種類）
+        externalApplicationTypes: this.getExternalApplicationTypes().length, // 外部申請種別（8種類）
         attachmentSettingCount: this.attachmentSettings.length
       },
       step6: {
@@ -1915,6 +2002,18 @@ export class SetupWizardComponent implements OnInit {
   }
 
   /**
+   * 休職中の保険料徴収方法のラベルを取得
+   */
+  private getLeaveInsuranceCollectionMethodLabel(value: string): string {
+    if (!value) return '後払い（復職後徴収）';
+    const labels: { [key: string]: string } = {
+      'postpaid': '後払い（復職後徴収）',
+      'direct_transfer': '本人振込（給与天引きなし）'
+    };
+    return labels[value] || '後払い（復職後徴収）';
+  }
+
+  /**
    * 日付をフォーマット
    */
   private formatDate(date: Date): string {
@@ -1923,6 +2022,13 @@ export class SetupWizardComponent implements OnInit {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}/${month}/${day}`;
+  }
+
+  /**
+   * 年月のみの表示形式に変換（例：2024年1月）
+   */
+  private formatYearMonth(year: number, month: number): string {
+    return `${year}年${month}月`;
   }
 
   /**

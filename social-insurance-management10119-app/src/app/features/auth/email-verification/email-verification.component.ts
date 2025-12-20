@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
+import { Auth, applyActionCode } from '@angular/fire/auth';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
@@ -15,6 +16,8 @@ import { filter, take } from 'rxjs/operators';
 export class EmailVerificationComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private auth = inject(Auth);
   
   private subscriptions = new Subscription();
   isEmailVerified: boolean = false;
@@ -25,6 +28,38 @@ export class EmailVerificationComponent implements OnInit, OnDestroy {
   private resendTimer: any;
 
   ngOnInit(): void {
+    // URLパラメータからoobCodeとmodeを取得
+    this.route.queryParams.pipe(take(1)).subscribe(async params => {
+      const oobCode = params['oobCode'] || null;
+      const mode = params['mode'] || null;
+
+      if (oobCode && mode === 'verifyEmail') {
+        console.log('[EmailVerification] メール認証リンクからアクセス - applyActionCodeを実行');
+        try {
+          // メール認証を完了
+          await applyActionCode(this.auth, oobCode);
+          console.log('[EmailVerification] applyActionCode成功 - メール認証完了');
+          // 認証状態を再読み込み
+          await this.authService.reloadCurrentUser();
+          console.log('[EmailVerification] reloadCurrentUser完了 - 認証状態を確認');
+          // 認証完了後、状態を確認
+          await this.checkEmailVerification();
+        } catch (error: any) {
+          console.error('[EmailVerification] applyActionCode失敗:', error);
+          // エラーが発生しても処理を続行（既に認証済みの可能性がある）
+          await this.checkEmailVerification();
+        }
+      } else {
+        // メール認証リンクではない場合、通常の処理を実行
+        this.initializeComponent();
+      }
+    });
+  }
+
+  /**
+   * コンポーネントの初期化処理（メール認証リンク以外の場合）
+   */
+  private initializeComponent(): void {
     // 現在のユーザー情報を取得
     const currentUser = this.authService.getCurrentUser();
     if (currentUser) {
@@ -82,7 +117,13 @@ export class EmailVerificationComponent implements OnInit, OnDestroy {
       // 現在の状態を確認
       const currentUserBefore = this.authService.getCurrentUser();
       console.log('[EmailVerification] 更新前の状態:', {
-        currentUser: currentUserBefore,
+        currentUser: currentUserBefore ? {
+          uid: currentUserBefore.uid,
+          email: currentUserBefore.email,
+          emailVerified: currentUserBefore.emailVerified,
+          organizationId: currentUserBefore.organizationId,
+          isActive: currentUserBefore.isActive
+        } : null,
         isEmailVerified: this.isEmailVerified
       });
       
@@ -110,7 +151,13 @@ export class EmailVerificationComponent implements OnInit, OnDestroy {
         
         const currentUserAfter = this.authService.getCurrentUser();
         console.log('[EmailVerification] 更新後の状態:', {
-          currentUser: currentUserAfter,
+          currentUser: currentUserAfter ? {
+            uid: currentUserAfter.uid,
+            email: currentUserAfter.email,
+            emailVerified: currentUserAfter.emailVerified,
+            organizationId: currentUserAfter.organizationId,
+            isActive: currentUserAfter.isActive
+          } : null,
           isEmailVerified: this.isEmailVerified
         });
         
@@ -135,7 +182,7 @@ export class EmailVerificationComponent implements OnInit, OnDestroy {
           });
         }
       } else {
-        console.log('[EmailVerification] firebaseUser が null');
+        console.error('[EmailVerification] firebaseUser が null - usersコレクションにデータが存在しない可能性があります');
       }
     } catch (error) {
       console.error('[EmailVerification] メール認証状態の確認に失敗しました:', error);

@@ -1,9 +1,9 @@
-<div class="setup-wizard-container">
+<div class="setup-wizard-container" *ngIf="!isLoadingData">
   <div class="wizard-card">
     <h1>初回セットアップ</h1>
     <p class="subtitle">組織情報を設定してください</p>
 
-    <mat-stepper [linear]="true" #stepper="matStepper">
+    <mat-stepper [linear]="true" #stepper="matStepper" *ngIf="organizationForm && insuranceForm">
       <!-- ステップ1: 組織情報の確認・編集 -->
       <mat-step [stepControl]="organizationForm">
         <ng-template matStepLabel>組織情報の確認・編集</ng-template>
@@ -75,7 +75,7 @@
           <div class="form-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>町名・番地</mat-label>
-              <input matInput formControlName="street" placeholder="1-1-1" required>
+              <input matInput formControlName="street" placeholder="丸の内1-1-1" required>
               <mat-error *ngIf="organizationForm.get('street')?.hasError('required')">
                 町名・番地は必須です
               </mat-error>
@@ -356,7 +356,7 @@
                     type="number"
                     matInput
                     [(ngModel)]="effectiveFromYear"
-                    (change)="onEffectiveFromYearChange()"
+                    (change)="onEffectiveFromYearChange($event)"
                     min="2000"
                     max="2100"
                   >
@@ -367,7 +367,7 @@
                     type="number"
                     matInput
                     [(ngModel)]="effectiveFromMonth"
-                    (change)="onEffectiveFromMonthChange()"
+                    (change)="onEffectiveFromMonthChange($event)"
                     min="1"
                     max="12"
                   >
@@ -380,7 +380,7 @@
                     type="number"
                     matInput
                     [(ngModel)]="effectiveToYear"
-                    (change)="onEffectiveToYearChange()"
+                    (change)="onEffectiveToYearChange($event)"
                     min="2000"
                     max="2100"
                   >
@@ -392,7 +392,7 @@
                     type="number"
                     matInput
                     [(ngModel)]="effectiveToMonth"
-                    (change)="onEffectiveToMonthChange()"
+                    (change)="onEffectiveToMonthChange($event)"
                     min="1"
                     max="12"
                     [disabled]="!effectiveToYear"
@@ -935,6 +935,10 @@
                   <span class="label">業種:</span>
                   <span class="value">{{ getStepSummary().step1.industry }}</span>
                 </div>
+                <div class="summary-item">
+                  <span class="label">休職中の保険料徴収方法:</span>
+                  <span class="value">{{ getStepSummary().step1.leaveInsuranceCollectionMethod }}</span>
+                </div>
               </mat-card-content>
             </mat-card>
 
@@ -1104,6 +1108,12 @@
         </div>
       </mat-step>
     </mat-stepper>
+  </div>
+</div>
+
+<div *ngIf="isLoadingData" class="loading-container" style="display: flex; justify-content: center; align-items: center; min-height: 400px;">
+  <div style="text-align: center;">
+    <p>データを読み込み中...</p>
   </div>
 </div>
 
