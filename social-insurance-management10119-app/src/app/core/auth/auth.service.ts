@@ -436,6 +436,13 @@ export class AuthService {
   }
 
   /**
+   * Firestoreからユーザープロフィールを取得（公開メソッド）
+   */
+  async getUserProfileById(uid: string): Promise<User | null> {
+    return await this.getUserProfile(uid);
+  }
+
+  /**
    * Firestoreからユーザープロフィールを取得
    */
   private async getUserProfile(uid: string): Promise<User | null> {

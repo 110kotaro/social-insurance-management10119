@@ -1,6 +1,7 @@
 import { Injectable, inject, Injector } from '@angular/core';
 import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc, Timestamp, orderBy, limit } from '@angular/fire/firestore';
-import { Storage, ref, uploadBytes, getDownloadURL, deleteObject } from '@angular/fire/storage';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { getApp } from 'firebase/app';
 import { Application, ApplicationStatus, ExternalApplicationStatus, Comment, Attachment, ApplicationHistory, ApplicationReturnHistory } from '../models/application.model';
 import { environment } from '../../../environments/environment';
 import { DeadlineCalculationService } from './deadline-calculation.service';
@@ -12,7 +13,7 @@ import { OrganizationService } from './organization.service';
 })
 export class ApplicationService {
   private firestore = inject(Firestore);
-  private storage = inject(Storage);
+  private storage = getStorage(getApp());
   private deadlineCalculationService = inject(DeadlineCalculationService);
   private organizationService = inject(OrganizationService);
   private injector = inject(Injector);
@@ -446,13 +447,43 @@ export class ApplicationService {
    * ファイルをアップロード
    */
   async uploadFile(file: File, organizationId: string, applicationId: string): Promise<string> {
-    const filePath = `social-insurance/organizations/${organizationId}/documents/${applicationId}/${file.name}`;
+    // ファイル名をサニタイズ（特殊文字を安全な文字に置換）
+    const sanitizedFileName = this.sanitizeFileName(file.name);
+    const filePath = `social-insurance/organizations/${organizationId}/documents/${applicationId}/${sanitizedFileName}`;
     const fileRef = ref(this.storage, filePath);
     
-    await uploadBytes(fileRef, file);
-    const downloadURL = await getDownloadURL(fileRef);
+    try {
+      await uploadBytes(fileRef, file);
+      const downloadURL = await getDownloadURL(fileRef);
+      return downloadURL;
+    } catch (error: any) {
+      console.error('[ファイルアップロードエラー]', error);
+      // CORSエラーの場合の詳細なエラーメッセージ
+      if (error.message?.includes('CORS') || error.message?.includes('preflight') || error.code === 'storage/unauthorized') {
+        throw new Error(`ファイルアップロードに失敗しました。Firebase Storageの設定を確認してください。詳細: ${error.message || error.code}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * ファイル名をサニタイズ（特殊文字を安全な文字に置換）
+   */
+  private sanitizeFileName(fileName: string): string {
+    // 拡張子を保持
+    const lastDotIndex = fileName.lastIndexOf('.');
+    const nameWithoutExt = lastDotIndex > 0 ? fileName.substring(0, lastDotIndex) : fileName;
+    const extension = lastDotIndex > 0 ? fileName.substring(lastDotIndex) : '';
     
-    return downloadURL;
+    // 特殊文字をアンダースコアに置換
+    const sanitized = nameWithoutExt
+      .replace(/[()\[\]{}]/g, '_')  // 括弧類をアンダースコアに
+      .replace(/\s+/g, '_')         // スペースをアンダースコアに
+      .replace(/[^\w.-]/g, '_')     // 英数字、ドット、ハイフン以外をアンダースコアに
+      .replace(/_+/g, '_')          // 連続するアンダースコアを1つに
+      .replace(/^_+|_+$/g, '');     // 先頭・末尾のアンダースコアを削除
+    
+    return sanitized + extension;
   }
 
   /**

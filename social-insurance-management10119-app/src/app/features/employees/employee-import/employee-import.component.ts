@@ -229,6 +229,13 @@ export class EmployeeImportComponent implements OnInit {
       const row = data[i];
       if (!row || row.length === 0) continue;
 
+      // すべてのセルが空かチェック（空行をスキップ）
+      const isEmptyRow = row.every(cell => {
+        const value = String(cell || '').trim();
+        return value === '' || value === '0' || value === '-';
+      });
+      if (isEmptyRow) continue;
+
       this.parseEmployeeRow(row, i + 1);
     }
   }

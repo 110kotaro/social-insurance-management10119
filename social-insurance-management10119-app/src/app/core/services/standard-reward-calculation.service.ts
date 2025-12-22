@@ -20,6 +20,34 @@ export class StandardRewardCalculationService {
   private departmentService = inject(DepartmentService);
 
   /**
+   * オブジェクトからundefined値を再帰的に削除するヘルパー関数
+   */
+  private removeUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.removeUndefinedValues(item));
+    }
+    
+    if (typeof obj === 'object' && obj.constructor === Object) {
+      const cleaned: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          const value = obj[key];
+          if (value !== undefined) {
+            cleaned[key] = this.removeUndefinedValues(value);
+          }
+        }
+      }
+      return cleaned;
+    }
+    
+    return obj;
+  }
+
+  /**
    * FirestoreのTimestampまたはDateをDateオブジェクトに変換するヘルパー関数
    */
   private convertToDate(value: any): Date | null {
@@ -757,13 +785,13 @@ export class StandardRewardCalculationService {
       throw new Error('計算履歴が見つかりません');
     }
 
-    // 再計算前のデータをスナップショットとして保存
+    // 再計算前のデータをスナップショットとして保存（undefined値を除外）
     const snapshot: StandardRewardCalculationRecalculationHistory = {
       recalculatedAt: new Date(),
       recalculatedBy: calculatedBy,
       reason: reason,
       recalculationType: 'historical',
-      dataSnapshot: { ...existingCalculation }
+      dataSnapshot: this.removeUndefinedValues({ ...existingCalculation })
     };
 
     existingCalculation.recalculationHistory = existingCalculation.recalculationHistory || [];
@@ -790,10 +818,16 @@ export class StandardRewardCalculationService {
     newCalculation.recalculationHistory = existingCalculation.recalculationHistory;
     newCalculation.id = calculationId;
 
-    // 更新
-    await this.updateCalculation(calculationId, newCalculation);
+    // ステータスは元のまま維持
+    const updates: Partial<StandardRewardCalculation> = {
+      ...newCalculation,
+      status: existingCalculation.status
+    };
 
-    return newCalculation;
+    // 更新
+    await this.updateCalculation(calculationId, updates);
+
+    return { ...newCalculation, status: existingCalculation.status };
   }
 
   /**
@@ -805,13 +839,13 @@ export class StandardRewardCalculationService {
       throw new Error('計算履歴が見つかりません');
     }
 
-    // 再計算前のデータをスナップショットとして保存
+    // 再計算前のデータをスナップショットとして保存（undefined値を除外）
     const snapshot: StandardRewardCalculationRecalculationHistory = {
       recalculatedAt: new Date(),
       recalculatedBy: calculatedBy,
       reason: reason,
       recalculationType: 'current',
-      dataSnapshot: { ...existingCalculation }
+      dataSnapshot: this.removeUndefinedValues({ ...existingCalculation })
     };
 
     existingCalculation.recalculationHistory = existingCalculation.recalculationHistory || [];
@@ -837,10 +871,16 @@ export class StandardRewardCalculationService {
     newCalculation.recalculationHistory = existingCalculation.recalculationHistory;
     newCalculation.id = calculationId;
 
-    // 更新
-    await this.updateCalculation(calculationId, newCalculation);
+    // ステータスは元のまま維持
+    const updates: Partial<StandardRewardCalculation> = {
+      ...newCalculation,
+      status: existingCalculation.status
+    };
 
-    return newCalculation;
+    // 更新
+    await this.updateCalculation(calculationId, updates);
+
+    return { ...newCalculation, status: existingCalculation.status };
   }
 
   /**
@@ -858,7 +898,9 @@ export class StandardRewardCalculationService {
       }
     });
 
-    await updateDoc(calculationRef, updateData);
+    // undefined値を再帰的に削除してからFirestoreに保存
+    const cleanedData = this.removeUndefinedValues(updateData);
+    await updateDoc(calculationRef, cleanedData);
   }
 
   /**

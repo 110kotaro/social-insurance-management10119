@@ -80,7 +80,8 @@ export class ApplicationTypeEditDialogComponent implements OnInit {
       return;
     }
 
-    const formValue = this.applicationTypeForm.value;
+    // getRawValue()を使用してdisabledフィールドの値も取得
+    const formValue = this.applicationTypeForm.getRawValue();
     
     // コードの重複チェック
     const codeExists = this.data.existingTypes.some(

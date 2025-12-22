@@ -44,6 +44,7 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
   
   organizationForm: FormGroup;
   isLoading = false;
+  isOwner = false;
 
   // 都道府県リスト
   prefectures = [
@@ -76,12 +77,32 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
   }
 
   ngOnInit(): void {
+    // 権限チェック
+    const currentUser = this.authService.getCurrentUser();
+    this.isOwner = currentUser?.role === 'owner';
+    
+    // 管理者の場合はフォームを無効化
+    if (!this.isOwner) {
+      this.organizationForm.disable();
+    }
+    
     if (this.organization) {
       this.loadOrganizationData();
     }
   }
 
   ngOnChanges(): void {
+    // 権限チェック
+    const currentUser = this.authService.getCurrentUser();
+    this.isOwner = currentUser?.role === 'owner';
+    
+    // 管理者の場合はフォームを無効化
+    if (!this.isOwner) {
+      this.organizationForm.disable();
+    } else {
+      this.organizationForm.enable();
+    }
+    
     if (this.organization) {
       this.loadOrganizationData();
     }
@@ -113,6 +134,12 @@ export class OrganizationSettingsComponent implements OnInit, OnChanges {
   }
 
   async saveOrganizationSettings(): Promise<void> {
+    // 権限チェック（二重チェック）
+    if (!this.isOwner) {
+      this.snackBar.open('組織情報の編集はオーナー権限のみ可能です', '閉じる', { duration: 3000 });
+      return;
+    }
+    
     if (!this.organization?.id || this.organizationForm.invalid) {
       return;
     }

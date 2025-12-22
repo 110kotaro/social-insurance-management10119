@@ -339,6 +339,12 @@ export class EmployeeDetailComponent implements OnInit {
     const labels: { [key: string]: string } = {
       'dependentInfo': '扶養情報',
       'address.official': '正式住所',
+      'address.official.postalCode': '正式住所の郵便番号',
+      'address.official.prefecture': '正式住所の都道府県',
+      'address.official.city': '正式住所の市区町村',
+      'address.official.street': '正式住所の町名・番地',
+      'address.official.building': '正式住所の建物名',
+      'address.official.kana': '正式住所の住所カナ',
       'firstName': '名',
       'lastName': '氏',
       'firstNameKana': '名カナ',
@@ -387,8 +393,9 @@ export class EmployeeDetailComponent implements OnInit {
 
   /**
    * 変更内容を分かりやすく表示する（変更箇所だけを表示）
+   * 変更がない場合はnullを返す（表示しない）
    */
-  formatChangeDisplay(change: { field: string; before: any; after: any }): string {
+  formatChangeDisplay(change: { field: string; before: any; after: any }): string | null {
     const fieldLabel = this.getFieldLabel(change.field);
     
     // 添付ファイルの追加・削除
@@ -467,17 +474,50 @@ export class EmployeeDetailComponent implements OnInit {
 
     // 休職情報の詳細表示
     if (change.field === 'leaveInfo') {
-      return this.formatLeaveInfoChange(change.before, change.after);
+      const result = this.formatLeaveInfoChange(change.before, change.after);
+      return result; // nullの場合はそのまま返す（表示しない）
     }
 
-    // 複雑なオブジェクト（扶養情報、保険情報全体、他社勤務情報、住所情報）
-    if (change.field === 'dependentInfo' || change.field === 'insuranceInfo' || 
-        change.field === 'otherCompanyInfo' || change.field === 'address.official') {
-      // 簡易的な差分表示（詳細は後で改善可能）
+    // 住所情報の詳細表示（個別フィールド）
+    if (change.field.startsWith('address.official.')) {
+      const fieldName = change.field.replace('address.official.', '');
+      const fieldLabels: { [key: string]: string } = {
+        'postalCode': '郵便番号',
+        'prefecture': '都道府県',
+        'city': '市区町村',
+        'street': '町名・番地',
+        'building': '建物名',
+        'kana': '住所カナ'
+      };
+      const fieldLabel = fieldLabels[fieldName] || fieldName;
+      const beforeValue = change.before === null || change.before === undefined ? '-' : String(change.before);
+      const afterValue = change.after === null || change.after === undefined ? '-' : String(change.after);
+      // 変更がない場合はnullを返す
+      if (beforeValue === afterValue) {
+        return null;
+      }
+      return `正式住所の${fieldLabel}: ${beforeValue} → ${afterValue}`;
+    }
+
+    // 扶養情報の詳細表示
+    if (change.field === 'dependentInfo') {
+      const result = this.formatDependentInfoChange(change.before, change.after);
+      return result; // nullの場合はそのまま返す（表示しない）
+    }
+
+    // 他社勤務情報の詳細表示
+    if (change.field === 'otherCompanyInfo') {
+      const result = this.formatOtherCompanyInfoChange(change.before, change.after);
+      return result; // nullの場合はそのまま返す（表示しない）
+    }
+
+    // 保険情報全体（個別フィールドで記録されていない場合のフォールバック）
+    if (change.field === 'insuranceInfo') {
+      // 簡易的な差分表示
       const beforeStr = change.before ? JSON.stringify(change.before) : '-';
       const afterStr = change.after ? JSON.stringify(change.after) : '-';
       if (beforeStr === afterStr) {
-        return `${fieldLabel}: 変更なし`;
+        return null; // 変更なしの場合は表示しない
       }
       return `${fieldLabel}を更新`;
     }
@@ -526,14 +566,15 @@ export class EmployeeDetailComponent implements OnInit {
 
   /**
    * 休職情報の変更を詳細に表示
+   * 変更がない場合はnullを返す（表示しない）
    */
-  formatLeaveInfoChange(before: any, after: any): string {
+  formatLeaveInfoChange(before: any, after: any): string | null {
     const beforeArray = Array.isArray(before) ? before : (before ? [before] : []);
     const afterArray = Array.isArray(after) ? after : (after ? [after] : []);
 
-    // 両方とも空の場合
+    // 両方とも空の場合（変更なしの場合はnullを返して表示しない）
     if (beforeArray.length === 0 && afterArray.length === 0) {
-      return '休職情報: 変更なし';
+      return null as any; // 変更なしの場合は表示しない
     }
 
     // 追加された場合
@@ -632,6 +673,207 @@ export class EmployeeDetailComponent implements OnInit {
     }
 
     return changes.join('、');
+  }
+
+  /**
+   * 住所情報の変更を詳細表示
+   * 変更がない場合はnullを返す（表示しない）
+   */
+  formatAddressChange(before: any, after: any): string | null {
+    const beforeAddress = before || {};
+    const afterAddress = after || {};
+    const changes: string[] = [];
+
+    const fieldLabels: { [key: string]: string } = {
+      'postalCode': '郵便番号',
+      'prefecture': '都道府県',
+      'city': '市区町村',
+      'street': '町名・番地',
+      'building': '建物名',
+      'kana': '住所カナ'
+    };
+
+    for (const [key, label] of Object.entries(fieldLabels)) {
+      const beforeValue = beforeAddress[key] || null;
+      const afterValue = afterAddress[key] || null;
+      if (beforeValue !== afterValue) {
+        const beforeStr = beforeValue === null ? '-' : String(beforeValue);
+        const afterStr = afterValue === null ? '-' : String(afterValue);
+        changes.push(`${label}: ${beforeStr} → ${afterStr}`);
+      }
+    }
+
+    if (changes.length === 0) {
+      return null as any; // 変更なしの場合は表示しない
+    }
+
+    return `正式住所: ${changes.join('、')}`;
+  }
+
+  /**
+   * 扶養情報の変更を詳細表示
+   * 変更がない場合はnullを返す（表示しない）
+   */
+  formatDependentInfoChange(before: any, after: any): string | null {
+    // アクション形式の変更履歴（employee-edit.component.tsから）
+    if (before && typeof before === 'object' && before.action) {
+      if (before.action === 'added') {
+        const dep = before.data;
+        const name = dep.name || `${dep.lastName || ''} ${dep.firstName || ''}`.trim() || '（氏名不明）';
+        const relationshipLabel = this.getRelationshipLabel(dep.relationship);
+        const birthDate = this.formatDateValue(dep.birthDate);
+        return `被扶養者を追加: ${name}（${relationshipLabel}、生年月日: ${birthDate}）`;
+      } else if (before.action === 'deleted') {
+        const dep = before.data;
+        const name = dep.name || `${dep.lastName || ''} ${dep.firstName || ''}`.trim() || '（氏名不明）';
+        const relationshipLabel = this.getRelationshipLabel(dep.relationship);
+        const birthDate = this.formatDateValue(dep.birthDate);
+        return `被扶養者を削除: ${name}（${relationshipLabel}、生年月日: ${birthDate}）`;
+      } else if (before.action === 'changed') {
+        const oldDep = before.data;
+        const newDep = after.data;
+        const name = newDep.name || `${newDep.lastName || ''} ${newDep.firstName || ''}`.trim() || '（氏名不明）';
+        const changes: string[] = [];
+
+        // 氏名の変更
+        const oldName = oldDep.name || `${oldDep.lastName || ''} ${oldDep.firstName || ''}`.trim();
+        const newName = newDep.name || `${newDep.lastName || ''} ${newDep.firstName || ''}`.trim();
+        if (oldName !== newName) {
+          changes.push(`氏名: ${oldName || '-'} → ${newName || '-'}`);
+        }
+
+        // 続柄の変更
+        if (oldDep.relationship !== newDep.relationship) {
+          const oldRel = this.getRelationshipLabel(oldDep.relationship);
+          const newRel = this.getRelationshipLabel(newDep.relationship);
+          changes.push(`続柄: ${oldRel} → ${newRel}`);
+        }
+
+        // 生年月日の変更
+        const oldBirthDate = this.formatDateValue(oldDep.birthDate);
+        const newBirthDate = this.formatDateValue(newDep.birthDate);
+        if (oldBirthDate !== newBirthDate) {
+          changes.push(`生年月日: ${oldBirthDate} → ${newBirthDate}`);
+        }
+
+        // 年収の変更
+        if (oldDep.income !== newDep.income) {
+          const oldIncome = oldDep.income === null || oldDep.income === undefined ? '-' : `${oldDep.income.toLocaleString()}円`;
+          const newIncome = newDep.income === null || newDep.income === undefined ? '-' : `${newDep.income.toLocaleString()}円`;
+          changes.push(`年収: ${oldIncome} → ${newIncome}`);
+        }
+
+        // 同一世帯の変更
+        if (oldDep.livingTogether !== newDep.livingTogether) {
+          const oldLiving = oldDep.livingTogether ? '同一世帯' : '別世帯';
+          const newLiving = newDep.livingTogether ? '同一世帯' : '別世帯';
+          changes.push(`同一世帯: ${oldLiving} → ${newLiving}`);
+        }
+
+        if (changes.length === 0) {
+          return null as any; // 変更なしの場合は表示しない
+        }
+
+        return `被扶養者「${name}」: ${changes.join('、')}`;
+      }
+    }
+
+    // 従来の形式（配列全体の比較）
+    const beforeArray = Array.isArray(before) ? before : (before ? [before] : []);
+    const afterArray = Array.isArray(after) ? after : (after ? [after] : []);
+
+    if (beforeArray.length === 0 && afterArray.length === 0) {
+      return '扶養情報: 変更なし';
+    }
+
+    if (beforeArray.length === 0 && afterArray.length > 0) {
+      const messages = afterArray.map((dep: any, index: number) => {
+        const name = dep.name || `${dep.lastName || ''} ${dep.firstName || ''}`.trim() || '（氏名不明）';
+        const relationshipLabel = this.getRelationshipLabel(dep.relationship);
+        const birthDate = this.formatDateValue(dep.birthDate);
+        return `被扶養者${index + 1}（${name}、${relationshipLabel}、生年月日: ${birthDate}）を追加`;
+      });
+      return messages.join('、');
+    }
+
+    if (beforeArray.length > 0 && afterArray.length === 0) {
+      const messages = beforeArray.map((dep: any, index: number) => {
+        const name = dep.name || `${dep.lastName || ''} ${dep.firstName || ''}`.trim() || '（氏名不明）';
+        const relationshipLabel = this.getRelationshipLabel(dep.relationship);
+        const birthDate = this.formatDateValue(dep.birthDate);
+        return `被扶養者${index + 1}（${name}、${relationshipLabel}、生年月日: ${birthDate}）を削除`;
+      });
+      return messages.join('、');
+    }
+
+    return '扶養情報を更新';
+  }
+
+  /**
+   * 他社勤務情報の変更を詳細表示
+   * 変更がない場合はnullを返す（表示しない）
+   */
+  formatOtherCompanyInfoChange(before: any, after: any): string | null {
+    // アクション形式の変更履歴（employee-edit.component.tsから）
+    if (before && typeof before === 'object' && before.action) {
+      if (before.action === 'added') {
+        const company = before.data;
+        const primaryLabel = company.isPrimary ? '（主たる勤務先）' : '';
+        return `他社勤務を追加: ${company.companyName}${primaryLabel}`;
+      } else if (before.action === 'deleted') {
+        const company = before.data;
+        const primaryLabel = company.isPrimary ? '（主たる勤務先）' : '';
+        return `他社勤務を削除: ${company.companyName}${primaryLabel}`;
+      } else if (before.action === 'changed') {
+        const oldCompany = before.data;
+        const newCompany = after.data;
+        const changes: string[] = [];
+
+        // 会社名の変更
+        if (oldCompany.companyName !== newCompany.companyName) {
+          changes.push(`会社名: ${oldCompany.companyName} → ${newCompany.companyName}`);
+        }
+
+        // 主たる勤務先の変更
+        if (oldCompany.isPrimary !== newCompany.isPrimary) {
+          const oldPrimary = oldCompany.isPrimary ? '主たる勤務先' : '副たる勤務先';
+          const newPrimary = newCompany.isPrimary ? '主たる勤務先' : '副たる勤務先';
+          changes.push(`${oldPrimary} → ${newPrimary}`);
+        }
+
+        if (changes.length === 0) {
+          return null as any; // 変更なしの場合は表示しない
+        }
+
+        return `他社勤務「${newCompany.companyName}」: ${changes.join('、')}`;
+      }
+    }
+
+    // 従来の形式（配列全体の比較）
+    const beforeArray = Array.isArray(before) ? before : (before ? [before] : []);
+    const afterArray = Array.isArray(after) ? after : (after ? [after] : []);
+
+    if (beforeArray.length === 0 && afterArray.length === 0) {
+      return null as any; // 変更なしの場合は表示しない
+    }
+
+    if (beforeArray.length === 0 && afterArray.length > 0) {
+      const messages = afterArray.map((company: any, index: number) => {
+        const primaryLabel = company.isPrimary ? '（主たる勤務先）' : '';
+        return `他社勤務${index + 1}（${company.companyName}${primaryLabel}）を追加`;
+      });
+      return messages.join('、');
+    }
+
+    if (beforeArray.length > 0 && afterArray.length === 0) {
+      const messages = beforeArray.map((company: any, index: number) => {
+        const primaryLabel = company.isPrimary ? '（主たる勤務先）' : '';
+        return `他社勤務${index + 1}（${company.companyName}${primaryLabel}）を削除`;
+      });
+      return messages.join('、');
+    }
+
+    return '他社勤務情報を更新';
   }
 
 }

@@ -1078,6 +1078,7 @@ export class ApplicationReturnHistoryViewComponent {
       ].filter(part => part);
       const newAddress = newAddressParts.length > 0 ? newAddressParts.join(' ') : (ip.newAddress || '');
       ipItems.push({ label: '変更後住所', value: newAddress, isEmpty: !newAddress });
+      ipItems.push({ label: '変更後住所（カナ）', value: ip.newAddressKana || '', isEmpty: !ip.newAddressKana });
 
       // 配偶者との同居/別居
       if (ip.livingWithSpouse !== undefined && ip.livingWithSpouse !== null) {

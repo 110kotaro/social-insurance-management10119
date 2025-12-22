@@ -204,7 +204,7 @@
         <mat-card-content>
           <mat-list>
             <mat-list-item *ngFor="let dependent of calculation.dependentInfo">
-              <span matListItemTitle>{{ dependent.name }}（{{ dependent.relationship }}）</span>
+              <span matListItemTitle>{{ dependent.name }}（{{ getRelationshipLabel(dependent.relationship) }}）</span>
               <span matListItemLine>
                 {{ dependent.nameKana }}
                 <span *ngIf="dependent.birthDate" style="color: #666; font-size: 0.9em;">
@@ -508,6 +508,8 @@
                   この履歴は、{{ formatDate(history.recalculatedAt) }}時点での再計算前の計算結果を表示しています。
                 </p>
                 <p *ngIf="history.reason"><strong>再計算理由:</strong> {{ history.reason }}</p>
+                
+                <!-- 基本情報 -->
                 <mat-list>
                   <mat-list-item *ngIf="history.dataSnapshot.standardReward">
                     <span matListItemTitle>標準報酬月額</span>
@@ -524,21 +526,107 @@
                     <span matListItemLine>{{ history.dataSnapshot.pensionGrade }}級</span>
                   </mat-list-item>
                   <mat-divider *ngIf="history.dataSnapshot.pensionGrade"></mat-divider>
-                  <mat-list-item *ngIf="history.dataSnapshot.totalPremium">
-                    <span matListItemTitle>合計保険料（全額）</span>
-                    <span matListItemLine>{{ formatCurrency(history.dataSnapshot.totalPremium) }}</span>
+                  <mat-list-item *ngIf="history.dataSnapshot.healthInsuranceRate !== undefined && history.dataSnapshot.healthInsuranceRate !== null">
+                    <span matListItemTitle>健康保険料率</span>
+                    <span matListItemLine>
+                      {{ history.dataSnapshot.healthInsuranceRate.toFixed(2) }}%
+                      <span *ngIf="history.dataSnapshot.healthInsuranceRateWithCare" style="color: #666; font-size: 0.9em;">（介護保険料込）</span>
+                      <span *ngIf="history.dataSnapshot.healthInsuranceRateWithCare === false" style="color: #666; font-size: 0.9em;">（介護保険料除く）</span>
+                    </span>
                   </mat-list-item>
-                  <mat-divider *ngIf="history.dataSnapshot.totalPremium"></mat-divider>
-                  <mat-list-item *ngIf="history.dataSnapshot.companyShare">
-                    <span matListItemTitle>想定会社負担額</span>
-                    <span matListItemLine>{{ formatCurrency(history.dataSnapshot.companyShare) }}</span>
+                  <mat-divider *ngIf="history.dataSnapshot.healthInsuranceRate !== undefined && history.dataSnapshot.healthInsuranceRate !== null"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.pensionInsuranceRate !== undefined && history.dataSnapshot.pensionInsuranceRate !== null">
+                    <span matListItemTitle>厚生年金料率</span>
+                    <span matListItemLine>{{ history.dataSnapshot.pensionInsuranceRate.toFixed(2) }}%</span>
                   </mat-list-item>
-                  <mat-divider *ngIf="history.dataSnapshot.companyShare"></mat-divider>
-                  <mat-list-item *ngIf="history.dataSnapshot.employeeShare">
-                    <span matListItemTitle>従業員負担額</span>
-                    <span matListItemLine>{{ formatCurrency(history.dataSnapshot.employeeShare) }}</span>
-                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.pensionInsuranceRate !== undefined && history.dataSnapshot.pensionInsuranceRate !== null"></mat-divider>
                 </mat-list>
+
+                <!-- 被扶養者情報 -->
+                <mat-card *ngIf="history.dataSnapshot.dependentInfo && history.dataSnapshot.dependentInfo.length > 0" class="dependent-card" style="margin-top: 16px;">
+                  <mat-card-header>
+                    <mat-card-title>被扶養者情報</mat-card-title>
+                  </mat-card-header>
+                  <mat-card-content>
+                    <mat-list>
+                      <mat-list-item *ngFor="let dependent of history.dataSnapshot.dependentInfo">
+                        <span matListItemTitle>{{ dependent.name }}（{{ getRelationshipLabel(dependent.relationship) }}）</span>
+                        <span matListItemLine>
+                          {{ dependent.nameKana }}
+                          <span *ngIf="dependent.birthDate" style="color: #666; font-size: 0.9em;">
+                            （{{ formatDate(dependent.birthDate) }}生まれ）
+                          </span>
+                        </span>
+                      </mat-list-item>
+                    </mat-list>
+                  </mat-card-content>
+                </mat-card>
+
+                <!-- 保険料詳細 -->
+                <mat-card class="premium-card" style="margin-top: 16px;">
+                  <mat-card-header>
+                    <mat-card-title>保険料詳細</mat-card-title>
+                  </mat-card-header>
+                  <mat-card-content>
+                    <mat-list>
+                      <!-- 被扶養者がいる場合の表示 -->
+                      <ng-container *ngIf="history.dataSnapshot.dependentInfo && history.dataSnapshot.dependentInfo.length > 0">
+                        <mat-list-item *ngIf="history.dataSnapshot.healthInsurancePremium !== undefined">
+                          <span matListItemTitle>被保険者健康保険料（介護保険料含む）（全額）</span>
+                          <span matListItemLine>{{ formatCurrency(history.dataSnapshot.healthInsurancePremium) }}</span>
+                        </mat-list-item>
+                        <mat-divider *ngIf="history.dataSnapshot.healthInsurancePremium !== undefined"></mat-divider>
+                        <mat-list-item *ngIf="history.dataSnapshot.dependentHealthInsurancePremium !== undefined">
+                          <span matListItemTitle>被扶養者健康保険料（介護保険料含む）（全額）</span>
+                          <span matListItemLine>{{ formatCurrency(history.dataSnapshot.dependentHealthInsurancePremium) }}</span>
+                        </mat-list-item>
+                        <mat-divider *ngIf="history.dataSnapshot.dependentHealthInsurancePremium !== undefined"></mat-divider>
+                        <mat-list-item *ngIf="history.dataSnapshot.pensionInsurancePremium !== undefined">
+                          <span matListItemTitle>被保険者厚生年金料（全額）</span>
+                          <span matListItemLine>{{ formatCurrency(history.dataSnapshot.pensionInsurancePremium) }}</span>
+                        </mat-list-item>
+                        <mat-divider *ngIf="history.dataSnapshot.pensionInsurancePremium !== undefined"></mat-divider>
+                        <mat-list-item *ngIf="history.dataSnapshot.dependentPensionInsurancePremium !== undefined">
+                          <span matListItemTitle>被扶養者厚生年金料（全額）</span>
+                          <span matListItemLine>{{ formatCurrency(history.dataSnapshot.dependentPensionInsurancePremium) }}</span>
+                        </mat-list-item>
+                        <mat-divider *ngIf="history.dataSnapshot.dependentPensionInsurancePremium !== undefined"></mat-divider>
+                        <mat-list-item *ngIf="history.dataSnapshot.totalPremium !== undefined" class="total-item">
+                          <span matListItemTitle>合計保険料（全額）</span>
+                          <span matListItemLine class="total-amount">{{ formatCurrency(history.dataSnapshot.totalPremium) }}</span>
+                        </mat-list-item>
+                        <mat-divider *ngIf="history.dataSnapshot.totalPremium !== undefined"></mat-divider>
+                      </ng-container>
+                      <!-- 被扶養者がいない場合の表示 -->
+                      <ng-container *ngIf="!history.dataSnapshot.dependentInfo || history.dataSnapshot.dependentInfo.length === 0">
+                        <mat-list-item *ngIf="history.dataSnapshot.healthInsurancePremium !== undefined">
+                          <span matListItemTitle>健康保険料（介護保険料含む）（全額）</span>
+                          <span matListItemLine>{{ formatCurrency(history.dataSnapshot.healthInsurancePremium) }}</span>
+                        </mat-list-item>
+                        <mat-divider *ngIf="history.dataSnapshot.healthInsurancePremium !== undefined"></mat-divider>
+                        <mat-list-item *ngIf="history.dataSnapshot.pensionInsurancePremium !== undefined">
+                          <span matListItemTitle>厚生年金料（全額）</span>
+                          <span matListItemLine>{{ formatCurrency(history.dataSnapshot.pensionInsurancePremium) }}</span>
+                        </mat-list-item>
+                        <mat-divider *ngIf="history.dataSnapshot.pensionInsurancePremium !== undefined"></mat-divider>
+                        <mat-list-item *ngIf="history.dataSnapshot.totalPremium !== undefined" class="total-item">
+                          <span matListItemTitle>合計保険料（全額）</span>
+                          <span matListItemLine class="total-amount">{{ formatCurrency(history.dataSnapshot.totalPremium) }}</span>
+                        </mat-list-item>
+                        <mat-divider *ngIf="history.dataSnapshot.totalPremium !== undefined"></mat-divider>
+                      </ng-container>
+                      <mat-list-item *ngIf="history.dataSnapshot.companyShare !== undefined">
+                        <span matListItemTitle>想定会社負担額（折半額）</span>
+                        <span matListItemLine>{{ formatCurrency(history.dataSnapshot.companyShare) }}</span>
+                      </mat-list-item>
+                      <mat-divider *ngIf="history.dataSnapshot.companyShare !== undefined"></mat-divider>
+                      <mat-list-item *ngIf="history.dataSnapshot.employeeShare !== undefined">
+                        <span matListItemTitle>従業員負担額（折半額）</span>
+                        <span matListItemLine>{{ formatCurrency(history.dataSnapshot.employeeShare) }}</span>
+                      </mat-list-item>
+                    </mat-list>
+                  </mat-card-content>
+                </mat-card>
               </div>
             </mat-expansion-panel>
           </mat-accordion>

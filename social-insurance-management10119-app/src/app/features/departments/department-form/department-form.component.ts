@@ -53,7 +53,6 @@ export class DepartmentFormComponent implements OnInit {
     this.departmentForm = this.fb.group({
       name: ['', [Validators.required]],
       code: [''],
-      parentDepartmentId: [null],
       managerId: [null],
       email: ['', [Validators.email]]
     });
@@ -81,7 +80,7 @@ export class DepartmentFormComponent implements OnInit {
   }
 
   /**
-   * 部署一覧を読み込む（親部署選択用）
+   * 部署一覧を読み込む
    */
   private async loadDepartments(): Promise<void> {
     if (!this.organizationId) return;
@@ -122,7 +121,6 @@ export class DepartmentFormComponent implements OnInit {
       this.departmentForm.patchValue({
         name: department.name,
         code: department.code || '',
-        parentDepartmentId: department.parentDepartmentId || null,
         managerId: department.managerId || null,
         email: department.email || ''
       });
@@ -150,7 +148,7 @@ export class DepartmentFormComponent implements OnInit {
         await this.departmentService.updateDepartment(this.departmentId, {
           name: formValue.name,
           code: formValue.code || undefined,
-          parentDepartmentId: formValue.parentDepartmentId || null,
+          parentDepartmentId: null,
           managerId: formValue.managerId || null,
           email: formValue.email || undefined
         });
@@ -160,7 +158,7 @@ export class DepartmentFormComponent implements OnInit {
         await this.departmentService.createDepartment({
           name: formValue.name,
           code: formValue.code || undefined,
-          parentDepartmentId: formValue.parentDepartmentId || null,
+          parentDepartmentId: null,
           managerId: formValue.managerId || null,
           email: formValue.email || undefined,
           organizationId: this.organizationId
@@ -182,16 +180,6 @@ export class DepartmentFormComponent implements OnInit {
    */
   cancel(): void {
     this.router.navigate(['/departments']);
-  }
-
-  /**
-   * 親部署の選択肢をフィルタ（自分自身を除外）
-   */
-  getParentDepartmentOptions(): Department[] {
-    if (!this.isEditMode || !this.departmentId) {
-      return this.departments;
-    }
-    return this.departments.filter(dept => dept.id !== this.departmentId);
   }
 }
 

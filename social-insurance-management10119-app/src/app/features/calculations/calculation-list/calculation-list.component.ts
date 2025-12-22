@@ -23,8 +23,9 @@ import { DepartmentService } from '../../../core/services/department.service';
 import { SalaryDataService } from '../../../core/services/salary-data.service';
 import { MonthlyCalculation, CalculationListRow } from '../../../core/models/monthly-calculation.model';
 import { BonusCalculation, BonusCalculationListRow } from '../../../core/models/bonus-calculation.model';
-import { Employee } from '../../../core/models/employee.model';
+import { Employee, LeaveInfo } from '../../../core/models/employee.model';
 import { BonusDataService } from '../../../core/services/bonus-data.service';
+import { Timestamp } from '@angular/fire/firestore';
 
 @Component({
   selector: 'app-calculation-list',
@@ -168,7 +169,7 @@ export class CalculationListComponent implements OnInit {
       this.calculationRows = employees.map(employee => {
         const calculation = calculationMap.get(employee.id || '') || null;
         const departmentName = employee.departmentId ? departmentMap.get(employee.departmentId) : undefined;
-        const isOnLeave = employee.status === 'leave';
+        const isOnLeave = this.isMonthOnLeave(employee.leaveInfo, year, month);
         return {
           employeeId: employee.id || '',
           employeeNumber: employee.employeeNumber,
@@ -316,8 +317,13 @@ export class CalculationListComponent implements OnInit {
           await this.calculationService.saveCalculation(calculation);
           calculations.push(calculation);
         } catch (error: any) {
-          // 既に確定済みのエラーの場合はスキップとして扱う
-          if (error.message && error.message.includes('既に確定済み')) {
+          // 既に確定済み、または他社給与データ関連のエラーの場合はスキップとして扱う
+          if (error.message && (
+            error.message.includes('既に確定済み') ||
+            error.message.includes('他社給与データが登録されていません') ||
+            error.message.includes('他社給与データが確定されていません') ||
+            error.message.includes('給与データが確定されていません')
+          )) {
             const employee = await this.employeeService.getEmployee(employeeId);
             if (employee) {
               skippedEmployees.push(employee.employeeNumber);
@@ -356,6 +362,85 @@ export class CalculationListComponent implements OnInit {
 
   formatCurrency(amount: number): string {
     return `¥${amount.toLocaleString()}`;
+  }
+
+  /**
+   * 指定された年月が休職期間中かどうかを判定
+   */
+  private isMonthOnLeave(leaveInfo: LeaveInfo[] | undefined, year: number, month: number): boolean {
+    if (!leaveInfo || leaveInfo.length === 0) {
+      return false;
+    }
+
+    const targetMonthStart = new Date(year, month - 1, 1);
+    const targetMonthEnd = new Date(year, month, 0); // その月の最終日
+
+    for (const leave of leaveInfo) {
+      const leaveStartDate = this.convertToDate(leave.startDate);
+      if (!leaveStartDate) {
+        continue;
+      }
+
+      // 休職開始日を含む月の月初
+      const leaveStartMonth = new Date(leaveStartDate.getFullYear(), leaveStartDate.getMonth(), 1);
+
+      // 休職終了日の判定（退職日と同じロジック）
+      // 休職終了日の翌日が含まれる月は除外（免除対象外）
+      if (leave.endDate) {
+        const leaveEndDate = this.convertToDate(leave.endDate);
+        if (leaveEndDate) {
+          const nextDay = new Date(leaveEndDate);
+          nextDay.setDate(nextDay.getDate() + 1); // 休職終了日の翌日
+          const nextDayYear = nextDay.getFullYear();
+          const nextDayMonth = nextDay.getMonth() + 1;
+          
+          // 対象月が休職終了日の翌日が含まれる月以降なら除外（免除対象外）
+          if (year > nextDayYear || (year === nextDayYear && month >= nextDayMonth)) {
+            continue; // この休職期間は対象外
+          }
+        }
+      }
+
+      // 対象月が休職期間内かチェック
+      // 対象月の月初が休職開始月の月初以降で、かつ休職終了日の翌日が含まれる月より前
+      if (targetMonthStart >= leaveStartMonth) {
+        // 休職終了日がない場合、または対象月が休職終了日の翌日が含まれる月より前の場合
+        if (!leave.endDate) {
+          return true; // 休職期間中（終了日なし）
+        } else {
+          const leaveEndDate = this.convertToDate(leave.endDate);
+          if (leaveEndDate) {
+            const nextDay = new Date(leaveEndDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            const nextDayMonthStart = new Date(nextDay.getFullYear(), nextDay.getMonth(), 1);
+            if (targetMonthStart < nextDayMonthStart) {
+              return true; // 休職期間中
+            }
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 日付をDateオブジェクトに変換
+   */
+  private convertToDate(date: Date | Timestamp | any): Date | null {
+    if (!date) {
+      return null;
+    }
+    if (date instanceof Date) {
+      return date;
+    }
+    if (date && typeof date.toDate === 'function') {
+      return date.toDate();
+    }
+    if (date && typeof date.seconds === 'number') {
+      return new Date(date.seconds * 1000);
+    }
+    return null;
   }
 
   getStatus(row: CalculationListRow): string | null {
@@ -692,7 +777,7 @@ export class CalculationListComponent implements OnInit {
       this.bonusCalculationRows = employees.map(employee => {
         const calculation = calculationMap.get(employee.id || '') || null;
         const departmentName = employee.departmentId ? departmentMap.get(employee.departmentId) : undefined;
-        const isOnLeave = employee.status === 'leave';
+        const isOnLeave = this.isMonthOnLeave(employee.leaveInfo, year, month);
         return {
           employeeId: employee.id || '',
           employeeNumber: employee.employeeNumber,
@@ -812,7 +897,13 @@ export class CalculationListComponent implements OnInit {
           await this.calculationService.saveBonusCalculation(calculation);
           calculations.push(calculation);
         } catch (error: any) {
-          if (error.message && error.message.includes('既に確定済み')) {
+          // 既に確定済み、または他社給与データ関連のエラーの場合はスキップとして扱う
+          if (error.message && (
+            error.message.includes('既に確定済み') ||
+            error.message.includes('他社給与データが登録されていません') ||
+            error.message.includes('他社賞与データが確定されていません') ||
+            error.message.includes('賞与データが確定されていません')
+          )) {
             const employee = await this.employeeService.getEmployee(employeeId);
             if (employee) {
               skippedEmployees.push(employee.employeeNumber);

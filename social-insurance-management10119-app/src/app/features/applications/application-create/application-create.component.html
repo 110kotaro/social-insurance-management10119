@@ -846,10 +846,10 @@
                 </mat-card-header>
                 <mat-card-content>
                   <!-- 社員選択（内部申請から作成する場合は固定表示、それ以外は選択可能） -->
-                  <div *ngIf="isFromInternalApplication && addressChangeForm?.get('insuredPerson.employeeId')?.value" class="employee-name-display">
+                  <div *ngIf="(isFromInternalApplication || selectedInternalApplicationId) && addressChangeForm?.get('insuredPerson.employeeId')?.value" class="employee-name-display">
                     <p><strong>社員:</strong> {{ getEmployeeDisplayNameById(addressChangeForm.get('insuredPerson.employeeId')?.value) }}</p>
                   </div>
-                  <div *ngIf="!isFromInternalApplication || !addressChangeForm?.get('insuredPerson.employeeId')?.value">
+                  <div *ngIf="!(isFromInternalApplication || selectedInternalApplicationId) || !addressChangeForm?.get('insuredPerson.employeeId')?.value">
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>社員を選択（情報を自動入力）</mat-label>
                       <mat-select (selectionChange)="onEmployeeSelectForAddressChange($event.value)" [value]="null">
@@ -1205,10 +1205,10 @@
                 </mat-card-header>
                 <mat-card-content>
                   <!-- 社員選択（内部申請から作成する場合は固定表示、それ以外は選択可能） -->
-                  <div *ngIf="isFromInternalApplication && nameChangeForm?.get('insuredPerson.employeeId')?.value" class="employee-name-display">
+                  <div *ngIf="(isFromInternalApplication || selectedInternalApplicationId) && nameChangeForm?.get('insuredPerson.employeeId')?.value" class="employee-name-display">
                     <p><strong>社員:</strong> {{ getEmployeeDisplayNameById(nameChangeForm.get('insuredPerson.employeeId')?.value) }}</p>
                   </div>
-                  <div *ngIf="!isFromInternalApplication || !nameChangeForm?.get('insuredPerson.employeeId')?.value">
+                  <div *ngIf="!(isFromInternalApplication || selectedInternalApplicationId) || !nameChangeForm?.get('insuredPerson.employeeId')?.value">
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>社員を選択（情報を自動入力）</mat-label>
                       <mat-select (selectionChange)="onEmployeeSelectForNameChange($event.value)" [value]="null">
@@ -1428,10 +1428,10 @@
                 </mat-card-header>
                 <mat-card-content>
                   <!-- 社員選択（内部申請から作成する場合は固定表示、それ以外は選択可能） -->
-                  <div *ngIf="isFromInternalApplication && dependentChangeForm?.get('insuredPerson.employeeId')?.value" class="employee-name-display">
+                  <div *ngIf="(isFromInternalApplication || selectedInternalApplicationId) && dependentChangeForm?.get('insuredPerson.employeeId')?.value" class="employee-name-display">
                     <p><strong>社員:</strong> {{ getEmployeeDisplayNameById(dependentChangeForm.get('insuredPerson.employeeId')?.value) }}</p>
                   </div>
-                  <div *ngIf="!isFromInternalApplication || !dependentChangeForm?.get('insuredPerson.employeeId')?.value">
+                  <div *ngIf="!(isFromInternalApplication || selectedInternalApplicationId) || !dependentChangeForm?.get('insuredPerson.employeeId')?.value">
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>社員を選択（情報を自動入力）</mat-label>
                       <mat-select 
@@ -5365,11 +5365,11 @@
                     <input matInput formControlName="officeSymbol">
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>事業所所在地 *</mat-label>
+                    <mat-label>事業所所在地</mat-label>
                     <textarea matInput formControlName="officeAddress" rows="2" required></textarea>
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>事業所名称 *</mat-label>
+                    <mat-label>事業所名称</mat-label>
                     <input matInput formControlName="officeName" required>
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="full-width">
@@ -5567,7 +5567,7 @@
                     <input matInput formControlName="insuranceNumber">
                   </mat-form-field>
 
-                  <div class="form-section-title">個人番号または基礎年金番号 *</div>
+                  <div class="form-section-title">個人番号または基礎年金番号</div>
                   <mat-radio-group formControlName="identificationType" required>
                     <mat-radio-button value="personal_number">個人番号</mat-radio-button>
                     <mat-radio-button value="basic_pension_number">基礎年金番号</mat-radio-button>
@@ -5587,27 +5587,27 @@
 
                   <div class="form-row">
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>氏 *</mat-label>
+                      <mat-label>氏</mat-label>
                       <input matInput formControlName="lastName" required>
                     </mat-form-field>
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>名 *</mat-label>
+                      <mat-label>名</mat-label>
                       <input matInput formControlName="firstName" required>
                     </mat-form-field>
                   </div>
 
                   <div class="form-row">
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>氏（カナ） *</mat-label>
+                      <mat-label>氏（カナ）</mat-label>
                       <input matInput formControlName="lastNameKana" required>
                     </mat-form-field>
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>名（カナ） *</mat-label>
+                      <mat-label>名（カナ）</mat-label>
                       <input matInput formControlName="firstNameKana" required>
                     </mat-form-field>
                   </div>
 
-                  <div class="form-section-title">生年月日 *</div>
+                  <div class="form-section-title">生年月日</div>
                   <div formGroupName="birthDate" class="date-input-group">
                     <mat-form-field appearance="outline" class="form-field-small">
                       <mat-label>年号</mat-label>
@@ -5672,7 +5672,7 @@
                     <textarea matInput formControlName="oldAddress" rows="2"></textarea>
                   </mat-form-field>
 
-                  <div class="form-section-title">変更年月日 *</div>
+                  <div class="form-section-title">変更年月日</div>
                   <div formGroupName="changeDate" class="date-input-group">
                     <mat-form-field appearance="outline" class="form-field-small">
                       <mat-label>年号</mat-label>
@@ -5711,7 +5711,7 @@
                   <!-- 配偶者情報（同居チェック時） -->
                   <div *ngIf="addressChangeFormInternal.get('insuredPerson.livingWithSpouse')?.value" class="spouse-section">
                     <div class="form-section-title">配偶者情報</div>
-                    <div class="form-section-title">個人番号または基礎年金番号 *</div>
+                    <div class="form-section-title">個人番号または基礎年金番号</div>
                     <mat-radio-group formControlName="spouseIdentificationType">
                       <mat-radio-button value="personal_number">個人番号</mat-radio-button>
                       <mat-radio-button value="basic_pension_number">基礎年金番号</mat-radio-button>
@@ -5729,7 +5729,7 @@
                       <input matInput formControlName="spouseBasicPensionNumber">
                     </mat-form-field>
 
-                    <div class="form-section-title">配偶者の生年月日 *</div>
+                    <div class="form-section-title">配偶者の生年月日</div>
                     <div formGroupName="spouseBirthDate" class="date-input-group">
                       <mat-form-field appearance="outline" class="form-field-small">
                         <mat-label>年号</mat-label>
@@ -5753,22 +5753,22 @@
 
                     <div class="form-row">
                       <mat-form-field appearance="outline" class="form-field">
-                        <mat-label>配偶者の氏 *</mat-label>
+                        <mat-label>配偶者の氏</mat-label>
                         <input matInput formControlName="spouseLastName">
                       </mat-form-field>
                       <mat-form-field appearance="outline" class="form-field">
-                        <mat-label>配偶者の名 *</mat-label>
+                        <mat-label>配偶者の名</mat-label>
                         <input matInput formControlName="spouseFirstName">
                       </mat-form-field>
                     </div>
 
                     <div class="form-row">
                       <mat-form-field appearance="outline" class="form-field">
-                        <mat-label>配偶者の氏（カナ） *</mat-label>
+                        <mat-label>配偶者の氏（カナ）</mat-label>
                         <input matInput formControlName="spouseLastNameKana">
                       </mat-form-field>
                       <mat-form-field appearance="outline" class="form-field">
-                        <mat-label>配偶者の名（カナ） *</mat-label>
+                        <mat-label>配偶者の名（カナ）</mat-label>
                         <input matInput formControlName="spouseFirstNameKana">
                       </mat-form-field>
                     </div>
@@ -5856,7 +5856,7 @@
                     <input matInput formControlName="insuranceNumber">
                   </mat-form-field>
 
-                  <div class="form-section-title">個人番号または基礎年金番号 *</div>
+                  <div class="form-section-title">個人番号または基礎年金番号</div>
                   <mat-radio-group formControlName="identificationType" required>
                     <mat-radio-button value="personal_number">個人番号</mat-radio-button>
                     <mat-radio-button value="basic_pension_number">基礎年金番号</mat-radio-button>
@@ -5874,7 +5874,7 @@
                     <input matInput formControlName="basicPensionNumber">
                   </mat-form-field>
 
-                  <div class="form-section-title">生年月日 *</div>
+                  <div class="form-section-title">生年月日</div>
                   <div formGroupName="birthDate" class="date-input-group">
                     <mat-form-field appearance="outline" class="form-field-small">
                       <mat-label>年号</mat-label>
@@ -5896,37 +5896,37 @@
                     </mat-form-field>
                   </div>
 
-                  <div class="form-section-title">被保険者の氏名（変更後） *</div>
+                  <div class="form-section-title">被保険者の氏名（変更後）</div>
                   <div class="form-row">
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>氏 *</mat-label>
+                      <mat-label>氏</mat-label>
                       <input matInput formControlName="newLastName" required>
                     </mat-form-field>
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>名 *</mat-label>
+                      <mat-label>名</mat-label>
                       <input matInput formControlName="newFirstName" required>
                     </mat-form-field>
                   </div>
 
                   <div class="form-row">
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>氏（カナ） *</mat-label>
+                      <mat-label>氏（カナ）</mat-label>
                       <input matInput formControlName="newLastNameKana" required>
                     </mat-form-field>
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>名（カナ） *</mat-label>
+                      <mat-label>名（カナ）</mat-label>
                       <input matInput formControlName="newFirstNameKana" required>
                     </mat-form-field>
                   </div>
 
-                  <div class="form-section-title">変更前の氏名 *</div>
+                  <div class="form-section-title">変更前の氏名</div>
                   <div class="form-row">
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>氏 *</mat-label>
+                      <mat-label>氏</mat-label>
                       <input matInput formControlName="oldLastName" required>
                     </mat-form-field>
                     <mat-form-field appearance="outline" class="form-field">
-                      <mat-label>名 *</mat-label>
+                      <mat-label>名</mat-label>
                       <input matInput formControlName="oldFirstName" required>
                     </mat-form-field>
                   </div>

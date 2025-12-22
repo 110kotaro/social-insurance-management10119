@@ -234,13 +234,19 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
       const department = departments.find(d => d.id === employee.departmentId);
       const calculation = calculations.find(c => c.employeeId === employee.id);
+      // 4月、5月、6月のいずれかが休職期間中かチェック
+      const isOnLeave = 
+        this.isMonthOnLeave(employee.leaveInfo, targetYear, 4) ||
+        this.isMonthOnLeave(employee.leaveInfo, targetYear, 5) ||
+        this.isMonthOnLeave(employee.leaveInfo, targetYear, 6);
 
       rows.push({
         employeeId: employee.id!,
         employeeNumber: employee.employeeNumber,
         employeeName: `${employee.lastName} ${employee.firstName}`,
         departmentName: department?.name,
-        calculation: calculation || null
+        calculation: calculation || null,
+        isOnLeave: isOnLeave
       });
     }
 
@@ -336,9 +342,9 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
       if (!allMonthsValid) continue;
 
-      // 変動月を含む3か月間（(A-2)月からA月まで）のうち、いずれかの月が休職期間中に含まれる場合は除外
+      // 変動月を含む3か月間（(A-2)月からA月まで）のうち、いずれかの月が休職期間中かチェック
+      let isOnLeaveDuringPeriod = false;
       if (employee.leaveInfo && employee.leaveInfo.length > 0) {
-        let isOnLeaveDuringPeriod = false;
         checkYear = changeMonthYear;
         checkMonth = changeMonth;
         
@@ -352,10 +358,6 @@ export class StandardRewardCalculationListComponent implements OnInit {
             checkMonth = 1;
             checkYear++;
           }
-        }
-        
-        if (isOnLeaveDuringPeriod) {
-          continue;
         }
       }
 
@@ -372,7 +374,8 @@ export class StandardRewardCalculationListComponent implements OnInit {
         employeeName: `${employee.lastName} ${employee.firstName}`,
         departmentName: department?.name,
         calculation: calculation || null,
-        changeMonth: { year: changeMonthYear, month: changeMonth }
+        changeMonth: { year: changeMonthYear, month: changeMonth },
+        isOnLeave: isOnLeaveDuringPeriod
       });
     }
 
@@ -382,7 +385,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
   /**
    * 指定された年月が休職期間中かどうかを判定
    */
-  private isMonthOnLeave(leaveInfo: LeaveInfo[], year: number, month: number): boolean {
+  private isMonthOnLeave(leaveInfo: LeaveInfo[] | undefined, year: number, month: number): boolean {
     if (!leaveInfo || leaveInfo.length === 0) {
       return false;
     }
@@ -543,6 +546,10 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   // 算定タブの選択状態管理
   isStandardSelected(row: StandardRewardCalculationListRow): boolean {
+    // 休職期間中の社員は一括計算の対象外
+    if (row.isOnLeave) {
+      return false;
+    }
     if (row.calculation?.id) {
       return this.selectedStandardCalculations.has(row.calculation.id);
     } else if (!row.calculation) {
@@ -552,6 +559,10 @@ export class StandardRewardCalculationListComponent implements OnInit {
   }
 
   toggleStandardSelection(row: StandardRewardCalculationListRow): void {
+    // 休職期間中の社員は一括計算の対象外
+    if (row.isOnLeave) {
+      return;
+    }
     if (row.calculation?.id) {
       const calculationId = row.calculation.id;
       if (this.selectedStandardCalculations.has(calculationId)) {
@@ -570,14 +581,14 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   isAllStandardSelected(): boolean {
     const selectableRows = this.standardRows.filter(row => 
-      (!row.calculation) || (row.calculation?.id)
+      !row.isOnLeave && ((!row.calculation) || (row.calculation?.id))
     );
     return selectableRows.length > 0 && selectableRows.every(row => this.isStandardSelected(row));
   }
 
   isSomeStandardSelected(): boolean {
     const selectableRows = this.standardRows.filter(row => 
-      (!row.calculation) || (row.calculation?.id)
+      !row.isOnLeave && ((!row.calculation) || (row.calculation?.id))
     );
     const selectedCount = selectableRows.filter(row => this.isStandardSelected(row)).length;
     return selectedCount > 0 && selectedCount < selectableRows.length;
@@ -585,7 +596,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   toggleAllStandard(): void {
     const selectableRows = this.standardRows.filter(row => 
-      (!row.calculation) || (row.calculation?.id)
+      !row.isOnLeave && ((!row.calculation) || (row.calculation?.id))
     );
     
     if (this.isAllStandardSelected()) {
@@ -636,14 +647,14 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   isAllMonthlyChangeSelected(): boolean {
     const selectableRows = this.monthlyChangeRows.filter(row => 
-      (!row.calculation) || (row.calculation?.id)
+      !row.isOnLeave && ((!row.calculation) || (row.calculation?.id))
     );
     return selectableRows.length > 0 && selectableRows.every(row => this.isMonthlyChangeSelected(row));
   }
 
   isSomeMonthlyChangeSelected(): boolean {
     const selectableRows = this.monthlyChangeRows.filter(row => 
-      (!row.calculation) || (row.calculation?.id)
+      !row.isOnLeave && ((!row.calculation) || (row.calculation?.id))
     );
     const selectedCount = selectableRows.filter(row => this.isMonthlyChangeSelected(row)).length;
     return selectedCount > 0 && selectedCount < selectableRows.length;
@@ -651,7 +662,7 @@ export class StandardRewardCalculationListComponent implements OnInit {
 
   toggleAllMonthlyChange(): void {
     const selectableRows = this.monthlyChangeRows.filter(row => 
-      (!row.calculation) || (row.calculation?.id)
+      !row.isOnLeave && ((!row.calculation) || (row.calculation?.id))
     );
     
     if (this.isAllMonthlyChangeSelected()) {

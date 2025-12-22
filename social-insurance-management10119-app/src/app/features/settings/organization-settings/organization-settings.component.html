@@ -6,12 +6,18 @@
     </mat-card-title>
   </mat-card-header>
   <mat-card-content>
+    <!-- 管理者向けメッセージ -->
+    <div *ngIf="!isOwner" class="read-only-message" style="display: flex; align-items: center; gap: 8px; padding: 16px; margin-bottom: 16px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
+      <mat-icon style="color: #856404;">info</mat-icon>
+      <span>組織情報の編集はオーナー権限のみ可能です。現在は読み取り専用モードです。</span>
+    </div>
+    
     <form [formGroup]="organizationForm" (ngSubmit)="saveOrganizationSettings()">
       <h3>基本情報</h3>
       
       <mat-form-field appearance="outline">
         <mat-label>組織名</mat-label>
-        <input matInput formControlName="name" required>
+        <input matInput formControlName="name" [disabled]="!isOwner" required>
         <mat-error *ngIf="organizationForm.get('name')?.hasError('required')">
           組織名は必須です
         </mat-error>
@@ -19,14 +25,14 @@
 
       <mat-form-field appearance="outline">
         <mat-label>法人番号</mat-label>
-        <input matInput formControlName="corporateNumber">
+        <input matInput formControlName="corporateNumber" [disabled]="!isOwner">
       </mat-form-field>
 
       <h3>所在地</h3>
 
       <mat-form-field appearance="outline">
         <mat-label>郵便番号</mat-label>
-        <input matInput formControlName="postalCode" placeholder="123-4567" maxlength="8" required>
+        <input matInput formControlName="postalCode" [disabled]="!isOwner" placeholder="123-4567" maxlength="8" required>
         <mat-hint>例: 123-4567（ハイフンなしでも可）</mat-hint>
         <mat-error *ngIf="organizationForm.get('postalCode')?.hasError('required')">
           郵便番号を入力してください
@@ -38,7 +44,7 @@
 
       <mat-form-field appearance="outline">
         <mat-label>都道府県</mat-label>
-        <mat-select formControlName="prefecture" required>
+        <mat-select formControlName="prefecture" [disabled]="!isOwner" required>
           <mat-option *ngFor="let prefecture of prefectures" [value]="prefecture">
             {{ prefecture }}
           </mat-option>
@@ -50,7 +56,7 @@
 
       <mat-form-field appearance="outline">
         <mat-label>市区町村</mat-label>
-        <input matInput formControlName="city" required>
+        <input matInput formControlName="city" [disabled]="!isOwner" required>
         <mat-error *ngIf="organizationForm.get('city')?.hasError('required')">
           市区町村は必須です
         </mat-error>
@@ -58,7 +64,7 @@
 
       <mat-form-field appearance="outline">
         <mat-label>町名・番地</mat-label>
-        <input matInput formControlName="street" required>
+        <input matInput formControlName="street" [disabled]="!isOwner" required>
         <mat-error *ngIf="organizationForm.get('street')?.hasError('required')">
           町名・番地は必須です
         </mat-error>
@@ -66,25 +72,25 @@
 
       <mat-form-field appearance="outline">
         <mat-label>建物名</mat-label>
-        <input matInput formControlName="building">
+        <input matInput formControlName="building" [disabled]="!isOwner">
       </mat-form-field>
 
       <h3>連絡先</h3>
 
       <mat-form-field appearance="outline">
         <mat-label>電話番号</mat-label>
-        <input matInput formControlName="phoneNumber">
+        <input matInput formControlName="phoneNumber" [disabled]="!isOwner">
       </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>事業主氏名</mat-label>
-        <input matInput formControlName="ownerName">
+        <input matInput formControlName="ownerName" [disabled]="!isOwner">
         <mat-hint>申請作成時に自動転記されます</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>メールアドレス</mat-label>
-        <input matInput type="email" formControlName="email">
+        <input matInput type="email" formControlName="email" [disabled]="!isOwner">
         <mat-error *ngIf="organizationForm.get('email')?.hasError('email')">
           有効なメールアドレスを入力してください
         </mat-error>
@@ -92,14 +98,14 @@
 
       <mat-form-field appearance="outline">
         <mat-label>業種</mat-label>
-        <input matInput formControlName="industry">
+        <input matInput formControlName="industry" [disabled]="!isOwner">
       </mat-form-field>
 
       <h3>休職中の保険料徴収方法</h3>
 
       <mat-form-field appearance="outline">
         <mat-label>保険料徴収方法</mat-label>
-        <mat-select formControlName="leaveInsuranceCollectionMethod">
+        <mat-select formControlName="leaveInsuranceCollectionMethod" [disabled]="!isOwner">
           <mat-option value="postpaid">後払い（復職後徴収）</mat-option>
           <mat-option value="direct_transfer">本人振込（給与天引きなし）</mat-option>
         </mat-select>
@@ -107,7 +113,7 @@
       </mat-form-field>
 
       <div class="button-group">
-        <button mat-raised-button color="primary" type="submit" [disabled]="organizationForm.invalid || isLoading">
+        <button mat-raised-button color="primary" type="submit" [disabled]="!isOwner || organizationForm.invalid || isLoading">
           <mat-icon>save</mat-icon>
           保存
         </button>

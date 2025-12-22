@@ -559,13 +559,16 @@ export class EmployeeEditComponent implements OnInit, OnDestroy {
       });
     }
 
-    // 他社勤務情報（配列の最初の要素を使用）
+    // 他社勤務情報（配列のすべての要素をotherCompanyFormArrayに追加）
     if (this.employee.otherCompanyInfo && this.employee.otherCompanyInfo.length > 0) {
-      const firstCompany = this.employee.otherCompanyInfo[0];
-      this.otherCompanyForm.patchValue({
-        isOtherCompany: true,
-        isPrimary: firstCompany.isPrimary !== undefined ? firstCompany.isPrimary : true,
-        companyName: firstCompany.companyName || ''
+      this.otherCompanyFormArray.clear();
+      this.employee.otherCompanyInfo.forEach(company => {
+        const companyGroup = this.fb.group({
+          companyName: [company.companyName || '', [Validators.required]],
+          isPrimary: [company.isPrimary !== undefined ? company.isPrimary : true],
+          companyId: [company.companyId || crypto.randomUUID()] // 既存のcompanyIdを保持
+        });
+        this.otherCompanyFormArray.push(companyGroup);
       });
     }
 
@@ -708,6 +711,193 @@ export class EmployeeEditComponent implements OnInit, OnDestroy {
    */
   removeLeaveInfo(index: number): void {
     this.leaveInfoFormArray.removeAt(index);
+  }
+
+  /**
+   * 変更エントリが有効かどうかを判定（formatChangeDisplayでnullを返す変更を除外）
+   */
+  private isValidChange(change: { field: string; before: any; after: any }): boolean {
+    // beforeとafterが同じ場合は無効
+    if (change.before === change.after) {
+      return false;
+    }
+
+    // null同士の場合は無効
+    if (change.before === null && change.after === null) {
+      return false;
+    }
+
+    // undefined同士の場合は無効
+    if (change.before === undefined && change.after === undefined) {
+      return false;
+    }
+
+    // 添付ファイルの場合、action形式の変更をチェック
+    if (change.field === 'attachments') {
+      if (change.before === null && change.after && typeof change.after === 'object' && change.after.action === 'added') {
+        return true;
+      }
+      if (change.after === null && change.before && typeof change.before === 'object' && change.before.action === 'deleted') {
+        return true;
+      }
+      return false;
+    }
+
+    // 日付フィールドの場合、日付が同じかどうかをチェック
+    if (change.field === 'joinDate' || change.field === 'birthDate' || 
+        change.field === 'insuranceInfo.insuranceStartDate' || 
+        change.field === 'insuranceInfo.gradeAndStandardRewardEffectiveDate') {
+      const beforeDate = this.normalizeDate(change.before);
+      const afterDate = this.normalizeDate(change.after);
+      return beforeDate !== afterDate;
+    }
+
+    // 他社勤務情報の場合、action形式の変更をチェック
+    if (change.field === 'otherCompanyInfo') {
+      // beforeがaction形式の場合
+      if (change.before && typeof change.before === 'object' && change.before.action) {
+        if (change.before.action === 'added' || change.before.action === 'deleted') {
+          return true;
+        }
+        if (change.before.action === 'changed' && change.after && typeof change.after === 'object' && change.after.action === 'changed') {
+          // 実際の変更があるかチェック
+          const oldCompany = change.before.data;
+          const newCompany = change.after.data;
+          return oldCompany.companyName !== newCompany.companyName ||
+                 oldCompany.isPrimary !== newCompany.isPrimary;
+        }
+        return false;
+      }
+      // afterがaction形式の場合
+      if (change.after && typeof change.after === 'object' && change.after.action) {
+        return change.after.action === 'added' || change.after.action === 'deleted' || change.after.action === 'changed';
+      }
+      // 通常の配列比較の場合、変更があるかチェック
+      const beforeArray = Array.isArray(change.before) ? change.before : (change.before ? [change.before] : []);
+      const afterArray = Array.isArray(change.after) ? change.after : (change.after ? [change.after] : []);
+      if (beforeArray.length === 0 && afterArray.length === 0) {
+        return false; // 両方空の場合は無効
+      }
+      return beforeArray.length !== afterArray.length || JSON.stringify(beforeArray) !== JSON.stringify(afterArray);
+    }
+
+    // 休職情報の場合、正規化して比較
+    if (change.field === 'leaveInfo') {
+      const normalizedBefore = this.normalizeLeaveInfo(Array.isArray(change.before) ? change.before : (change.before ? [change.before] : []));
+      const normalizedAfter = this.normalizeLeaveInfo(Array.isArray(change.after) ? change.after : (change.after ? [change.after] : []));
+      if (normalizedBefore.length === 0 && normalizedAfter.length === 0) {
+        return false; // 両方空の場合は無効
+      }
+      return JSON.stringify(normalizedBefore) !== JSON.stringify(normalizedAfter);
+    }
+
+    // 扶養情報の場合、配列の差分をチェック
+    if (change.field === 'dependentInfo') {
+      // beforeがaction形式の場合
+      if (change.before && typeof change.before === 'object' && change.before.action) {
+        if (change.before.action === 'added' || change.before.action === 'deleted') {
+          return true;
+        }
+        if (change.before.action === 'changed' && change.after && typeof change.after === 'object' && change.after.action === 'changed') {
+          // 実際の変更があるかチェック
+          const oldDep = change.before.data;
+          const newDep = change.after.data;
+          const oldName = oldDep.name || `${oldDep.lastName || ''} ${oldDep.firstName || ''}`.trim();
+          const newName = newDep.name || `${newDep.lastName || ''} ${newDep.firstName || ''}`.trim();
+          const oldBirthDate = this.normalizeDate(oldDep.birthDate);
+          const newBirthDate = this.normalizeDate(newDep.birthDate);
+          return oldName !== newName ||
+                 oldDep.relationship !== newDep.relationship ||
+                 oldBirthDate !== newBirthDate ||
+                 oldDep.income !== newDep.income ||
+                 oldDep.livingTogether !== newDep.livingTogether;
+        }
+        return false;
+      }
+      // afterがaction形式の場合
+      if (change.after && typeof change.after === 'object' && change.after.action) {
+        return change.after.action === 'added' || change.after.action === 'deleted' || change.after.action === 'changed';
+      }
+      // 通常の配列比較の場合
+      const beforeArray = Array.isArray(change.before) ? change.before : (change.before ? [change.before] : []);
+      const afterArray = Array.isArray(change.after) ? change.after : (change.after ? [change.after] : []);
+      if (beforeArray.length === 0 && afterArray.length === 0) {
+        return false; // 両方空の場合は無効
+      }
+      return beforeArray.length !== afterArray.length || JSON.stringify(beforeArray) !== JSON.stringify(afterArray);
+    }
+
+    // 住所情報の場合、個別フィールドの変更をチェック
+    if (change.field.startsWith('address.official.')) {
+      const beforeValue = change.before === null || change.before === undefined ? '' : String(change.before);
+      const afterValue = change.after === null || change.after === undefined ? '' : String(change.after);
+      return beforeValue !== afterValue;
+    }
+
+    // その他のフィールドは、beforeとafterが異なる場合は有効
+    return true;
+  }
+
+  /**
+   * 日付を正規化（比較用）
+   */
+  private normalizeDate(date: any): string {
+    if (!date) return '';
+    if (date instanceof Date) {
+      return date.toISOString().split('T')[0]; // YYYY-MM-DD形式
+    }
+    if (date?.toDate) {
+      return date.toDate().toISOString().split('T')[0];
+    }
+    if (typeof date === 'string' || typeof date === 'number') {
+      return new Date(date).toISOString().split('T')[0];
+    }
+    return '';
+  }
+
+  /**
+   * 休職情報を正規化（日付をISO文字列に変換して比較しやすくする）
+   */
+  private normalizeLeaveInfo(leaveInfo: any[]): any[] {
+    if (!Array.isArray(leaveInfo)) {
+      return [];
+    }
+    return leaveInfo.map(leave => {
+      const normalized: any = {
+        type: leave.type || '',
+        isApproved: leave.isApproved !== undefined ? leave.isApproved : false
+      };
+      
+      // startDateを正規化（日付のみ、時刻は無視）
+      if (leave.startDate) {
+        const startDate = leave.startDate instanceof Date
+          ? leave.startDate
+          : (leave.startDate?.toDate ? leave.startDate.toDate() : new Date(leave.startDate));
+        normalized.startDate = startDate.toISOString().split('T')[0]; // YYYY-MM-DD形式
+      } else {
+        normalized.startDate = null;
+      }
+      
+      // endDateを正規化（日付のみ、時刻は無視）
+      if (leave.endDate) {
+        const endDate = leave.endDate instanceof Date
+          ? leave.endDate
+          : (leave.endDate?.toDate ? leave.endDate.toDate() : new Date(leave.endDate));
+        normalized.endDate = endDate.toISOString().split('T')[0]; // YYYY-MM-DD形式
+      } else {
+        normalized.endDate = null;
+      }
+      
+      return normalized;
+    }).sort((a, b) => {
+      // 開始日でソート（比較の一貫性のため）
+      if (a.startDate && b.startDate) {
+        return a.startDate.localeCompare(b.startDate);
+      }
+      if (a.startDate) return -1;
+      if (b.startDate) return 1;
+      return 0;
+    });
   }
 
   /**
@@ -1032,23 +1222,139 @@ export class EmployeeEditComponent implements OnInit, OnDestroy {
           });
         }
 
-        // 住所情報の変更をチェック
-        if (JSON.stringify(this.employee.address?.official || {}) !== JSON.stringify(address?.official || {})) {
-          changes.push({ field: 'address.official', before: this.employee.address?.official, after: address?.official });
+        // 住所情報の変更をチェック（個別フィールドごとに）
+        const oldAddress = this.employee.address?.official || {};
+        const newAddress = address?.official || {};
+        
+        if (oldAddress.postalCode !== newAddress.postalCode) {
+          changes.push({ 
+            field: 'address.official.postalCode', 
+            before: oldAddress.postalCode || null, 
+            after: newAddress.postalCode || null 
+          });
+        }
+        if (oldAddress.prefecture !== newAddress.prefecture) {
+          changes.push({ 
+            field: 'address.official.prefecture', 
+            before: oldAddress.prefecture || null, 
+            after: newAddress.prefecture || null 
+          });
+        }
+        if (oldAddress.city !== newAddress.city) {
+          changes.push({ 
+            field: 'address.official.city', 
+            before: oldAddress.city || null, 
+            after: newAddress.city || null 
+          });
+        }
+        if (oldAddress.street !== newAddress.street) {
+          changes.push({ 
+            field: 'address.official.street', 
+            before: oldAddress.street || null, 
+            after: newAddress.street || null 
+          });
+        }
+        if (oldAddress.building !== newAddress.building) {
+          changes.push({ 
+            field: 'address.official.building', 
+            before: oldAddress.building || null, 
+            after: newAddress.building || null 
+          });
+        }
+        if (oldAddress.kana !== newAddress.kana) {
+          changes.push({ 
+            field: 'address.official.kana', 
+            before: oldAddress.kana || null, 
+            after: newAddress.kana || null 
+          });
         }
 
-        // 扶養情報の変更をチェック
-        if (JSON.stringify(this.employee.dependentInfo || []) !== JSON.stringify(dependentInfo || [])) {
-          changes.push({ field: 'dependentInfo', before: this.employee.dependentInfo, after: dependentInfo });
+        // 扶養情報の変更をチェック（配列の差分を検出）
+        const oldDependents = this.employee.dependentInfo || [];
+        const newDependents = dependentInfo || [];
+        
+        // 簡易的な差分検出（IDベースの比較ができないため、インデックスベースで比較）
+        const maxDependentLength = Math.max(oldDependents.length, newDependents.length);
+        for (let i = 0; i < maxDependentLength; i++) {
+          const oldDep = oldDependents[i];
+          const newDep = newDependents[i];
+          
+          if (!oldDep && newDep) {
+            // 追加された被扶養者
+            changes.push({ 
+              field: 'dependentInfo', 
+              before: null, 
+              after: { action: 'added', index: i, data: newDep } 
+            });
+          } else if (oldDep && !newDep) {
+            // 削除された被扶養者
+            changes.push({ 
+              field: 'dependentInfo', 
+              before: { action: 'deleted', index: i, data: oldDep }, 
+              after: null 
+            });
+          } else if (oldDep && newDep) {
+            // 変更があったかチェック
+            const depChanged = JSON.stringify(oldDep) !== JSON.stringify(newDep);
+            if (depChanged) {
+              changes.push({ 
+                field: 'dependentInfo', 
+                before: { action: 'changed', index: i, data: oldDep }, 
+                after: { action: 'changed', index: i, data: newDep } 
+              });
+            }
+          }
         }
 
-        // 他社勤務情報の変更をチェック
-        if (JSON.stringify(this.employee.otherCompanyInfo || []) !== JSON.stringify(otherCompanyInfo || [])) {
-          changes.push({ field: 'otherCompanyInfo', before: this.employee.otherCompanyInfo, after: otherCompanyInfo });
+        // 他社勤務情報の変更をチェック（配列の差分を検出）
+        const oldOtherCompanies = this.employee.otherCompanyInfo || [];
+        const newOtherCompanies = otherCompanyInfo || [];
+        
+        // companyIdベースで比較
+        const oldCompanyMap = new Map(oldOtherCompanies.map((c: OtherCompanyInfo) => [c.companyId, c]));
+        const newCompanyMap = new Map(newOtherCompanies.map((c: OtherCompanyInfo) => [c.companyId, c]));
+        
+        // 追加・変更された会社
+        for (const [companyId, newCompany] of newCompanyMap.entries()) {
+          const oldCompany = oldCompanyMap.get(companyId);
+          if (!oldCompany) {
+            // 追加された会社
+            changes.push({ 
+              field: 'otherCompanyInfo', 
+              before: null, 
+              after: { action: 'added', companyId: companyId, data: newCompany } 
+            });
+          } else {
+            // 変更された会社かチェック（フィールドごとに比較）
+            const hasChanges = 
+              oldCompany.companyName !== newCompany.companyName ||
+              oldCompany.isPrimary !== newCompany.isPrimary;
+            
+            if (hasChanges) {
+              changes.push({ 
+                field: 'otherCompanyInfo', 
+                before: { action: 'changed', companyId: companyId, data: oldCompany }, 
+                after: { action: 'changed', companyId: companyId, data: newCompany } 
+              });
+            }
+          }
+        }
+        
+        // 削除された会社
+        for (const [companyId, oldCompany] of oldCompanyMap.entries()) {
+          if (!newCompanyMap.has(companyId)) {
+            changes.push({ 
+              field: 'otherCompanyInfo', 
+              before: { action: 'deleted', companyId: companyId, data: oldCompany }, 
+              after: null 
+            });
+          }
         }
 
-        // 休職情報の変更をチェック
-        if (JSON.stringify(this.employee.leaveInfo || []) !== JSON.stringify(leaveInfo || [])) {
+        // 休職情報の変更をチェック（日付を正規化して比較）
+        const normalizedOldLeaveInfo = this.normalizeLeaveInfo(this.employee.leaveInfo || []);
+        const normalizedNewLeaveInfo = this.normalizeLeaveInfo(leaveInfo || []);
+        if (JSON.stringify(normalizedOldLeaveInfo) !== JSON.stringify(normalizedNewLeaveInfo)) {
           changes.push({ field: 'leaveInfo', before: this.employee.leaveInfo, after: leaveInfo });
         }
       }
@@ -1080,34 +1386,54 @@ export class EmployeeEditComponent implements OnInit, OnDestroy {
       if (this.attachments.length > 0 && this.organizationId && this.employeeId) {
         const currentUser = this.authService.getCurrentUser();
         const uploadedBy = currentUser?.uid || '';
+        const totalFiles = this.attachments.length;
         
-        for (const file of this.attachments) {
+        for (let i = 0; i < this.attachments.length; i++) {
+          const file = this.attachments[i];
           try {
-          const fileUrl = await this.employeeService.uploadEmployeeFile(file, this.organizationId, this.employeeId);
-          const newAttachment: FileAttachment = {
-            id: crypto.randomUUID(),
-            fileName: file.name,
-            fileUrl: fileUrl,
-            fileSize: file.size,
-            mimeType: file.type,
-            uploadedAt: new Date(),
-            uploadedBy: uploadedBy
-          };
-          uploadedAttachments.push(newAttachment);
-          // 追加されたファイルを記録（メール認証後の場合のみ）
-          if (isEmailVerified) {
-            addedFiles.push(newAttachment);
-          }
+            // 進捗表示
+            const progressMessage = totalFiles > 1 
+              ? `ファイルをアップロード中... (${i + 1}/${totalFiles})`
+              : 'ファイルをアップロード中...';
+            this.snackBar.open(progressMessage, '', { duration: 2000 });
+            
+            console.log(`[ファイルアップロード開始] ${file.name} (${i + 1}/${totalFiles})`);
+            const fileUrl = await this.employeeService.uploadEmployeeFile(file, this.organizationId, this.employeeId);
+            console.log(`[ファイルアップロード完了] ${file.name} -> ${fileUrl}`);
+            
+            const newAttachment: FileAttachment = {
+              id: crypto.randomUUID(),
+              fileName: file.name,
+              fileUrl: fileUrl,
+              fileSize: file.size,
+              mimeType: file.type,
+              uploadedAt: new Date(),
+              uploadedBy: uploadedBy
+            };
+            uploadedAttachments.push(newAttachment);
+            // 追加されたファイルを記録（メール認証後の場合のみ）
+            if (isEmailVerified) {
+              addedFiles.push(newAttachment);
+            }
           } catch (error: any) {
-            console.error(`ファイルアップロードエラー (${file.name}):`, error);
+            console.error(`[ファイルアップロードエラー] ${file.name}:`, error);
             let errorMessage = `ファイル「${file.name}」のアップロードに失敗しました`;
             if (error.code === 'storage/unauthorized' || error.message?.includes('Permission denied')) {
               errorMessage = `ファイル「${file.name}」は許可されていない形式です`;
             } else if (error.code === 'storage/quota-exceeded') {
               errorMessage = `ファイル「${file.name}」のサイズが大きすぎます`;
+            } else if (error.code === 'storage/canceled') {
+              errorMessage = `ファイル「${file.name}」のアップロードがキャンセルされました`;
+            } else if (error.message) {
+              errorMessage = `ファイル「${file.name}」のアップロードに失敗しました: ${error.message}`;
             }
             this.snackBar.open(errorMessage, '閉じる', { duration: 5000 });
+            // エラーが発生した場合でも処理を続行（他のファイルのアップロードを試みる）
           }
+        }
+        
+        if (uploadedAttachments.length > 0) {
+          console.log(`[ファイルアップロード完了] ${uploadedAttachments.length}件のファイルをアップロードしました`);
         }
       }
 
@@ -1160,19 +1486,27 @@ export class EmployeeEditComponent implements OnInit, OnDestroy {
 
       // 変更があった場合のみ変更履歴を追加（メール認証後の場合のみ）
       if (isEmailVerified && changes.length > 0 && this.employee) {
-        const changeHistory: EmployeeChangeHistory = {
-          applicationId: 'manual_edit', // 手動編集の場合は特別なID
-          applicationName: '手動編集',
-          changedAt: new Date(),
-          changedBy: changedBy,
-          changes: changes
-        };
+        // 有効な変更のみをフィルタリング（formatChangeDisplayでnullを返す変更を除外）
+        const validChanges = changes.filter(change => this.isValidChange(change));
+        
+        // 有効な変更がある場合のみ変更履歴を作成
+        if (validChanges.length > 0) {
+          const changeHistory: EmployeeChangeHistory = {
+            applicationId: 'manual_edit', // 手動編集の場合は特別なID
+            applicationName: '手動編集',
+            changedAt: new Date(),
+            changedBy: changedBy,
+            changes: validChanges
+          };
 
-        const updatedChangeHistory = [...(this.employee.changeHistory || []), changeHistory];
-        employeeData.changeHistory = updatedChangeHistory;
+          const updatedChangeHistory = [...(this.employee.changeHistory || []), changeHistory];
+          employeeData.changeHistory = updatedChangeHistory;
+        }
       }
 
+      console.log('[社員情報更新開始]', { employeeId: this.employeeId, changesCount: changes.length });
       await this.employeeService.updateEmployee(this.employeeId, employeeData);
+      console.log('[社員情報更新完了]');
 
       this.snackBar.open('社員情報を更新しました', '閉じる', { duration: 3000 });
       this.router.navigate(['/employees', this.employeeId]);

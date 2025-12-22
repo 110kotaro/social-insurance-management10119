@@ -552,6 +552,18 @@ export class CalculationService {
       }
       ownCompanySalary = ownSalaryData.totalPayment;
       
+      // 他社給与データを取得（全て）
+      const allOtherCompanySalaryData = await this.otherCompanySalaryDataService.getOtherCompanySalaryDataByEmployee(
+        employee.id!,
+        year,
+        month
+      );
+      
+      // 他社兼務者の場合、他社給与データが存在しない場合もエラーにする
+      if (allOtherCompanySalaryData.length === 0) {
+        throw new Error(`社員 ${employee.employeeNumber} の${year}年${month}月の他社給与データが登録されていません`);
+      }
+      
       // 他社給与データを取得（確定済みのみ）
       const otherCompanySalaryDataList = await this.otherCompanySalaryDataService.getConfirmedOtherCompanySalaryDataByEmployee(
         employee.id!,
@@ -1502,6 +1514,8 @@ export class CalculationService {
         pensionGrade: existingCalculation.pensionGrade,
         healthInsurancePremium: existingCalculation.healthInsurancePremium,
         pensionInsurancePremium: existingCalculation.pensionInsurancePremium,
+        dependentHealthInsurancePremium: existingCalculation.dependentHealthInsurancePremium,
+        dependentPensionInsurancePremium: existingCalculation.dependentPensionInsurancePremium,
         totalPremium: existingCalculation.totalPremium,
         companyShare: existingCalculation.companyShare,
         employeeShare: existingCalculation.employeeShare,
@@ -1562,6 +1576,8 @@ export class CalculationService {
         pensionGrade: existingCalculation.pensionGrade,
         healthInsurancePremium: existingCalculation.healthInsurancePremium,
         pensionInsurancePremium: existingCalculation.pensionInsurancePremium,
+        dependentHealthInsurancePremium: existingCalculation.dependentHealthInsurancePremium,
+        dependentPensionInsurancePremium: existingCalculation.dependentPensionInsurancePremium,
         totalPremium: existingCalculation.totalPremium,
         companyShare: existingCalculation.companyShare,
         employeeShare: existingCalculation.employeeShare,
@@ -2203,6 +2219,18 @@ export class CalculationService {
       // 自社賞与データは既に取得済み（bonusData）
       ownCompanySalary = bonusData.bonusAmount;
       
+      // 他社給与データを取得（全て）
+      const allOtherCompanySalaryData = await this.otherCompanySalaryDataService.getOtherCompanySalaryDataByEmployee(
+        employee.id!,
+        year,
+        month
+      );
+      
+      // 他社兼務者の場合、他社給与データが存在しない場合もエラーにする
+      if (allOtherCompanySalaryData.length === 0) {
+        throw new Error(`社員 ${employee.employeeNumber} の${year}年${month}月の他社給与データが登録されていません`);
+      }
+      
       // 他社給与データを取得（確定済みのみ、賞与あり）
       const otherCompanySalaryDataList = await this.otherCompanySalaryDataService.getConfirmedOtherCompanyBonusDataByEmployee(
         employee.id!,
@@ -2378,7 +2406,7 @@ export class CalculationService {
     const finalDependentHealthPremium = isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentHealthPremium : undefined);
     const finalDependentPensionPremium = isApprovedLeaveExempt ? 0 : (dependentCount > 0 ? totalDependentPensionPremium : undefined);
 
-    return {
+    const returnData: BonusCalculation = {
       organizationId: employee.organizationId,
       year,
       month,
@@ -2398,7 +2426,7 @@ export class CalculationService {
       employeeShare: finalEmployeeShareBonus,
       calculationDate: now,
       calculatedBy,
-      status: 'draft',
+      status: 'draft' as const,
       notes: finalNotesBonus,
       dependentInfo: dependents.length > 0 ? dependents.map(dep => ({
         ...dep,
@@ -2425,6 +2453,7 @@ export class CalculationService {
       createdAt: now,
       updatedAt: now
     };
+    return returnData;
   }
 
   /**
@@ -2664,6 +2693,8 @@ export class CalculationService {
       standardBonusAmount: calculation.standardBonusAmount,
       healthInsurancePremium: calculation.healthInsurancePremium,
       pensionInsurancePremium: calculation.pensionInsurancePremium,
+      dependentHealthInsurancePremium: calculation.dependentHealthInsurancePremium,
+      dependentPensionInsurancePremium: calculation.dependentPensionInsurancePremium,
       careInsurancePremium: calculation.careInsurancePremium,
       totalPremium: calculation.totalPremium,
       companyShare: calculation.companyShare,
@@ -2892,6 +2923,8 @@ export class CalculationService {
         standardBonusAmount: existingCalculation.standardBonusAmount,
         healthInsurancePremium: existingCalculation.healthInsurancePremium,
         pensionInsurancePremium: existingCalculation.pensionInsurancePremium,
+        dependentHealthInsurancePremium: existingCalculation.dependentHealthInsurancePremium,
+        dependentPensionInsurancePremium: existingCalculation.dependentPensionInsurancePremium,
         totalPremium: existingCalculation.totalPremium,
         companyShare: existingCalculation.companyShare,
         employeeShare: existingCalculation.employeeShare,
@@ -2951,6 +2984,8 @@ export class CalculationService {
         standardBonusAmount: existingCalculation.standardBonusAmount,
         healthInsurancePremium: existingCalculation.healthInsurancePremium,
         pensionInsurancePremium: existingCalculation.pensionInsurancePremium,
+        dependentHealthInsurancePremium: existingCalculation.dependentHealthInsurancePremium,
+        dependentPensionInsurancePremium: existingCalculation.dependentPensionInsurancePremium,
         totalPremium: existingCalculation.totalPremium,
         companyShare: existingCalculation.companyShare,
         employeeShare: existingCalculation.employeeShare,

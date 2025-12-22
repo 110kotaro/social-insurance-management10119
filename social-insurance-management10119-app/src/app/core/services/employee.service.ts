@@ -1,6 +1,7 @@
 import { Injectable, inject, Injector } from '@angular/core';
-import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc, Timestamp } from '@angular/fire/firestore';
-import { Storage, ref, uploadBytes, getDownloadURL, deleteObject } from '@angular/fire/storage';
+import { Firestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc, Timestamp, deleteField } from '@angular/fire/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { getApp } from 'firebase/app';
 import { Employee } from '../models/employee.model';
 import { Application } from '../models/application.model';
 import { environment } from '../../../environments/environment';
@@ -14,7 +15,7 @@ import { ApplicationService } from './application.service';
 })
 export class EmployeeService {
   private firestore = inject(Firestore);
-  private storage = inject(Storage);
+  private storage = getStorage(getApp());
   private organizationService = inject(OrganizationService);
   private injector = inject(Injector);
 
@@ -41,6 +42,52 @@ export class EmployeeService {
         }
       }
       return cleaned;
+    }
+    
+    return obj;
+  }
+
+  /**
+   * オブジェクト内のundefinedフィールドをdeleteField()に変換（Firestoreのフィールド削除用）
+   * 注意: 配列内の要素にはdeleteField()を適用しない（Firestoreがサポートしていないため）
+   */
+  private prepareUpdateData(obj: any, isInsideArray: boolean = false): any {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+    
+    if (Array.isArray(obj)) {
+      // 配列内の要素はdeleteField()を使わず、removeUndefinedValuesで処理
+      return obj.map(item => {
+        if (Array.isArray(item)) {
+          return this.prepareUpdateData(item, true);
+        } else if (typeof item === 'object' && item !== null && item.constructor === Object) {
+          return this.removeUndefinedValues(item);
+        }
+        return item;
+      });
+    }
+    
+    if (typeof obj === 'object' && obj.constructor === Object) {
+      const prepared: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          const value = obj[key];
+          if (value === undefined) {
+            // 配列内でない場合のみdeleteField()に変換
+            if (!isInsideArray) {
+              prepared[key] = deleteField();
+            }
+            // 配列内の場合はundefinedを除外（フィールドを追加しない）
+          } else if (Array.isArray(value)) {
+            // 配列の場合は、配列内の要素にdeleteField()を使わない
+            prepared[key] = this.prepareUpdateData(value, true);
+          } else {
+            prepared[key] = this.prepareUpdateData(value, isInsideArray);
+          }
+        }
+      }
+      return prepared;
     }
     
     return obj;
@@ -145,9 +192,9 @@ export class EmployeeService {
     delete updateData.createdAt;
     delete updateData.updatedAt;
 
-    // undefinedを再帰的に削除
-    const cleanedData = this.removeUndefinedValues(updateData);
-    await updateDoc(employeeRef, cleanedData);
+    // undefinedのフィールドをdeleteField()に変換（Firestoreでフィールドを削除するため）
+    const preparedData = this.prepareUpdateData(updateData);
+    await updateDoc(employeeRef, preparedData);
 
     // 入社日または退職日が設定された場合、期限設定と即時通知を送信
     if (previousEmployee) {
@@ -566,13 +613,43 @@ export class EmployeeService {
    * 社員にファイルをアップロード（修正17）
    */
   async uploadEmployeeFile(file: File, organizationId: string, employeeId: string): Promise<string> {
-    const filePath = `social-insurance/organizations/${organizationId}/employees/${employeeId}/${file.name}`;
+    // ファイル名をサニタイズ（特殊文字を安全な文字に置換）
+    const sanitizedFileName = this.sanitizeFileName(file.name);
+    const filePath = `social-insurance/organizations/${organizationId}/employees/${employeeId}/${sanitizedFileName}`;
     const fileRef = ref(this.storage, filePath);
     
-    await uploadBytes(fileRef, file);
-    const downloadURL = await getDownloadURL(fileRef);
+    try {
+      await uploadBytes(fileRef, file);
+      const downloadURL = await getDownloadURL(fileRef);
+      return downloadURL;
+    } catch (error: any) {
+      console.error('[ファイルアップロードエラー]', error);
+      // CORSエラーの場合の詳細なエラーメッセージ
+      if (error.message?.includes('CORS') || error.message?.includes('preflight') || error.code === 'storage/unauthorized') {
+        throw new Error(`ファイルアップロードに失敗しました。Firebase Storageの設定を確認してください。詳細: ${error.message || error.code}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * ファイル名をサニタイズ（特殊文字を安全な文字に置換）
+   */
+  private sanitizeFileName(fileName: string): string {
+    // 拡張子を保持
+    const lastDotIndex = fileName.lastIndexOf('.');
+    const nameWithoutExt = lastDotIndex > 0 ? fileName.substring(0, lastDotIndex) : fileName;
+    const extension = lastDotIndex > 0 ? fileName.substring(lastDotIndex) : '';
     
-    return downloadURL;
+    // 特殊文字をアンダースコアに置換
+    const sanitized = nameWithoutExt
+      .replace(/[()\[\]{}]/g, '_')  // 括弧類をアンダースコアに
+      .replace(/\s+/g, '_')         // スペースをアンダースコアに
+      .replace(/[^\w.-]/g, '_')     // 英数字、ドット、ハイフン以外をアンダースコアに
+      .replace(/_+/g, '_')          // 連続するアンダースコアを1つに
+      .replace(/^_+|_+$/g, '');     // 先頭・末尾のアンダースコアを削除
+    
+    return sanitized + extension;
   }
 
   /**

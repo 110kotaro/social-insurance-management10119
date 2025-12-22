@@ -10,7 +10,7 @@
       <form [formGroup]="departmentForm" (ngSubmit)="onSubmit()">
         <div class="form-row">
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>部署名 <span class="required">*</span></mat-label>
+            <mat-label>部署名 <span class="required"></span></mat-label>
             <input matInput formControlName="name" placeholder="例: 営業部">
             <mat-error *ngIf="departmentForm.get('name')?.hasError('required')">
               部署名は必須です
@@ -23,19 +23,6 @@
             <mat-label>部署コード</mat-label>
             <input matInput formControlName="code" placeholder="例: SALES">
             <mat-hint>部署を識別するためのコード（任意）</mat-hint>
-          </mat-form-field>
-        </div>
-
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>親部署</mat-label>
-            <mat-select formControlName="parentDepartmentId">
-              <mat-option [value]="null">なし</mat-option>
-              <mat-option *ngFor="let dept of getParentDepartmentOptions()" [value]="dept.id">
-                {{ dept.name }}
-              </mat-option>
-            </mat-select>
-            <mat-hint>この部署の親となる部署を選択（任意）</mat-hint>
           </mat-form-field>
         </div>
 

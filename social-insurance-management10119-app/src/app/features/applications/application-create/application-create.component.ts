@@ -6084,7 +6084,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
           const insuredPersonData = data['insuredPerson'];
           
           // 内部申請から外部申請を作成する場合、employeeIdを設定（社員選択を固定化）
-          if (this.isFromInternalApplication && app.employeeId) {
+          if ((this.isFromInternalApplication || this.selectedInternalApplicationId) && app.employeeId) {
             insuredPersonGroup.patchValue({ employeeId: app.employeeId });
           }
           
@@ -6891,28 +6891,56 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       const data = app.data;
       console.log('内部申請のデータ:', data);
       
-      // 内部申請から外部申請を作成する場合、employeeIdを設定（社員選択を固定化）
-      if (this.isFromInternalApplication && app.employeeId) {
+      // 被保険者情報を自動入力
+      if (data && data['insuredPerson']) {
+        console.log('被保険者情報を自動入力:', data['insuredPerson']);
         const insuredPersonGroup = this.addressChangeForm.get('insuredPerson') as FormGroup;
         if (insuredPersonGroup) {
-          insuredPersonGroup.patchValue({ employeeId: app.employeeId });
+          const insuredPersonData = data['insuredPerson'];
+          
+          // 内部申請から外部申請を作成する場合、employeeIdを設定（社員選択を固定化）
+          if ((this.isFromInternalApplication || this.selectedInternalApplicationId) && app.employeeId) {
+            insuredPersonGroup.patchValue({ employeeId: app.employeeId });
+          }
+          
+          // employeeIdを除外して設定（内部申請から作成する場合は上記で設定済み）
+          const { employeeId, ...insuredPersonWithoutEmployeeId } = insuredPersonData;
+          
+          // ネストされたFormGroup（birthDate, changeDate, spouseBirthDate, spouseChangeDate）を個別に処理
+          const birthDate = insuredPersonData['birthDate'];
+          const changeDate = insuredPersonData['changeDate'];
+          const spouseBirthDate = insuredPersonData['spouseBirthDate'];
+          const spouseChangeDate = insuredPersonData['spouseChangeDate'];
+          
+          // employeeIdを除外したデータでpatchValue
+          const patchData: any = { ...insuredPersonWithoutEmployeeId };
+          delete patchData['birthDate'];
+          delete patchData['changeDate'];
+          delete patchData['spouseBirthDate'];
+          delete patchData['spouseChangeDate'];
+          
+          insuredPersonGroup.patchValue(patchData);
+          
+          // 生年月日を設定
+          if (birthDate) {
+            insuredPersonGroup.get('birthDate')?.patchValue(birthDate);
+          }
+          
+          // 変更年月日を設定
+          if (changeDate) {
+            insuredPersonGroup.get('changeDate')?.patchValue(changeDate);
+          }
+          
+          // 配偶者の生年月日を設定
+          if (spouseBirthDate) {
+            insuredPersonGroup.get('spouseBirthDate')?.patchValue(spouseBirthDate);
+          }
+          
+          // 配偶者の変更年月日を設定
+          if (spouseChangeDate) {
+            insuredPersonGroup.get('spouseChangeDate')?.patchValue(spouseChangeDate);
+          }
         }
-      }
-      
-      if (data) {
-        const oldAddress = data['oldAddress'] || '';
-        const newAddress = data['newAddress'] || '';
-        const remarks = data['remarks'] || '';
-        
-        console.log('住所情報を設定:', { oldAddress, newAddress, remarks });
-        
-        this.addressChangeForm.patchValue({
-          oldAddress: oldAddress,
-          newAddress: newAddress,
-          remarks: remarks
-        });
-        
-        console.log('住所情報を設定しました');
       }
       
       // 内部申請の添付ファイルを引き継ぐ
@@ -6960,7 +6988,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       console.log('内部申請のデータ（全体）:', JSON.stringify(data, null, 2));
       
       // 内部申請から外部申請を作成する場合、employeeIdを設定（社員選択を固定化）
-      if (this.isFromInternalApplication && app.employeeId) {
+      if ((this.isFromInternalApplication || this.selectedInternalApplicationId) && app.employeeId) {
         const insuredPersonGroup = this.nameChangeForm.get('insuredPerson') as FormGroup;
         if (insuredPersonGroup) {
           insuredPersonGroup.patchValue({ employeeId: app.employeeId });
@@ -6972,45 +7000,71 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
         const insuredPersonData = data['insuredPerson'] || data;
         console.log('insuredPersonデータ:', JSON.stringify(insuredPersonData, null, 2));
         
-        // 外部申請フォームの構造に合わせてデータをマッピング
-        // 外部申請フォームには oldLastNameKana, oldFirstNameKana は存在しない
-        const patchData: any = {
-          oldLastName: insuredPersonData['oldLastName'] || '',
-          oldFirstName: insuredPersonData['oldFirstName'] || '',
-          newLastName: insuredPersonData['newLastName'] || '',
-          newFirstName: insuredPersonData['newFirstName'] || '',
-          newLastNameKana: insuredPersonData['newLastNameKana'] || '',
-          newFirstNameKana: insuredPersonData['newFirstNameKana'] || '',
-          remarks: insuredPersonData['remarks'] || insuredPersonData['reason'] || ''
-        };
-        
-        // その他のフィールドも設定（存在する場合）
-        if (insuredPersonData['insuranceNumber']) {
-          patchData['insuranceNumber'] = insuredPersonData['insuranceNumber'];
-        }
-        if (insuredPersonData['identificationType']) {
-          patchData['identificationType'] = insuredPersonData['identificationType'];
-        }
-        if (insuredPersonData['personalNumber']) {
-          patchData['personalNumber'] = insuredPersonData['personalNumber'];
-        }
-        if (insuredPersonData['basicPensionNumber']) {
-          patchData['basicPensionNumber'] = insuredPersonData['basicPensionNumber'];
-        }
-        if (insuredPersonData['birthDate']) {
-          patchData['birthDate'] = insuredPersonData['birthDate'];
-        }
-        
-        console.log('氏名情報を設定（insuredPerson用）:', patchData);
-        
-        // insuredPersonの中にデータを設定
-        const insuredPersonGroup = this.nameChangeForm.get('insuredPerson');
+        const insuredPersonGroup = this.nameChangeForm.get('insuredPerson') as FormGroup;
         if (insuredPersonGroup) {
-          insuredPersonGroup.patchValue(patchData);
+          // employeeIdを除外して設定（内部申請から作成する場合は上記で設定済み）
+          const { employeeId, ...insuredPersonWithoutEmployeeId } = insuredPersonData;
+          
+          // ネストされたFormGroup（birthDate）を個別に処理
+          const birthDate = insuredPersonData['birthDate'];
+          
+          // employeeIdを除外したデータでpatchValue
+          const patchData: any = { ...insuredPersonWithoutEmployeeId };
+          delete patchData['birthDate'];
+          
+          // 外部申請フォームの構造に合わせてデータをマッピング
+          // 外部申請フォームには oldLastNameKana, oldFirstNameKana は存在しない
+          const mappedPatchData: any = {
+            oldLastName: patchData['oldLastName'] || '',
+            oldFirstName: patchData['oldFirstName'] || '',
+            newLastName: patchData['newLastName'] || '',
+            newFirstName: patchData['newFirstName'] || '',
+            newLastNameKana: patchData['newLastNameKana'] || '',
+            newFirstNameKana: patchData['newFirstNameKana'] || '',
+            remarks: patchData['remarks'] || patchData['reason'] || ''
+          };
+          
+          // その他のフィールドも設定（存在する場合）
+          if (patchData['insuranceNumber']) {
+            mappedPatchData['insuranceNumber'] = patchData['insuranceNumber'];
+          }
+          if (patchData['identificationType']) {
+            mappedPatchData['identificationType'] = patchData['identificationType'];
+          }
+          if (patchData['personalNumber']) {
+            mappedPatchData['personalNumber'] = patchData['personalNumber'];
+          }
+          if (patchData['basicPensionNumber']) {
+            mappedPatchData['basicPensionNumber'] = patchData['basicPensionNumber'];
+          }
+          
+          console.log('氏名情報を設定（insuredPerson用）:', mappedPatchData);
+          
+          insuredPersonGroup.patchValue(mappedPatchData);
+          
+          // 生年月日を設定
+          if (birthDate) {
+            insuredPersonGroup.get('birthDate')?.patchValue(birthDate);
+          }
+          
           console.log('氏名情報を設定しました（insuredPerson）');
         } else {
           console.error('insuredPerson FormGroupが見つかりません');
         }
+      }
+      
+      // 内部申請の添付ファイルを引き継ぐ
+      if (app.attachments && app.attachments.length > 0) {
+        console.log('内部申請の添付ファイルを引き継ぎ:', app.attachments.length, '件');
+        this.existingAttachments = app.attachments.map(att => ({
+          fileName: att.fileName,
+          fileUrl: att.fileUrl,
+          uploadedAt: att.uploadedAt instanceof Date 
+            ? att.uploadedAt 
+            : (att.uploadedAt instanceof Timestamp 
+              ? att.uploadedAt.toDate() 
+              : new Date(att.uploadedAt))
+        }));
       }
     }
   }
@@ -8019,6 +8073,7 @@ export class ApplicationCreateComponent implements OnInit, OnDestroy {
       ].filter(part => part);
       const newAddress = newAddressParts.length > 0 ? newAddressParts.join(' ') : (ip.newAddress || '');
       ipItems.push({ label: '変更後住所', value: newAddress, isEmpty: !newAddress });
+      ipItems.push({ label: '変更後住所（カナ）', value: ip.newAddressKana || '', isEmpty: !ip.newAddressKana });
 
       // 配偶者との同居/別居
       if (ip.livingWithSpouse !== undefined && ip.livingWithSpouse !== null) {

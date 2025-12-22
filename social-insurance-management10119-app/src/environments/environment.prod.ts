@@ -9,7 +9,7 @@ export const environment = {
     apiKey: "AIzaSyBI5iwEIJQwg9JWQYIJYalp1wPtVh9_lAM",                    // 例: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     authDomain: "kensyu10119.firebaseapp.com",      // 通常は "プロジェクトID.firebaseapp.com"
     projectId: "kensyu10119",                        // プロジェクトID（変更不要）
-    storageBucket: "kensyu10119.appspot.com",       // 通常は "プロジェクトID.appspot.com"
+    storageBucket: "kensyu10119.firebasestorage.app",       // Firebase Storage バケット名
     messagingSenderId: "1072279896525",  // 例: "123456789012"
     appId: "1:1072279896525:web:bb98d4b07e7af4c2848484",                       // 例: "1:123456789012:web:abcdef1234567890"
     measurementId: "G-VTCM8F69CM"        // オプション: Firebase Analytics用（G-XXXXXXXXXX形式）

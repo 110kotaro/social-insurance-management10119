@@ -64,5 +64,6 @@ export interface StandardRewardCalculationListRow {
   departmentName?: string; // 部署名
   calculation: StandardRewardCalculation | null; // nullの場合は未計算
   changeMonth?: { year: number; month: number }; // 変動月情報（月変タブ用）
+  isOnLeave?: boolean; // 休職期間中かどうか
 }
 

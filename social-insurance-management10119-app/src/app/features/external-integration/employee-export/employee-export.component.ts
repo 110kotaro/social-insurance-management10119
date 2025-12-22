@@ -336,7 +336,7 @@ export class EmployeeExportComponent implements OnInit {
                 '社員名': `${emp.lastName} ${emp.firstName}`,
                 '扶養者名': dep.name,
                 '扶養者名（カナ）': dep.nameKana,
-                '続柄': dep.relationship,
+                '続柄': this.getRelationshipLabel(dep.relationship),
                 '生年月日': this.formatDate(dep.birthDate),
                 '年収': dep.income || '',
                 '同一世帯': dep.livingTogether ? 'はい' : 'いいえ',
@@ -600,6 +600,29 @@ export class EmployeeExportComponent implements OnInit {
   }
 
   /**
+   * 続柄の表示ラベルを取得
+   */
+  private getRelationshipLabel(relationship: string): string {
+    const relationshipMap: Record<string, string> = {
+      'husband': '夫',
+      'wife': '妻',
+      'husband_unregistered': '夫（未届）',
+      'wife_unregistered': '妻（未届）',
+      'child': '実子・養子',
+      'other_child': '実子・養子以外の子',
+      'parent': '父母・養父母',
+      'parent_in_law': '義父母',
+      'sibling': '弟妹',
+      'elder_sibling': '兄姉',
+      'grandparent': '祖父母',
+      'great_grandparent': '曽祖父母',
+      'grandchild': '孫',
+      'other': 'その他'
+    };
+    return relationshipMap[relationship] || relationship;
+  }
+
+  /**
    * 権限の表示ラベルを取得
    */
   private getRoleLabel(role?: string): string {
@@ -721,7 +744,7 @@ export class EmployeeExportComponent implements OnInit {
                 '社員名': `${emp.lastName} ${emp.firstName}`,
                 '扶養者名': dep.name,
                 '扶養者名（カナ）': dep.nameKana,
-                '続柄': dep.relationship,
+                '続柄': this.getRelationshipLabel(dep.relationship),
                 '生年月日': this.formatDate(dep.birthDate),
                 '年収': dep.income || '',
                 '同一世帯': dep.livingTogether ? 'はい' : 'いいえ',

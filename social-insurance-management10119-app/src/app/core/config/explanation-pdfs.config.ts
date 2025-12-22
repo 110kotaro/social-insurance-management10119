@@ -25,7 +25,7 @@ export const EXPLANATION_PDFS: Record<string, string[]> = {
   'NAME_CHANGE_EXTERNAL': ['被保険者氏名変更（訂正）届説明資料.pdf','被保険者氏名変更（訂正）届記入例.pdf'],
   
   // 氏名変更届（内部申請）
-  'NAME_CHANGE': ['被保険者氏名変更届説明資料.pdf','被保険者氏名変更届記入例.pdf'],
+  'NAME_CHANGE': ['被保険者氏名変更（訂正）届説明資料.pdf','被保険者氏名変更（訂正）届記入例.pdf'],
   
   // 被保険者報酬月額算定基礎届
   'REWARD_BASE': ['算定基礎届の記入・提出ガイドブック.pdf','被保険者報酬月額算定基礎届説明資料.pdf','被保険者報酬月額算定基礎届記入例.pdf'],

@@ -84,6 +84,7 @@ export class ApplicationFlowSettingsComponent implements OnInit, OnChanges {
     }
 
     const settings = this.organization.applicationFlowSettings;
+    
     this.applicationTypes = settings.applicationTypes || [];
     this.attachmentSettings = settings.attachmentSettings || [];
     this.approvalRuleDescription = settings.approvalRule?.description || '管理者のいずれか一名の承認';
@@ -109,9 +110,10 @@ export class ApplicationFlowSettingsComponent implements OnInit, OnChanges {
       type.category === 'external' && allowedExternalCodes.includes(type.code)
     );
 
-    this.internalDataSource.data = this.internalApplicationTypes;
-    this.externalDataSource.data = this.externalApplicationTypes;
-    this.attachmentDataSource.data = this.attachmentSettings;
+    // データソースを更新（新しい配列参照を設定して変更検知を確実にする）
+    this.internalDataSource.data = [...this.internalApplicationTypes];
+    this.externalDataSource.data = [...this.externalApplicationTypes];
+    this.attachmentDataSource.data = [...this.attachmentSettings];
   }
 
   getApplicationTypeName(typeId: string): string {
@@ -141,6 +143,7 @@ export class ApplicationFlowSettingsComponent implements OnInit, OnChanges {
           // 新規追加の場合
           this.applicationTypes.push(result);
         }
+        
         await this.saveApplicationFlowSettings();
         this.loadApplicationFlowSettings();
       }
@@ -247,9 +250,9 @@ export class ApplicationFlowSettingsComponent implements OnInit, OnChanges {
 
       await this.organizationService.updateOrganization(this.organization.id, updatedOrganization);
       
-      // 親コンポーネントの組織情報を更新
+      // 親コンポーネントの組織情報を更新（applicationFlowSettingsを明示的に更新）
       if (this.organization) {
-        Object.assign(this.organization, updatedOrganization);
+        this.organization.applicationFlowSettings = updatedOrganization.applicationFlowSettings;
       }
 
       this.snackBar.open('申請フロー設定を保存しました', '閉じる', { duration: 3000 });

@@ -190,15 +190,88 @@
           <p style="color: #666; margin-bottom: 16px;">
             この履歴は、各再計算時点での再計算前の計算結果を表示しています。
           </p>
-          <mat-list>
-            <mat-list-item *ngFor="let history of getSortedRecalculationHistory(); let i = index">
-              <span matListItemTitle>{{ i + 1 }}回目 - {{ getRecalculationTypeLabel(history.recalculationType) }}（{{ formatDate(history.recalculatedAt) }}）</span>
-              <span matListItemLine>
-                実行者: {{ history.recalculatedBy }}
-                <span *ngIf="history.reason">、理由: {{ history.reason }}</span>
-              </span>
-            </mat-list-item>
-          </mat-list>
+          <mat-accordion>
+            <mat-expansion-panel *ngFor="let history of getSortedRecalculationHistory(); let i = index">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  {{ i + 1 }}回目 - {{ getRecalculationTypeLabel(history.recalculationType) }}（{{ formatDate(history.recalculatedAt) }}）
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <div class="history-content">
+                <p style="color: #666; margin-bottom: 16px;">
+                  この履歴は、{{ formatDate(history.recalculatedAt) }}時点での再計算前の計算結果を表示しています。
+                </p>
+                <p *ngIf="history.reason"><strong>再計算理由:</strong> {{ history.reason }}</p>
+                <p><strong>実行者:</strong> {{ getUserDisplayName(history.recalculatedBy) }}</p>
+                
+                <!-- 基本情報 -->
+                <mat-list>
+                  <mat-list-item *ngIf="history.dataSnapshot.averageReward !== undefined">
+                    <span matListItemTitle>平均月額</span>
+                    <span matListItemLine>{{ formatCurrency(history.dataSnapshot.averageReward) }}</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.averageReward !== undefined"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.grade !== undefined">
+                    <span matListItemTitle>計算後健康保険等級</span>
+                    <span matListItemLine>{{ history.dataSnapshot.grade }}級</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.grade !== undefined"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.pensionGrade !== undefined && history.dataSnapshot.pensionGrade !== null">
+                    <span matListItemTitle>計算後厚生年金等級</span>
+                    <span matListItemLine>{{ history.dataSnapshot.pensionGrade }}級</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.pensionGrade !== undefined && history.dataSnapshot.pensionGrade !== null"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.standardReward !== undefined">
+                    <span matListItemTitle>計算後標準報酬月額</span>
+                    <span matListItemLine>{{ formatCurrency(history.dataSnapshot.standardReward) }}</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.standardReward !== undefined"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.previousGrade !== undefined">
+                    <span matListItemTitle>従前健康保険等級</span>
+                    <span matListItemLine>{{ history.dataSnapshot.previousGrade }}級</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.previousGrade !== undefined"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.previousPensionGrade !== undefined">
+                    <span matListItemTitle>従前厚生年金等級</span>
+                    <span matListItemLine>{{ history.dataSnapshot.previousPensionGrade }}級</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.previousPensionGrade !== undefined"></mat-divider>
+                  <mat-list-item *ngIf="history.dataSnapshot.gradeChange !== undefined">
+                    <span matListItemTitle>等級変動</span>
+                    <span matListItemLine>{{ history.dataSnapshot.gradeChange }}等級</span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="history.dataSnapshot.gradeChange !== undefined"></mat-divider>
+                  <mat-list-item *ngIf="calculation.calculationType === 'monthly_change' && history.dataSnapshot.requiresApplication !== undefined">
+                    <span matListItemTitle>申請要否</span>
+                    <span matListItemLine>
+                      <mat-chip [color]="history.dataSnapshot.requiresApplication ? 'warn' : 'primary'">
+                        {{ history.dataSnapshot.requiresApplication ? '要申請' : '不要' }}
+                      </mat-chip>
+                    </span>
+                  </mat-list-item>
+                  <mat-divider *ngIf="calculation.calculationType === 'monthly_change' && history.dataSnapshot.requiresApplication !== undefined"></mat-divider>
+                </mat-list>
+
+                <!-- 給与データ -->
+                <mat-expansion-panel *ngIf="history.dataSnapshot.salaryData && history.dataSnapshot.salaryData.length > 0" style="margin-top: 16px;">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>給与データ</mat-panel-title>
+                  </mat-expansion-panel-header>
+                  <mat-list>
+                    <mat-list-item *ngFor="let salary of history.dataSnapshot.salaryData; let j = index">
+                      <span matListItemTitle>{{ salary.year }}年{{ salary.month }}月</span>
+                      <span matListItemLine>
+                        基礎日数: {{ salary.baseDays }}日、
+                        固定賃金: {{ formatCurrency(salary.fixedSalary) }}、
+                        総支給: {{ formatCurrency(salary.totalPayment) }}
+                        <span *ngIf="salary.retroactivePayment">、遡及支払額: {{ formatCurrency(salary.retroactivePayment) }}</span>
+                      </span>
+                    </mat-list-item>
+                  </mat-list>
+                </mat-expansion-panel>
+              </div>
+            </mat-expansion-panel>
+          </mat-accordion>
         </div>
       </mat-expansion-panel>
 

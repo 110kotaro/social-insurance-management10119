@@ -1,0 +1,12 @@
+[
+  {
+    "origin": [
+      "https://kensyu10119.web.app",
+      "https://kensyu10119.firebaseapp.com"
+    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Authorization", "x-goog-*"],
+    "maxAgeSeconds": 3600
+  }
+]
+

@@ -455,6 +455,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
         this.applicationTypes = [applicationType];
         
         this.selectedApplicationType = applicationType;
+
         this.applicationTypeForm.patchValue({
           type: applicationType.id,
           category: applicationType.category
@@ -7239,6 +7240,7 @@ export class ApplicationEditComponent implements OnInit, AfterViewInit, OnDestro
       ].filter(part => part);
       const newAddress = newAddressParts.length > 0 ? newAddressParts.join(' ') : (ip.newAddress || '');
       ipItems.push({ label: '変更後住所', value: newAddress, isEmpty: !newAddress });
+      ipItems.push({ label: '変更後住所（カナ）', value: ip.newAddressKana || '', isEmpty: !ip.newAddressKana });
 
       // 配偶者との同居/別居
       if (ip.livingWithSpouse !== undefined && ip.livingWithSpouse !== null) {

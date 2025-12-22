@@ -54,6 +54,7 @@ export class StandardRewardCalculationDetailComponent implements OnInit {
   employee: Employee | null = null;
   departmentName: string | null = null;
   isLoading = true;
+  userDisplayNameMap: Map<string, string> = new Map();
 
   ngOnInit(): void {
     const calculationId = this.route.snapshot.paramMap.get('id');
@@ -90,6 +91,11 @@ export class StandardRewardCalculationDetailComponent implements OnInit {
             this.departmentName = null;
           }
         }
+      }
+
+      // 再計算履歴の実行者名を取得
+      if (this.calculation.recalculationHistory && this.calculation.recalculationHistory.length > 0) {
+        await this.loadUserDisplayNames();
       }
 
       this.isLoading = false;
@@ -329,6 +335,42 @@ export class StandardRewardCalculationDetailComponent implements OnInit {
       return '再計算（現在条件）';
     }
     return '再計算'; // 既存データ用のフォールバック
+  }
+
+  /**
+   * 再計算履歴の実行者名を一括取得
+   */
+  private async loadUserDisplayNames(): Promise<void> {
+    if (!this.calculation?.recalculationHistory) {
+      return;
+    }
+
+    const userIds = new Set<string>();
+    this.calculation.recalculationHistory.forEach(history => {
+      if (history.recalculatedBy) {
+        userIds.add(history.recalculatedBy);
+      }
+    });
+
+    for (const userId of userIds) {
+      if (!this.userDisplayNameMap.has(userId)) {
+        try {
+          const user = await this.authService.getUserProfileById(userId);
+          const displayName = user?.displayName || user?.email || userId;
+          this.userDisplayNameMap.set(userId, displayName);
+        } catch (error) {
+          console.error('ユーザー情報の取得に失敗しました:', error);
+          this.userDisplayNameMap.set(userId, userId);
+        }
+      }
+    }
+  }
+
+  /**
+   * ユーザーIDからユーザー名を取得（マップから取得）
+   */
+  getUserDisplayName(userId: string): string {
+    return this.userDisplayNameMap.get(userId) || userId;
   }
 }
 
